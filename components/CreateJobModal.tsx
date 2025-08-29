@@ -1,0 +1,215 @@
+import React, { useState, useEffect } from 'react';
+import { Job, JobStatus, AISuggestions, InvoiceStatus } from '../types';
+import { PAPER_TYPES, FINISHING_OPTIONS } from '../constants';
+import { suggestJobParameters } from '../services/geminiService';
+import { Sparkles, Loader, X } from './Icons';
+
+interface CreateJobModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onAddJob: (job: Omit<Job, 'id' | 'createdAt'>) => void;
+  isDemoMode?: boolean;
+}
+
+const initialFormState = {
+  clientName: '',
+  title: '',
+  quantity: 1000,
+  paperType: PAPER_TYPES[0],
+  finishing: FINISHING_OPTIONS[0],
+  details: '',
+  dueDate: '',
+  price: 0,
+  variableCost: 0,
+};
+
+const CreateJobModal: React.FC<CreateJobModalProps> = ({ isOpen, onClose, onAddJob, isDemoMode = false }) => {
+  const [formData, setFormData] = useState(initialFormState);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) {
+      setFormData(initialFormState);
+      setAiPrompt('');
+      setError('');
+      setIsLoading(false);
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: ['quantity', 'price', 'variableCost'].includes(name) ? parseInt(value) || 0 : value }));
+  };
+
+  const handleAiGenerate = async () => {
+    if (!aiPrompt) {
+        setError("AIへの依頼内容を入力してください。");
+        return;
+    }
+    setIsLoading(true);
+    setError('');
+    try {
+        const suggestions = await suggestJobParameters(aiPrompt, PAPER_TYPES, FINISHING_OPTIONS);
+        setFormData(prev => ({
+            ...prev,
+            title: suggestions.title,
+            quantity: suggestions.quantity,
+            paperType: suggestions.paperType,
+            finishing: suggestions.finishing,
+            details: suggestions.details,
+            price: suggestions.price,
+            variableCost: suggestions.variableCost,
+        }));
+    } catch (e) {
+        if (e instanceof Error) {
+            setError(e.message);
+        } else {
+            setError("AIによる提案の生成中に不明なエラーが発生しました。");
+        }
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isDemoMode) return;
+    if (!formData.clientName || !formData.title || !formData.dueDate || formData.price <= 0) {
+      setError("クライアント名、案件タイトル、納期、売上高は必須項目です。");
+      return;
+    }
+    const newJob: Omit<Job, 'id' | 'createdAt'> = {
+      status: JobStatus.Pending,
+      invoiceStatus: InvoiceStatus.Uninvoiced,
+      ...formData,
+    };
+    onAddJob(newJob);
+    onClose();
+  };
+  
+  const formRowClass = "flex flex-col gap-2";
+  const labelClass = "text-sm font-medium text-slate-700 dark:text-slate-300";
+  const inputClass = "w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white rounded-lg p-2.5 focus:ring-blue-500 focus:border-blue-500";
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+        <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-700">
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">新規案件作成</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <div className="p-6 overflow-y-auto">
+            {error && <p className="text-red-500 text-sm mb-4 bg-red-100 dark:bg-red-900/50 p-3 rounded-lg">{error}</p>}
+            
+            <div className="bg-blue-50 dark:bg-slate-700/50 p-4 rounded-lg border border-blue-200 dark:border-slate-700 mb-6">
+                <label htmlFor="ai-prompt" className="block text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2">
+                AIアシスタント
+                </label>
+                <div className="flex gap-2">
+                    <input
+                        type="text"
+                        id="ai-prompt"
+                        value={aiPrompt}
+                        onChange={(e) => setAiPrompt(e.target.value)}
+                        placeholder="例: カフェオープンのA4チラシ1000枚、おしゃれな感じで"
+                        className={`${inputClass} flex-grow`}
+                        disabled={isLoading}
+                    />
+                    <button onClick={handleAiGenerate} disabled={isLoading} className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-blue-700 disabled:bg-slate-400 flex items-center gap-2 transition-colors">
+                        {isLoading ? <Loader className="w-5 h-5 animate-spin"/> : <Sparkles className="w-5 h-5" />}
+                        <span>{isLoading ? '生成中...' : 'AIで生成'}</span>
+                    </button>
+                </div>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className={formRowClass}>
+                        <label htmlFor="clientName" className={labelClass}>クライアント名</label>
+                        <input type="text" id="clientName" name="clientName" value={formData.clientName} onChange={handleChange} className={inputClass} required/>
+                    </div>
+                     <div className={formRowClass}>
+                        <label htmlFor="title" className={labelClass}>案件タイトル</label>
+                        <input type="text" id="title" name="title" value={formData.title} onChange={handleChange} className={inputClass} required/>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className={formRowClass}>
+                        <label htmlFor="price" className={labelClass}>売上高 (P)</label>
+                        <input type="number" id="price" name="price" placeholder="例: 85000" value={formData.price} onChange={handleChange} className={inputClass} required/>
+                    </div>
+                    <div className={formRowClass}>
+                        <label htmlFor="variableCost" className={labelClass}>変動費 (V)</label>
+                        <input type="number" id="variableCost" name="variableCost" placeholder="例: 35000" value={formData.variableCost} onChange={handleChange} className={inputClass}/>
+                    </div>
+                    <div className={`${formRowClass} justify-center`}>
+                        <label className={labelClass}>限界利益 (M)</label>
+                        <p className="text-xl font-bold p-2.5 text-slate-900 dark:text-white">¥{(formData.price - formData.variableCost).toLocaleString()}</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className={formRowClass}>
+                        <label htmlFor="quantity" className={labelClass}>数量</label>
+                        <input type="number" id="quantity" name="quantity" value={formData.quantity} onChange={handleChange} className={inputClass}/>
+                    </div>
+                    <div className={formRowClass}>
+                        <label htmlFor="dueDate" className={labelClass}>納期</label>
+                        <input type="date" id="dueDate" name="dueDate" value={formData.dueDate} onChange={handleChange} className={inputClass} required/>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className={formRowClass}>
+                        <label htmlFor="paperType" className={labelClass}>用紙</label>
+                        <select id="paperType" name="paperType" value={formData.paperType} onChange={handleChange} className={inputClass}>
+                            {PAPER_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
+                        </select>
+                    </div>
+                    <div className={formRowClass}>
+                        <label htmlFor="finishing" className={labelClass}>加工</label>
+                        <select id="finishing" name="finishing" value={formData.finishing} onChange={handleChange} className={inputClass}>
+                            {FINISHING_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                    </div>
+                </div>
+
+                <div className={formRowClass}>
+                    <label htmlFor="details" className={labelClass}>詳細</label>
+                    <textarea id="details" name="details" rows={3} value={formData.details} onChange={handleChange} className={inputClass}></textarea>
+                </div>
+            </form>
+        </div>
+
+        <div className="flex justify-end gap-4 p-6 border-t border-slate-200 dark:border-slate-700">
+          <button onClick={onClose} className="bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600">キャンセル</button>
+          <div className="relative group">
+            <button 
+                onClick={handleSubmit}
+                disabled={isDemoMode}
+                className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed"
+            >
+                案件を追加
+            </button>
+             {isDemoMode && (
+                <div className="absolute bottom-full right-0 mb-2 w-60 bg-slate-800 text-white text-center text-sm rounded-md p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                    デモモードでは案件の追加はできません。
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-x-8 border-x-transparent border-t-8 border-t-slate-800"></div>
+                </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default CreateJobModal;
