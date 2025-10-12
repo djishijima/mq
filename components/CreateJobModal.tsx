@@ -3,12 +3,12 @@ import { Job, JobStatus, AISuggestions, InvoiceStatus } from '../types';
 import { PAPER_TYPES, FINISHING_OPTIONS } from '../constants';
 import { suggestJobParameters } from '../services/geminiService';
 import { Sparkles, Loader, X } from './Icons';
+import { formatJPY } from '../utils';
 
 interface CreateJobModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddJob: (job: Omit<Job, 'id' | 'createdAt'>) => void;
-  isDemoMode?: boolean;
+  onAddJob: (job: Omit<Job, 'id' | 'createdAt'>) => Promise<void>;
 }
 
 const initialFormState = {
@@ -23,10 +23,11 @@ const initialFormState = {
   variableCost: 0,
 };
 
-const CreateJobModal: React.FC<CreateJobModalProps> = ({ isOpen, onClose, onAddJob, isDemoMode = false }) => {
+const CreateJobModal: React.FC<CreateJobModalProps> = ({ isOpen, onClose, onAddJob }) => {
   const [formData, setFormData] = useState(initialFormState);
   const [aiPrompt, setAiPrompt] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -34,9 +35,23 @@ const CreateJobModal: React.FC<CreateJobModalProps> = ({ isOpen, onClose, onAddJ
       setFormData(initialFormState);
       setAiPrompt('');
       setError('');
-      setIsLoading(false);
+      setIsAiLoading(false);
+      setIsSubmitting(false);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -50,7 +65,7 @@ const CreateJobModal: React.FC<CreateJobModalProps> = ({ isOpen, onClose, onAddJ
         setError("AIへの依頼内容を入力してください。");
         return;
     }
-    setIsLoading(true);
+    setIsAiLoading(true);
     setError('');
     try {
         const suggestions = await suggestJobParameters(aiPrompt, PAPER_TYPES, FINISHING_OPTIONS);
@@ -71,29 +86,37 @@ const CreateJobModal: React.FC<CreateJobModalProps> = ({ isOpen, onClose, onAddJ
             setError("AIによる提案の生成中に不明なエラーが発生しました。");
         }
     } finally {
-        setIsLoading(false);
+        setIsAiLoading(false);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isDemoMode) return;
     if (!formData.clientName || !formData.title || !formData.dueDate || formData.price <= 0) {
       setError("クライアント名、案件タイトル、納期、売上高は必須項目です。");
       return;
     }
-    const newJob: Omit<Job, 'id' | 'createdAt'> = {
-      status: JobStatus.Pending,
-      invoiceStatus: InvoiceStatus.Uninvoiced,
-      ...formData,
-    };
-    onAddJob(newJob);
-    onClose();
+    setError('');
+    setIsSubmitting(true);
+    try {
+        const newJob: Omit<Job, 'id' | 'createdAt'> = {
+          status: JobStatus.Pending,
+          invoiceStatus: InvoiceStatus.Uninvoiced,
+          ...formData,
+        };
+        await onAddJob(newJob);
+        onClose();
+    } catch (err) {
+        console.error(err);
+        setError('案件の追加に失敗しました。データベースの接続を確認し、もう一度お試しください。');
+    } finally {
+        setIsSubmitting(false);
+    }
   };
   
   const formRowClass = "flex flex-col gap-2";
   const labelClass = "text-sm font-medium text-slate-700 dark:text-slate-300";
-  const inputClass = "w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white rounded-lg p-2.5 focus:ring-blue-500 focus:border-blue-500";
+  const inputClass = "w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white rounded-lg p-2.5 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed";
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
@@ -120,92 +143,84 @@ const CreateJobModal: React.FC<CreateJobModalProps> = ({ isOpen, onClose, onAddJ
                         onChange={(e) => setAiPrompt(e.target.value)}
                         placeholder="例: カフェオープンのA4チラシ1000枚、おしゃれな感じで"
                         className={`${inputClass} flex-grow`}
-                        disabled={isLoading}
+                        disabled={isAiLoading || isSubmitting}
                     />
-                    <button onClick={handleAiGenerate} disabled={isLoading} className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-blue-700 disabled:bg-slate-400 flex items-center gap-2 transition-colors">
-                        {isLoading ? <Loader className="w-5 h-5 animate-spin"/> : <Sparkles className="w-5 h-5" />}
-                        <span>{isLoading ? '生成中...' : 'AIで生成'}</span>
+                    <button onClick={handleAiGenerate} disabled={isAiLoading || isSubmitting} className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-blue-700 disabled:bg-slate-400 flex items-center gap-2 transition-colors">
+                        {isAiLoading ? <Loader className="w-5 h-5 animate-spin"/> : <Sparkles className="w-5 h-5" />}
+                        <span>{isAiLoading ? '生成中...' : 'AIで生成'}</span>
                     </button>
                 </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className={formRowClass}>
                         <label htmlFor="clientName" className={labelClass}>クライアント名</label>
-                        <input type="text" id="clientName" name="clientName" value={formData.clientName} onChange={handleChange} className={inputClass} required/>
+                        <input type="text" id="clientName" name="clientName" value={formData.clientName} onChange={handleChange} className={inputClass} required disabled={isSubmitting}/>
                     </div>
                      <div className={formRowClass}>
                         <label htmlFor="title" className={labelClass}>案件タイトル</label>
-                        <input type="text" id="title" name="title" value={formData.title} onChange={handleChange} className={inputClass} required/>
+                        <input type="text" id="title" name="title" value={formData.title} onChange={handleChange} className={inputClass} required disabled={isSubmitting}/>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
                     <div className={formRowClass}>
                         <label htmlFor="price" className={labelClass}>売上高 (P)</label>
-                        <input type="number" id="price" name="price" placeholder="例: 85000" value={formData.price} onChange={handleChange} className={inputClass} required/>
+                        <input type="number" id="price" name="price" placeholder="例: 85000" value={formData.price} onChange={handleChange} className={inputClass} required disabled={isSubmitting}/>
                     </div>
                     <div className={formRowClass}>
                         <label htmlFor="variableCost" className={labelClass}>変動費 (V)</label>
-                        <input type="number" id="variableCost" name="variableCost" placeholder="例: 35000" value={formData.variableCost} onChange={handleChange} className={inputClass}/>
+                        <input type="number" id="variableCost" name="variableCost" placeholder="例: 35000" value={formData.variableCost} onChange={handleChange} className={inputClass} disabled={isSubmitting}/>
                     </div>
                     <div className={`${formRowClass} justify-center`}>
                         <label className={labelClass}>限界利益 (M)</label>
-                        <p className="text-xl font-bold p-2.5 text-slate-900 dark:text-white">¥{(formData.price - formData.variableCost).toLocaleString()}</p>
+                        <p className="text-xl font-bold p-2.5 text-slate-900 dark:text-white">{formatJPY(formData.price - formData.variableCost)}</p>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
                     <div className={formRowClass}>
                         <label htmlFor="quantity" className={labelClass}>数量</label>
-                        <input type="number" id="quantity" name="quantity" value={formData.quantity} onChange={handleChange} className={inputClass}/>
+                        <input type="number" id="quantity" name="quantity" value={formData.quantity} onChange={handleChange} className={inputClass} disabled={isSubmitting}/>
                     </div>
                     <div className={formRowClass}>
                         <label htmlFor="dueDate" className={labelClass}>納期</label>
-                        <input type="date" id="dueDate" name="dueDate" value={formData.dueDate} onChange={handleChange} className={inputClass} required/>
+                        <input type="date" id="dueDate" name="dueDate" value={formData.dueDate} onChange={handleChange} className={inputClass} required disabled={isSubmitting}/>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
                     <div className={formRowClass}>
                         <label htmlFor="paperType" className={labelClass}>用紙</label>
-                        <select id="paperType" name="paperType" value={formData.paperType} onChange={handleChange} className={inputClass}>
+                        <select id="paperType" name="paperType" value={formData.paperType} onChange={handleChange} className={inputClass} disabled={isSubmitting}>
                             {PAPER_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
                         </select>
                     </div>
                     <div className={formRowClass}>
                         <label htmlFor="finishing" className={labelClass}>加工</label>
-                        <select id="finishing" name="finishing" value={formData.finishing} onChange={handleChange} className={inputClass}>
+                        <select id="finishing" name="finishing" value={formData.finishing} onChange={handleChange} className={inputClass} disabled={isSubmitting}>
                             {FINISHING_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                         </select>
                     </div>
                 </div>
 
-                <div className={formRowClass}>
+                <div className={`${formRowClass} mt-6`}>
                     <label htmlFor="details" className={labelClass}>詳細</label>
-                    <textarea id="details" name="details" rows={3} value={formData.details} onChange={handleChange} className={inputClass}></textarea>
+                    <textarea id="details" name="details" rows={3} value={formData.details} onChange={handleChange} className={inputClass} disabled={isSubmitting}></textarea>
                 </div>
             </form>
         </div>
 
         <div className="flex justify-end gap-4 p-6 border-t border-slate-200 dark:border-slate-700">
-          <button onClick={onClose} className="bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600">キャンセル</button>
-          <div className="relative group">
-            <button 
-                onClick={handleSubmit}
-                disabled={isDemoMode}
-                className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed"
-            >
-                案件を追加
-            </button>
-             {isDemoMode && (
-                <div className="absolute bottom-full right-0 mb-2 w-60 bg-slate-800 text-white text-center text-sm rounded-md p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                    デモモードでは案件の追加はできません。
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-x-8 border-x-transparent border-t-8 border-t-slate-800"></div>
-                </div>
-            )}
-          </div>
+          <button onClick={onClose} disabled={isSubmitting} className="bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50">キャンセル</button>
+          <button 
+              onClick={handleSubmit}
+              disabled={isSubmitting || !formData.clientName || !formData.title || !formData.dueDate}
+              className="w-32 flex items-center justify-center bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed"
+          >
+              {isSubmitting ? <Loader className="w-5 h-5 animate-spin" /> : '案件を追加'}
+          </button>
         </div>
       </div>
     </div>

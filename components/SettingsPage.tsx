@@ -1,8 +1,16 @@
 
+
 import React, { useState } from 'react';
 import { Loader, Save, Mail, CheckCircle } from './Icons';
+// FIX: Import Toast type.
+import { Toast } from '../types';
 
-const SettingsPage = () => {
+// FIX: Add addToast prop.
+interface SettingsPageProps {
+    addToast: (message: string, type: Toast['type']) => void;
+}
+
+const SettingsPage: React.FC<SettingsPageProps> = ({ addToast }) => {
     const [settings, setSettings] = useState({
         host: 'smtp.example.com',
         port: 587,
@@ -14,8 +22,6 @@ const SettingsPage = () => {
     });
     const [isSaving, setIsSaving] = useState(false);
     const [isTesting, setIsTesting] = useState(false);
-    const [saveMessage, setSaveMessage] = useState({ type: '', text: '' });
-    const [testMessage, setTestMessage] = useState({ type: '', text: '' });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -25,27 +31,28 @@ const SettingsPage = () => {
     const handleSave = (e: React.FormEvent) => {
         e.preventDefault();
         setIsSaving(true);
-        setSaveMessage({ type: '', text: '' });
         // Simulate API call
         setTimeout(() => {
             setIsSaving(false);
             console.log('Saved settings:', settings);
-            setSaveMessage({ type: 'success', text: '設定が正常に保存されました。' });
+            // FIX: Use addToast for user feedback.
+            addToast('設定が正常に保存されました。', 'success');
         }, 1500);
     };
 
     const handleTestConnection = () => {
         setIsTesting(true);
-        setTestMessage({ type: '', text: '' });
         // Simulate API call
         setTimeout(() => {
             setIsTesting(false);
             console.log('Testing connection with:', settings);
             // Simulate a random success/failure
             if (Math.random() > 0.2) {
-                setTestMessage({ type: 'success', text: 'テストメールが正常に送信されました。' });
+                // FIX: Use addToast for user feedback.
+                addToast('テストメールが正常に送信されました。', 'success');
             } else {
-                setTestMessage({ type: 'error', text: '接続に失敗しました。設定を確認してください。' });
+                // FIX: Use addToast for user feedback.
+                addToast('接続に失敗しました。設定を確認してください。', 'error');
             }
         }, 2000);
     };
@@ -101,12 +108,6 @@ const SettingsPage = () => {
                             <option value="tls">STARTTLS</option>
                         </select>
                     </div>
-                    {testMessage.text && (
-                        <div className={`p-3 rounded-lg text-base flex items-center gap-2 ${testMessage.type === 'success' ? 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300'}`}>
-                            {testMessage.type === 'success' && <CheckCircle className="w-5 h-5" />}
-                            {testMessage.text}
-                        </div>
-                    )}
                 </div>
                 <div className="flex justify-between items-center p-6 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-700">
                     <button
@@ -119,14 +120,13 @@ const SettingsPage = () => {
                         <span>{isTesting ? '送信中...' : '接続テスト'}</span>
                     </button>
                     <div>
-                        {saveMessage.text && <span className="text-base text-green-600 dark:text-green-400 mr-4">{saveMessage.text}</span>}
                         <button
                             type="submit"
                             disabled={isSaving || isTesting}
                             className="w-32 flex items-center justify-center gap-2 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 disabled:bg-slate-400"
                         >
                             {isSaving ? <Loader className="w-5 h-5 animate-spin"/> : <Save className="w-5 h-5" />}
-                            <span>{isSaving ? '保存中...' : '設定を保存'}</span>
+                            <span>{isSaving ? '保存中...' : '保存'}</span>
                         </button>
                     </div>
                 </div>

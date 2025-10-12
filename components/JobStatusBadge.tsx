@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { JobStatus } from '../types';
 
@@ -15,7 +14,7 @@ const statusStyles: Record<JobStatus, string> = {
 
 const JobStatusBadge: React.FC<JobStatusBadgeProps> = ({ status }) => {
   return (
-    <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${statusStyles[status]}`}>
+    <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full inline-block text-center ${statusStyles[status]}`}>
       {status}
     </span>
   );

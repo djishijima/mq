@@ -1,11 +1,13 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { JournalEntry, SortConfig } from '../types';
 import { ArrowUpDown, PlusCircle, ChevronDown } from './Icons';
 
 interface JournalLedgerProps {
   entries: JournalEntry[];
-  onAddEntry: (entry: Omit<JournalEntry, 'id' | 'date'>) => void;
+  // FIX: Correct the type of the `onAddEntry` prop to match the expected signature from the parent component (`App.tsx`), which expects an object without `id`, `date`, or `status`.
+  onAddEntry: (entry: Omit<JournalEntry, 'id' | 'date' | 'status'>) => void;
   isDemoMode: boolean;
 }
 

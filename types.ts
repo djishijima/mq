@@ -1,3 +1,5 @@
+
+
 export enum JobStatus {
   Pending = '保留中',
   InProgress = '進行中',
@@ -13,6 +15,7 @@ export enum InvoiceStatus {
 
 export interface Job {
   id: string;
+  customerId?: string | null;
   clientName: string;
   title: string;
   status: JobStatus;
@@ -21,10 +24,14 @@ export interface Job {
   paperType: string;
   finishing: string;
   details: string;
-  createdAt: Date;
+  createdAt: string;
   price: number; // P (売上高)
   variableCost: number; // V (変動費)
   invoiceStatus: InvoiceStatus;
+  invoicedAt?: string;
+  paidAt?: string;
+  readyToInvoice?: boolean;
+  invoiceId?: string | null;
 }
 
 export interface Employee {
@@ -33,18 +40,57 @@ export interface Employee {
   department: string;
   position: string;
   hireDate: string;
+  salary: number; // 月給
 }
 
 export type Page =
-  | 'dashboard'
-  | 'jobs'
-  | 'customers'
-  | 'business_support'
-  | 'settings'
-  | 'accounting_invoice'
-  | 'accounting_expense'
-  | 'accounting_ledger'
-  | 'accounting_ranking';
+  // ホーム
+  | 'analysis_dashboard'
+  // 販売
+  | 'sales_leads' // リード
+  | 'sales_customers' // 取引先
+  | 'sales_pipeline' // パイプライン(進捗)
+  | 'sales_estimates' // 見積
+  | 'sales_orders' // 受注
+  | 'sales_billing' // 売上請求 (AR)
+  // 購買
+  | 'purchasing_orders'
+  // 在庫／製造
+  | 'inventory_management'
+  | 'manufacturing_orders'
+  | 'manufacturing_progress'
+  | 'manufacturing_cost'
+  // 人事労務
+  | 'hr_attendance'
+  | 'hr_man_hours'
+  | 'hr_labor_cost'
+  // 申請・承認
+  | 'approval_list'
+  | 'approval_form_expense'
+  | 'approval_form_transport'
+  | 'approval_form_leave'
+  | 'approval_form_approval'
+  | 'approval_form_daily'
+  | 'approval_form_weekly'
+  // 会計
+  | 'accounting_inbox'
+  | 'accounting_payable_list' // FIX: Add missing page type for accounts payable list.
+  | 'accounting_journal'
+  | 'accounting_general_ledger'
+  | 'accounting_trial_balance'
+  | 'accounting_tax_summary'
+  | 'accounting_period_closing'
+  | 'accounting_business_plan'
+  | 'analysis_ranking'
+  // ログ／監査
+  | 'admin_audit_log'
+  | 'admin_journal_queue'
+  // 管理
+  | 'admin_user_management'
+  | 'admin_route_management'
+  // 設定
+  | 'settings';
+
 
 export interface AISuggestions {
   title: string;
@@ -56,19 +102,66 @@ export interface AISuggestions {
   variableCost: number;
 }
 
+export interface AIJournalSuggestion {
+  account: string;
+  description: string;
+  debit: number;
+  credit: number;
+}
+
 export interface JournalEntry {
   id: string;
-  date: Date;
+  date: string;
   account: string;
   debit: number;
   credit: number;
   description: string;
+  status: 'posted' | 'pending' | 'rejected';
+}
+
+export interface AccountItem {
+  id: string;
+  code: string;
+  name: string;
+  categoryCode: string;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface SortConfig {
   key: string;
   direction: 'ascending' | 'descending';
 }
+
+export enum PurchaseOrderStatus {
+  Ordered = '発注済',
+  Received = '受領済',
+  Cancelled = 'キャンセル',
+}
+
+export interface PurchaseOrder {
+  id: string;
+  supplierName: string;
+  itemName: string;
+  orderDate: string;
+  quantity: number;
+  unitPrice: number;
+  status: PurchaseOrderStatus;
+  createdAt: string;
+}
+
+export interface InventoryItem {
+    id: string;
+    name: string;
+    category: string;
+    quantity: number;
+    unit: string;
+    unitPrice: number;
+    createdAt: string;
+}
+
 
 export interface Customer {
     id: string;
@@ -173,18 +266,35 @@ export interface Customer {
     createdAt: string;
 }
 
+export interface CompanyAnalysis {
+  swot: string;
+  painPoints: string;
+  potentialNeeds: string;
+  salesStrategy: string;
+}
+
+
 // Types for Approval Workflow
 export interface User {
   id: string;
   name: string;
   created_at: string;
+  role: 'admin' | 'user';
 }
 
 export interface ApplicationCode {
   id: string;
   code: string;
   name: string;
+  description: string | null;
   created_at: string;
+}
+
+export interface ApprovalRoute {
+    id: string;
+    name: string;
+    route_data: { steps: { approver_id: string }[] };
+    created_at: string;
 }
 
 export interface Application {
@@ -196,8 +306,208 @@ export interface Application {
     submitted_at: string | null;
     approved_at: string | null;
     rejected_at: string | null;
-    approval_route: any; // JSONB
+    approval_route_id: string | null;
     current_level: number;
     approver_id: string | null;
     created_at: string;
+    rejection_reason: string | null;
+}
+
+export type ApplicationWithDetails = Application & {
+  applicant: User | null;
+  approver: User | null;
+  application_codes: ApplicationCode | null;
+  approval_routes: ApprovalRoute | null;
+};
+
+
+// Types for Inbox (AI-OCR)
+export interface InvoiceData {
+    vendorName: string;
+    invoiceDate: string;
+    dueDate?: string;
+    totalAmount: number;
+    description: string;
+    costType: 'V' | 'F'; // V: 変動費, F: 固定費
+    account?: string;
+    relatedCustomer?: string;
+    project?: string;
+}
+
+export interface BankStatementTransaction {
+    date: string;
+    description: string;
+    withdrawal: number;
+    deposit: number;
+    suggestedAccount: string;
+    finalAccount: string; // User-confirmed account
+}
+
+export type InboxItemStatus = 'processing' | 'pending_review' | 'approved' | 'error';
+
+export interface InboxItem {
+    id: string;
+    fileName: string;
+    filePath: string;
+    fileUrl: string;
+    mimeType: string;
+    status: InboxItemStatus;
+    docType: 'invoice' | 'receipt' | 'bank_statement' | 'unknown';
+    extractedData: InvoiceData | BankStatementTransaction[] | null;
+    errorMessage: string | null;
+    createdAt: string;
+}
+
+// Types for new Invoicing flow
+export enum InvoiceStatusEnum {
+    Draft = 'draft',
+    Issued = 'issued',
+    Sent = 'sent',
+    Paid = 'paid',
+    Void = 'void',
+}
+
+export interface InvoiceItem {
+    id: string;
+    invoiceId: string;
+    jobId?: string | null;
+    description: string;
+    quantity: number;
+    unit: string;
+    unitPrice: number;
+    lineTotal: number;
+    sortIndex: number;
+}
+
+export interface Invoice {
+    id: string;
+    invoiceNo: string;
+    invoiceDate: string;
+    dueDate?: string;
+    customerName: string;
+    subtotalAmount: number;
+    taxAmount: number;
+    totalAmount: number;
+    status: InvoiceStatusEnum;
+    createdAt: string;
+    paidAt?: string | null;
+    items?: InvoiceItem[];
+}
+
+// Types for AI Estimate Generation
+export interface EstimateItem {
+  division: string; // 区分 (e.g., 'paper', 'print', 'other')
+  content: string; // 内容
+  quantity: number; // 数量
+  unit: string; // 単位
+  unitPrice: number; // 単価
+  price: number; // 金額
+  cost: number; // 原価
+  costRate: number; // 原価率
+  subtotal: number; // 小計
+}
+
+export interface Estimate {
+  customerName: string;
+  title: string;
+  total: number;
+  // All other fields from the form
+  version?: number;
+  deliveryDate?: string;
+  deliveryMethod?: string;
+  paymentTerms?: string;
+  notes?: string;
+  items: EstimateItem[];
+}
+
+// Types for Lead Management
+export enum LeadStatus {
+    Untouched = '未対応',
+    New = '新規',
+    Contacted = 'コンタクト済',
+    Qualified = '見込みあり',
+    Disqualified = '見込みなし',
+    Converted = 'コンバート済',
+    Closed = '終了',
+}
+
+export interface Lead {
+    id: string;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    company: string;
+    source: string | null;
+    tags: string[] | null;
+    message: string | null;
+    createdAt: string;
+    updatedAt: string | null;
+    referrer: string | null;
+    referrer_url: string | null;
+    landing_page_url: string | null;
+    search_keywords: string | null;
+    utm_source: string | null;
+    utm_medium: string | null;
+    utm_campaign: string | null;
+    utm_term: string | null;
+    utm_content: string | null;
+    user_agent: string | null;
+    ip_address: string | null;
+    device_type: string | null;
+    browser_name: string | null;
+    os_name: string | null;
+    country: string | null;
+    city: string | null;
+    region: string | null;
+    status: LeadStatus;
+    employees: string | null;
+    budget: string | null;
+    timeline: string | null;
+    inquiry_type: string | null; // Old field, can be deprecated
+    inquiry_types: string[] | null; // New multi-select field
+    infoSalesActivity: string | null; // New activity log field
+    assigneeId?: string | null;
+}
+
+// Types for Business Plan Page
+export interface BusinessPlanRow {
+  type: '目標' | '実績' | '前年';
+  monthly: (number | string)[];
+  cumulative: (number | string)[];
+}
+
+export interface BusinessPlanItem {
+  name: string;
+  totalValue: number | string;
+  data: BusinessPlanRow[];
+}
+
+export interface BusinessPlan {
+  name: string;
+  headers: string[];
+  items: BusinessPlanItem[];
+}
+
+export interface Toast {
+  id: number;
+  message: string;
+  type: 'success' | 'error' | 'info';
+}
+
+export interface ConfirmationDialogProps {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  onConfirm: () => void;
+  onClose: () => void;
+}
+
+// FIX: Add missing AccountsPayable type.
+export interface AccountsPayable {
+  id: string;
+  supplierName: string;
+  invoiceDate: string;
+  dueDate: string | null;
+  totalAmount: number;
+  status: 'unpaid' | 'paid';
 }

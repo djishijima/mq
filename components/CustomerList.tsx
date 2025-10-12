@@ -1,19 +1,43 @@
 
 import React, { useState, useMemo } from 'react';
-import { Customer, SortConfig } from '../types';
-import { ArrowUpDown, ChevronDown, Search, PlusCircle, Pencil } from './Icons';
+import { Customer, SortConfig, Toast, User } from '../types';
+import { Pencil, Eye, Mail, Lightbulb, Users, Loader } from './Icons';
+import EmptyState from './ui/EmptyState';
+import SortableHeader from './ui/SortableHeader';
+import { generateSalesEmail } from '../services/geminiService';
 
 interface CustomerListProps {
   customers: Customer[];
+  searchTerm: string;
   onSelectCustomer: (customer: Customer) => void;
   onEditCustomer: (customer: Customer) => void;
-  onNewCustomer: () => void;
-  isDemoMode: boolean;
+  onAnalyzeCustomer: (customer: Customer) => void;
+  addToast: (message: string, type: Toast['type']) => void;
+  currentUser: User | null;
 }
 
-const CustomerList: React.FC<CustomerListProps> = ({ customers, onSelectCustomer, onEditCustomer, onNewCustomer, isDemoMode }) => {
+const CustomerList: React.FC<CustomerListProps> = ({ customers, searchTerm, onSelectCustomer, onEditCustomer, onAnalyzeCustomer, addToast, currentUser }) => {
   const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'customerName', direction: 'ascending' });
-  const [searchTerm, setSearchTerm] = useState('');
+  const [isGeneratingEmail, setIsGeneratingEmail] = useState<string | null>(null);
+
+  const handleGenerateProposal = async (e: React.MouseEvent, customer: Customer) => {
+    e.stopPropagation();
+    if (!currentUser) {
+      addToast('ログインユーザー情報が見つかりません。', 'error');
+      return;
+    }
+    setIsGeneratingEmail(customer.id);
+    try {
+      const { subject, body } = await generateSalesEmail(customer, currentUser.name);
+      const mailto = `mailto:${customer.customerContactInfo || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      window.open(mailto, '_blank');
+      addToast(`「${customer.customerName}」向けのメール下書きを作成しました。`, 'success');
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : 'メール作成に失敗しました', 'error');
+    } finally {
+      setIsGeneratingEmail(null);
+    }
+  };
 
   const filteredCustomers = useMemo(() => {
     if (!searchTerm) return customers;
@@ -55,104 +79,61 @@ const CustomerList: React.FC<CustomerListProps> = ({ customers, onSelectCustomer
     setSortConfig({ key, direction });
   };
   
-  const SortableHeader: React.FC<{ sortKey: string; label: string; className?: string }> = ({ sortKey, label, className }) => {
-    const isActive = sortConfig?.key === sortKey;
-    const isAscending = sortConfig?.direction === 'ascending';
-
-    return (
-        <th scope="col" className={`px-6 py-3 ${className || ''}`}>
-          <button onClick={() => requestSort(sortKey)} className="flex items-center gap-1 group">
-              <span className={isActive ? 'font-bold text-slate-800 dark:text-slate-100' : ''}>{label}</span>
-              <div className="w-4 h-4">
-                  {isActive ? (
-                      <ChevronDown className={`w-4 h-4 text-slate-600 dark:text-slate-200 transition-transform duration-200 ${isAscending ? 'rotate-180' : 'rotate-0'}`} />
-                  ) : (
-                      <ArrowUpDown className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  )}
-              </div>
-          </button>
-      </th>
-    );
-  };
+  if (customers.length === 0 && !searchTerm) {
+      return <EmptyState icon={Users} title="顧客が登録されていません" message="最初の顧客を登録して、取引を開始しましょう。" />;
+  }
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
-      <div className="p-6 border-b border-slate-200 dark:border-slate-700">
-        <div className="flex justify-between items-center">
-            <div>
-                <h2 className="text-xl font-semibold text-slate-800 dark:text-white">顧客一覧</h2>
-                <p className="mt-1 text-base text-slate-500 dark:text-slate-400">
-                登録されている全顧客のリストです。顧客名をクリックすると詳細を表示・編集できます。
-                </p>
-            </div>
-            <button
-                onClick={onNewCustomer}
-                disabled={isDemoMode}
-                className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed"
-            >
-                <PlusCircle className="w-5 h-5" />
-                <span>新規顧客登録</span>
-            </button>
-        </div>
-        <div className="mt-4 relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="w-5 h-5 text-slate-400" />
-            </div>
-            <input
-                type="text"
-                placeholder="顧客名, 代表者, 電話番号で検索..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full text-base bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white rounded-lg p-2.5 pl-10 focus:ring-blue-500 focus:border-blue-500"
-            />
-        </div>
-      </div>
-      
       <div className="overflow-x-auto">
         <table className="w-full text-base text-left text-slate-500 dark:text-slate-400">
           <thead className="text-sm text-slate-700 uppercase bg-slate-50 dark:bg-slate-700 dark:text-slate-300">
             <tr>
-              <SortableHeader sortKey="customerCode" label="顧客コード" />
-              <th scope="col" className="px-6 py-3">顧客名</th>
-              <th scope="col" className="px-6 py-3">代表者</th>
-              <th scope="col" className="px-6 py-3">電話番号</th>
-              <th scope="col" className="px-6 py-3">住所</th>
-              <th scope="col" className="px-6 py-3 text-center">操作</th>
+              <SortableHeader sortKey="customerCode" label="顧客コード" sortConfig={sortConfig} requestSort={requestSort} />
+              <SortableHeader sortKey="customerName" label="顧客名" sortConfig={sortConfig} requestSort={requestSort}/>
+              <th scope="col" className="px-6 py-3 font-medium">代表者</th>
+              <th scope="col" className="px-6 py-3 font-medium">電話番号</th>
+              <th scope="col" className="px-6 py-3 font-medium">住所</th>
+              <th scope="col" className="px-6 py-3 font-medium text-center">操作</th>
             </tr>
           </thead>
           <tbody>
             {sortedCustomers.map((customer) => (
-              <tr key={customer.id} className="bg-white dark:bg-slate-800 border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600">
+              <tr key={customer.id} onClick={() => onSelectCustomer(customer)} className="group bg-white dark:bg-slate-800 border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 odd:bg-slate-50 dark:odd:bg-slate-800/50 cursor-pointer">
                 <td className="px-6 py-4 font-mono text-sm text-slate-600 dark:text-slate-400">{customer.customerCode || '-'}</td>
                 <td className="px-6 py-4">
-                  <button onClick={() => onSelectCustomer(customer)} className="text-left hover:underline text-blue-600 dark:text-blue-400">
-                    <div className="font-medium">{customer.customerName}</div>
-                    <div className="text-slate-500 text-sm">{customer.customerNameKana}</div>
-                  </button>
+                  <div className="font-medium text-slate-800 dark:text-slate-200">{customer.customerName}</div>
+                  <div className="text-slate-500 text-sm">{customer.customerNameKana}</div>
                 </td>
                 <td className="px-6 py-4">{customer.representative || '-'}</td>
                 <td className="px-6 py-4">{customer.phoneNumber || '-'}</td>
                 <td className="px-6 py-4 truncate max-w-sm">{customer.address1 || '-'}</td>
-                <td className="px-6 py-4 text-center">
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onEditCustomer(customer);
-                        }}
-                        className="flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold py-1 px-3 rounded-md text-sm transition-colors"
-                        aria-label={`顧客 ${customer.customerName} を編集`}
-                    >
-                        <Pencil className="w-4 h-4" />
-                        <span>編集</span>
-                    </button>
+                <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex justify-center items-center gap-1">
+                        <button onClick={() => onSelectCustomer(customer)} className="p-2 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-blue-600 transition-colors" aria-label="詳細表示">
+                            <Eye className="w-5 h-5" />
+                        </button>
+                        <button onClick={() => onEditCustomer(customer)} className="p-2 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-green-600 transition-colors" aria-label="編集">
+                            <Pencil className="w-5 h-5" />
+                        </button>
+                        <button onClick={() => onAnalyzeCustomer(customer)} className="p-2 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-yellow-500 transition-colors" aria-label="AI企業分析">
+                            <Lightbulb className="w-5 h-5" />
+                        </button>
+                        <button onClick={(e) => handleGenerateProposal(e, customer)} className="p-2 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-purple-600 transition-colors" aria-label="提案メール作成" disabled={isGeneratingEmail === customer.id}>
+                            {isGeneratingEmail === customer.id ? <Loader className="w-5 h-5 animate-spin" /> : <Mail className="w-5 h-5" />}
+                        </button>
+                    </div>
                 </td>
               </tr>
             ))}
              {sortedCustomers.length === 0 && (
               <tr>
-                <td colSpan={6} className="text-center py-16 text-slate-500 dark:text-slate-400">
-                    <p className="font-semibold">{searchTerm ? '検索結果がありません。' : '顧客データがありません。'}</p>
-                    <p className="text-base mt-1">{searchTerm ? '検索条件を変更してください。' : '新規顧客を登録してください。'}</p>
+                <td colSpan={6}>
+                    <EmptyState 
+                        icon={Users}
+                        title="検索結果がありません"
+                        message="検索条件を変更して、もう一度お試しください。"
+                    />
                 </td>
               </tr>
             )}
@@ -163,4 +144,4 @@ const CustomerList: React.FC<CustomerListProps> = ({ customers, onSelectCustomer
   );
 };
 
-export default CustomerList;
+export default React.memo(CustomerList);
