@@ -1,12 +1,13 @@
-
 import * as React from 'react';
 import { Page, User } from '../types';
 import { LayoutDashboard, Users, Settings, Package, FileText, Briefcase, ChevronDown, DollarSign, TrendingUp, Inbox, PieChart, ShoppingCart, BookOpen, CheckCircle, Archive } from './Icons';
+import UserMenu from './UserMenu';
 
 interface SidebarProps {
   currentPage: Page;
   onNavigate: (page: Page) => void;
   currentUser: User | null;
+  onLogout: () => void;
 }
 
 type NavItemType = {
@@ -129,7 +130,7 @@ const ALL_NAV_CATEGORIES: NavCategoryType[] = [
     }
 ];
 
-const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, currentUser }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, currentUser, onLogout }) => {
   const [openCategories, setOpenCategories] = React.useState<Record<string, boolean>>({
     sales: true,
     approvals: true,
@@ -191,6 +192,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, currentUser 
           </div>
         ))}
       </nav>
+      <UserMenu currentUser={currentUser} onLogout={onLogout} />
     </aside>
   );
 };

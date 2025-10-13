@@ -1,8 +1,8 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Lead, LeadStatus, SortConfig, Toast, ConfirmationDialogProps, User } from '../../types';
 import { Loader, Pencil, Trash2, Mail, Eye, CheckCircle, Lightbulb, List, KanbanSquare, PieChart } from '../Icons';
 import LeadDetailModal from './LeadDetailModal';
+import LeadReplyModal from './LeadReplyModal';
 import LeadStatusBadge from './LeadStatusBadge';
 import LeadKanbanView from './LeadKanbanView';
 import { generateLeadReplyEmail, analyzeLeadData } from '../../services/geminiService';
@@ -43,7 +43,10 @@ const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTe
     const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
     const [editingStatusLeadId, setEditingStatusLeadId] = useState<string | null>(null);
     const [isReplyingTo, setIsReplyingTo] = useState<string | null>(null);
-    const [isMarkingContacted, setIsMarkingContacted] = useState<string | null>(null);
+    
+    const [isReplyModalOpen, setIsReplyModalOpen] = useState(false);
+    const [replyEmail, setReplyEmail] = useState<{ subject: string; body: string; to: string; } | null>(null);
+
     const [aiAnalysis, setAiAnalysis] = useState('');
     const [isAnalysisLoading, setIsAnalysisLoading] = useState(true);
 
@@ -118,20 +121,27 @@ const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTe
         }
         setIsReplyingTo(lead.id);
         try {
-            const { subject, body } = await generateLeadReplyEmail(lead, currentUser.name);
-            const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${lead.email}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-            window.open(gmailUrl, '_blank');
+            const emailContent = await generateLeadReplyEmail(lead, currentUser.name);
+            setReplyEmail({ ...emailContent, to: lead.email });
+            setIsReplyModalOpen(true);
             
             const timestamp = new Date().toLocaleString('ja-JP');
             const logMessage = `[${timestamp}] AI返信メールを作成しました。`;
             const updatedInfo = `${logMessage}\n${lead.infoSalesActivity || ''}`.trim();
             
-            await onUpdateLead(lead.id, { 
-                infoSalesActivity: updatedInfo, 
-                status: LeadStatus.Contacted,
-                updatedAt: new Date().toISOString(),
-            });
-            addToast('Gmailの下書きを作成しました。', 'success');
+            if (lead.status === LeadStatus.Untouched || lead.status === LeadStatus.New) {
+              await onUpdateLead(lead.id, { 
+                  infoSalesActivity: updatedInfo, 
+                  status: LeadStatus.Contacted,
+                  updatedAt: new Date().toISOString(),
+              });
+            } else {
+              await onUpdateLead(lead.id, { 
+                  infoSalesActivity: updatedInfo,
+                  updatedAt: new Date().toISOString(),
+              });
+            }
+
         } catch (error) {
             addToast(error instanceof Error ? error.message : 'AIによるメール作成に失敗しました。', 'error');
         } finally {
@@ -139,25 +149,28 @@ const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTe
         }
     };
 
-    const handleMarkContacted = async (e: React.MouseEvent, lead: Lead) => {
+    const handleMarkContacted = (e: React.MouseEvent, lead: Lead) => {
         e.stopPropagation();
-        setIsMarkingContacted(lead.id);
-        try {
-            const timestamp = new Date().toLocaleString('ja-JP');
-            const logMessage = `[${timestamp}] ステータスを「${lead.status}」から「${LeadStatus.Contacted}」に変更しました。`;
-            const updatedInfo = `${logMessage}\n${lead.infoSalesActivity || ''}`.trim();
+        requestConfirmation({
+            title: 'ステータスの更新',
+            message: `リード「${lead.name}」のステータスを「${LeadStatus.Contacted}」に変更しますか？`,
+            onConfirm: async () => {
+                try {
+                    const timestamp = new Date().toLocaleString('ja-JP');
+                    const logMessage = `[${timestamp}] ステータスを「${lead.status}」から「${LeadStatus.Contacted}」に変更しました。`;
+                    const updatedInfo = `${logMessage}\n${lead.infoSalesActivity || ''}`.trim();
 
-            await onUpdateLead(lead.id, {
-                status: LeadStatus.Contacted,
-                infoSalesActivity: updatedInfo,
-                updatedAt: new Date().toISOString(),
-            });
-            addToast('ステータスを「コンタクト済」に更新しました。', 'success');
-        } catch (error) {
-            addToast(error instanceof Error ? error.message : 'ステータスの更新に失敗しました。', 'error');
-        } finally {
-            setIsMarkingContacted(null);
-        }
+                    await onUpdateLead(lead.id, {
+                        status: LeadStatus.Contacted,
+                        infoSalesActivity: updatedInfo,
+                        updatedAt: new Date().toISOString(),
+                    });
+                    addToast('ステータスを「コンタクト済」に更新しました。', 'success');
+                } catch (error) {
+                    addToast(error instanceof Error ? error.message : 'ステータスの更新に失敗しました。', 'error');
+                }
+            }
+        });
     };
 
     const filteredLeads = useMemo(() => {
@@ -324,7 +337,7 @@ const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTe
                                                     </DropdownMenuItem>
                                                      {lead.status === LeadStatus.Untouched && (
                                                         <DropdownMenuItem onClick={(e) => handleMarkContacted(e, lead)}>
-                                                            {isMarkingContacted === lead.id ? <Loader className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} コンタクト済にする
+                                                            <CheckCircle className="w-4 h-4" /> コンタクト済にする
                                                         </DropdownMenuItem>
                                                      )}
                                                     <DropdownMenuItem onClick={(e) => handleGenerateReply(e, lead)}>
@@ -366,6 +379,15 @@ const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTe
                 requestConfirmation={requestConfirmation}
                 currentUser={currentUser}
             />
+            {replyEmail && (
+                <LeadReplyModal
+                    isOpen={isReplyModalOpen}
+                    onClose={() => setIsReplyModalOpen(false)}
+                    email={replyEmail}
+                    leadName={selectedLead?.name || ''}
+                    addToast={addToast}
+                />
+            )}
         </>
     );
 };

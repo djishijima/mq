@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import { Job, JobStatus, InvoiceStatus, JournalEntry, Customer, User, InboxItem, Application, ApplicationWithDetails, Invoice, InvoiceItem, ApplicationCode, ApprovalRoute, Lead, AccountItem, PurchaseOrder, InventoryItem } from '../types';
+import { User as SupabaseUser } from '@supabase/supabase-js';
 
 // Type for DB job object (snake_case)
 interface DbJob {
@@ -506,6 +507,40 @@ export const getApplicationAttachmentUrl = (path: string): string => {
 }
 
 // --- Business Support / Approval Workflow Functions ---
+
+export const getOrCreateUserProfile = async (supabaseUser: SupabaseUser): Promise<User> => {
+    const { data: existingProfile, error: selectError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', supabaseUser.id)
+      .single();
+  
+    if (selectError && selectError.code !== 'PGRST116') { // PGRST116 = no rows found
+      throw selectError;
+    }
+  
+    if (existingProfile) {
+      return existingProfile as User;
+    }
+  
+    const newUserProfileData = {
+      id: supabaseUser.id,
+      name: supabaseUser.user_metadata?.full_name || supabaseUser.email || '新規ユーザー',
+      role: 'user', // Default role
+    };
+  
+    const { data: newProfile, error: insertError } = await supabase
+      .from('users')
+      .insert(newUserProfileData)
+      .select()
+      .single();
+  
+    if (insertError) {
+      throw insertError;
+    }
+  
+    return newProfile as User;
+  };
 
 export const getApplicationCodes = async (): Promise<ApplicationCode[]> => {
     const { data, error } = await supabase.from('application_codes').select('*');

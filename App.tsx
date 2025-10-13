@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Session } from '@supabase/supabase-js';
+import { supabase } from './services/supabaseClient';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
@@ -30,11 +32,12 @@ import SalesPipelinePage from './components/sales/SalesPipelinePage';
 import InventoryManagementPage from './components/inventory/InventoryManagementPage';
 import TrialBalancePage from './components/accounting/TrialBalancePage';
 import BusinessPlanPage from './components/accounting/BusinessPlanPage';
+import LoginPage from './components/LoginPage';
 import { ToastContainer } from './components/Toast';
 import ConfirmationDialog from './components/ConfirmationDialog';
 
 import { Page, Job, JournalEntry, Customer, CompanyAnalysis, Invoice, User, Lead, AccountItem, PurchaseOrder, InventoryItem, Toast, ConfirmationDialogProps, InvoiceData, BankStatementTransaction } from './types';
-import { getJobs, addJob, getJournalEntries, addJournalEntry as addJournalEntrySvc, getCustomers, addCustomer, updateCustomer, markInvoiceAsPaid, getLeads, addLead, updateLead, deleteLead, getAccountItems, updateJob, deleteJob, getPurchaseOrders, getInventoryItems, updateInboxItem, runDatabaseSetup, addJournalEntries } from './services/dataService';
+import { getJobs, addJob, getJournalEntries, addJournalEntry as addJournalEntrySvc, getCustomers, addCustomer, updateCustomer, markInvoiceAsPaid, getLeads, addLead, updateLead, deleteLead, getAccountItems, updateJob, deleteJob, getPurchaseOrders, getInventoryItems, updateInboxItem, runDatabaseSetup, addJournalEntries, getOrCreateUserProfile } from './services/dataService';
 import { analyzeCompany, getDashboardSuggestion } from './services/geminiService';
 import { Loader, PlusCircle, AlertTriangle, RefreshCw } from './components/Icons';
 
@@ -95,15 +98,12 @@ const ConnectionError = ({ onRetry }: { onRetry: () => void }) => (
     </div>
 );
 
-const demoUser: User = {
-  id: 'a1b2c3d4-e5f6-7890-1234-567890abcdef',
-  name: 'デモ管理者',
-  role: 'admin',
-  created_at: new Date().toISOString()
-};
-
 function App() {
   const [currentPage, setCurrentPage] = useState<Page>('analysis_dashboard');
+  const [session, setSession] = useState<Session | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+
   const [jobs, setJobs] = useState<Job[]>([]);
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -127,8 +127,6 @@ function App() {
   const [isAttemptingAutoSetup, setIsAttemptingAutoSetup] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
-  const [currentUser] = useState<User | null>(demoUser);
-
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [customerModalMode, setCustomerModalMode] = useState<'view' | 'edit' | 'new'>('view');
@@ -209,10 +207,48 @@ function App() {
       setIsLoading(false);
     }
   }, [addToast]);
-
+  
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setSession(session);
+      if (session?.user) {
+        try {
+          const userProfile = await getOrCreateUserProfile(session.user);
+          setCurrentUser(userProfile);
+          await fetchData();
+        } catch (error) {
+          console.error("Error getting or creating user profile:", error);
+          addToast('ユーザープロファイルの取得に失敗しました。', 'error');
+          setCurrentUser(null);
+        }
+      } else {
+        setCurrentUser(null);
+        // Clear all data on logout
+        setJobs([]);
+        setJournalEntries([]);
+        setCustomers([]);
+        setLeads([]);
+      }
+      setIsAuthLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [fetchData, addToast]);
+
+
+  const handleLogout = async () => {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        addToast('ログアウトに失敗しました。', 'error');
+      } else {
+        setCurrentUser(null);
+        setSession(null);
+        setCurrentPage('analysis_dashboard');
+      }
+  };
+
 
   useEffect(() => {
     setSearchTerm('');
@@ -514,6 +550,14 @@ function App() {
     }
   };
   
+  if (isAuthLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-slate-100 dark:bg-slate-900">
+        <Loader className="w-12 h-12 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+  
   if (isAttemptingAutoSetup) {
     return (
         <div className="flex flex-col items-center justify-center h-screen bg-slate-100 dark:bg-slate-900">
@@ -532,9 +576,13 @@ function App() {
     return <DatabaseSetupInstructionsModal onRetry={fetchData} />;
   }
 
+  if (!currentUser) {
+    return <LoginPage />;
+  }
+
   return (
     <div className="flex h-screen bg-slate-100 dark:bg-slate-900 font-sans">
-      <Sidebar currentPage={currentPage} onNavigate={handleNavigate} currentUser={currentUser} />
+      <Sidebar currentPage={currentPage} onNavigate={handleNavigate} currentUser={currentUser} onLogout={handleLogout} />
       <main className="flex-1 flex flex-col overflow-y-auto">
         <div className="p-8 flex-1 flex flex-col">
           <Header title={pageTitles[currentPage]} primaryAction={primaryAction} search={search} />
