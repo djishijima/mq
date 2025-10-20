@@ -87,6 +87,7 @@ export type Page =
   // 管理
   | 'admin_user_management'
   | 'admin_route_management'
+  | 'admin_bug_reports' // 改善要望一覧
   // 設定
   | 'settings';
 
@@ -499,4 +500,21 @@ export interface ClosingChecklistItem {
     status: 'ok' | 'needs_review';
     count: number;
     actionPage: Page;
+}
+
+// Types for Bug/Improvement Reports
+export enum BugReportStatus {
+  Open = '未対応',
+  InProgress = '対応中',
+  Closed = '完了',
+}
+
+export interface BugReport {
+  id: string;
+  reporter_name: string;
+  report_type: 'bug' | 'improvement';
+  summary: string;
+  description: string;
+  status: BugReportStatus;
+  created_at: string;
 }

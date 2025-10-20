@@ -1,5 +1,3 @@
-
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { extractInvoiceDetails } from '../services/geminiService';
 import { getInboxItems, addInboxItem, updateInboxItem, deleteInboxItem, uploadToInbox } from '../services/dataService';

@@ -1,7 +1,5 @@
-
-
 import { getSupabase } from './supabaseClient';
-import { Job, JobStatus, InvoiceStatus, JournalEntry, Customer, User, InboxItem, Application, ApplicationWithDetails, Invoice, InvoiceItem, ApplicationCode, ApprovalRoute, Lead, AccountItem, PurchaseOrder, InventoryItem, Employee } from '../types';
+import { Job, JobStatus, InvoiceStatus, JournalEntry, Customer, User, InboxItem, Application, ApplicationWithDetails, Invoice, InvoiceItem, ApplicationCode, ApprovalRoute, Lead, AccountItem, PurchaseOrder, InventoryItem, Employee, BugReport } from '../types';
 
 // Type for DB job object (snake_case)
 interface DbJob {
@@ -873,4 +871,47 @@ export const getInventoryItems = async (): Promise<InventoryItem[]> => {
         throw new Error('Failed to fetch inventory items from Supabase.');
     }
     return data.map(dbInventoryItemToInventoryItem);
+};
+
+// --- Bug Report Functions ---
+export const getBugReports = async (): Promise<BugReport[]> => {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('bug_reports')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) {
+    console.error('Error fetching bug reports:', error.message);
+    throw new Error(`Failed to fetch bug reports from Supabase: ${error.message}`);
+  }
+  return data;
+};
+
+export const addBugReport = async (reportData: Omit<BugReport, 'id' | 'created_at' | 'status'>): Promise<BugReport> => {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+        .from('bug_reports')
+        .insert([reportData])
+        .select()
+        .single();
+    if (error) {
+        console.error('Error adding bug report:', error.message);
+        throw new Error('Failed to add bug report to Supabase.');
+    }
+    return data;
+};
+
+export const updateBugReport = async (reportId: string, updates: Partial<BugReport>): Promise<BugReport> => {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+        .from('bug_reports')
+        .update(updates)
+        .eq('id', reportId)
+        .select()
+        .single();
+    if (error) {
+        console.error('Error updating bug report:', error.message);
+        throw new Error('Failed to update bug report in Supabase.');
+    }
+    return data;
 };

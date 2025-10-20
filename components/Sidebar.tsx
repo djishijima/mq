@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Page, User } from '../types';
-import { LayoutDashboard, Users, Settings, Package, FileText, Briefcase, ChevronDown, DollarSign, TrendingUp, Inbox, PieChart, ShoppingCart, BookOpen, CreditCard, HardHat, CheckCircle, Archive } from './Icons';
+import { LayoutDashboard, Users, Settings, Package, FileText, Briefcase, ChevronDown, DollarSign, TrendingUp, Inbox, PieChart, ShoppingCart, BookOpen, CreditCard, HardHat, CheckCircle, Archive, Bug } from './Icons';
 
 interface SidebarProps {
   currentPage: Page;
@@ -119,6 +119,7 @@ const ALL_NAV_CATEGORIES: NavCategoryType[] = [
         items: [
             { page: 'admin_user_management', name: 'ユーザー管理' },
             { page: 'admin_route_management', name: '承認ルート管理' },
+            { page: 'admin_bug_reports', name: '改善要望一覧' },
         ]
     }
 ];

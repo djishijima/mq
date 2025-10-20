@@ -23,6 +23,7 @@ import ManufacturingCostManagement from './components/accounting/ManufacturingCo
 import PlaceholderPage from './components/PlaceholderPage';
 import UserManagementPage from './components/admin/UserManagementPage';
 import ApprovalRouteManagementPage from './components/admin/ApprovalRouteManagementPage';
+import BugReportList from './components/admin/BugReportList';
 import EstimateCreationPage from './components/sales/EstimateCreationPage';
 import LeadManagementPage from './components/sales/LeadManagementPage';
 import CreateLeadModal from './components/sales/CreateLeadModal';
@@ -35,12 +36,13 @@ import { ToastContainer } from './components/Toast';
 import ConfirmationDialog from './components/ConfirmationDialog';
 import SupabaseCredentialsModal from './components/SupabaseCredentialsModal';
 import PeriodClosingPage from './components/accounting/PeriodClosingPage';
+import BugReportChatModal from './components/BugReportChatModal';
 
-import { Page, Job, JournalEntry, Customer, CompanyAnalysis, Invoice, User, Lead, AccountItem, PurchaseOrder, InventoryItem, Toast, ConfirmationDialogProps, InvoiceData, Employee, ApplicationWithDetails } from './types';
-import { getJobs, addJob, getJournalEntries, addJournalEntry as addJournalEntrySvc, getCustomers, addCustomer, updateCustomer, markInvoiceAsPaid, getLeads, addLead, updateLead, deleteLead, getAccountItems, updateJob, deleteJob, getPurchaseOrders, getInventoryItems, getEmployees, getUsers, getApplications } from './services/dataService';
+import { Page, Job, JournalEntry, Customer, CompanyAnalysis, Invoice, User, Lead, AccountItem, PurchaseOrder, InventoryItem, Toast, ConfirmationDialogProps, InvoiceData, Employee, ApplicationWithDetails, BugReport } from './types';
+import { getJobs, addJob, getJournalEntries, addJournalEntry as addJournalEntrySvc, getCustomers, addCustomer, updateCustomer, markInvoiceAsPaid, getLeads, addLead, updateLead, deleteLead, getAccountItems, updateJob, deleteJob, getPurchaseOrders, getInventoryItems, getEmployees, getUsers, getApplications, getBugReports, addBugReport, updateBugReport } from './services/dataService';
 import { initializeSupabase, hasSupabaseCredentials, clearSupabaseCredentials } from './services/supabaseClient';
 import { analyzeCompany, getDashboardSuggestion } from './services/geminiService';
-import { Loader, PlusCircle } from './components/Icons';
+import { Loader, PlusCircle, Bug } from './components/Icons';
 
 const pageTitles: Record<Page, string> = {
   analysis_dashboard: 'ホーム',
@@ -78,6 +80,7 @@ const pageTitles: Record<Page, string> = {
   admin_journal_queue: 'ジャーナル・キュー',
   admin_user_management: 'ユーザー管理',
   admin_route_management: '承認ルート管理',
+  admin_bug_reports: '改善要望一覧',
   settings: '設定',
 };
 
@@ -92,6 +95,7 @@ function App() {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [applications, setApplications] = useState<ApplicationWithDetails[]>([]);
+  const [bugReports, setBugReports] = useState<BugReport[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [dialogProps, setDialogProps] = useState<ConfirmationDialogProps>({
     isOpen: false, title: '', message: '', onConfirm: () => {}, onClose: () => {}
@@ -122,6 +126,7 @@ function App() {
 
   const [dashboardSuggestion, setDashboardSuggestion] = useState('');
   const [isSuggestionLoading, setIsSuggestionLoading] = useState(true);
+  const [isBugReportModalOpen, setIsBugReportModalOpen] = useState(false);
 
   const addToast = useCallback((message: string, type: Toast['type'] = 'info') => {
     setToasts(prev => [...prev, { id: Date.now(), message, type }]);
@@ -151,7 +156,7 @@ function App() {
     setIsSetupError(false);
     
     try {
-      const [jobsData, journalEntriesData, customersData, leadsData, accountItemsData, purchaseOrdersData, inventoryItemsData, employeesData, usersData, applicationsData] = await Promise.all([
+      const [jobsData, journalEntriesData, customersData, leadsData, accountItemsData, purchaseOrdersData, inventoryItemsData, employeesData, usersData, applicationsData, bugReportsData] = await Promise.all([
         getJobs(),
         getJournalEntries(),
         getCustomers(),
@@ -162,6 +167,7 @@ function App() {
         getEmployees(),
         getUsers(),
         getApplications(null), // Fetch all applications initially
+        getBugReports(),
       ]);
       setJobs(jobsData);
       setJournalEntries(journalEntriesData);
@@ -173,6 +179,7 @@ function App() {
       setEmployees(employeesData);
       setAllUsers(usersData);
       setApplications(applicationsData);
+      setBugReports(bugReportsData);
 
       if (usersData.length > 0) {
         if (!currentUser || !usersData.find(u => u.id === currentUser.id)) {
@@ -389,6 +396,30 @@ function App() {
       }
   }, [addToast]);
 
+  const handleAddBugReport = useCallback(async (reportData: Omit<BugReport, 'id' | 'created_at' | 'status' | 'reporter_name'>) => {
+    if (!currentUser) {
+      addToast('レポートを送信するにはログインしている必要があります。', 'error');
+      return;
+    }
+    try {
+      await addBugReport({ ...reportData, reporter_name: currentUser.name });
+      addToast('ご報告ありがとうございます！', 'success');
+      fetchData(); // This will refetch all data including bug reports
+    } catch (error) {
+      addToast('レポートの送信に失敗しました。', 'error');
+    }
+  }, [addToast, currentUser, fetchData]);
+
+  const handleUpdateBugReport = useCallback(async (reportId: string, updates: Partial<BugReport>) => {
+      try {
+          await updateBugReport(reportId, updates);
+          addToast('レポートのステータスを更新しました。', 'success');
+          await fetchData();
+      } catch(e) {
+          addToast('レポートの更新に失敗しました。', 'error');
+      }
+  }, [addToast, fetchData]);
+
 
   const getHeaderConfig = () => {
     let primaryAction;
@@ -412,6 +443,9 @@ function App() {
         break;
       case 'approval_list':
         search = { value: searchTerm, onChange: setSearchTerm, placeholder: '申請者、種別、ステータスで検索...' };
+        break;
+      case 'admin_bug_reports':
+        search = { value: searchTerm, onChange: setSearchTerm, placeholder: '報告者、概要、種別で検索...' };
         break;
     }
     return { primaryAction, search };
@@ -481,6 +515,8 @@ function App() {
           return <UserManagementPage addToast={addToast} requestConfirmation={requestConfirmation} />;
       case 'admin_route_management':
           return <ApprovalRouteManagementPage addToast={addToast} requestConfirmation={requestConfirmation} />;
+      case 'admin_bug_reports':
+          return <BugReportList reports={bugReports} onUpdateReport={handleUpdateBugReport} searchTerm={searchTerm} />;
       case 'sales_estimates':
         return <EstimateCreationPage customers={customers} onAddJob={handleAddJob} onNavigate={handleNavigate} addToast={addToast} />;
       default:
@@ -505,8 +541,20 @@ function App() {
         allUsers={allUsers}
         onUserChange={setCurrentUser}
       />
-      <main className="flex-1 flex flex-col overflow-y-auto">
-        <div className="p-8 flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col overflow-hidden">
+        <div className="bg-red-600 text-white p-3 rounded-lg flex items-center justify-between gap-4 mb-8 shadow-lg mx-8 mt-8">
+            <div className="flex items-center gap-3">
+                <Bug className="w-6 h-6" />
+                <span className="font-medium">サイトの改善にご協力ください</span>
+            </div>
+            <button
+              onClick={() => setIsBugReportModalOpen(true)}
+              className="bg-white text-red-600 font-bold py-1.5 px-4 rounded-md flex items-center gap-2 transition-transform transform hover:scale-105"
+            >
+              <span>バグ報告・改善要望</span>
+            </button>
+        </div>
+        <div className="flex-1 flex flex-col overflow-y-auto px-8 pb-8">
           <Header title={pageTitles[currentPage]} primaryAction={primaryAction} search={search} />
           <div className="mt-8 flex-1">
             {renderPage()}
@@ -522,6 +570,7 @@ function App() {
       {isCreateLeadModalOpen && <CreateLeadModal isOpen={isCreateLeadModalOpen} onClose={() => setIsCreateLeadModalOpen(false)} onAddLead={handleAddLead} />}
       {isCustomerModalOpen && <CustomerDetailModal customer={selectedCustomer} mode={customerModalMode} onClose={handleCloseCustomerModal} onSave={handleSaveCustomer} onSetMode={setCustomerModalMode} onAnalyzeCustomer={handleAnalyzeCustomer}/>}
       {isAnalysisModalOpen && <CompanyAnalysisModal isOpen={isAnalysisModalOpen} onClose={() => setIsAnalysisModalOpen(false)} analysis={companyAnalysis} customerName={targetCustomer?.customerName || ''} isLoading={isAiLoading} error={aiError} />}
+      {isBugReportModalOpen && <BugReportChatModal isOpen={isBugReportModalOpen} onClose={() => setIsBugReportModalOpen(false)} onReportSubmit={handleAddBugReport} />}
     </div>
   );
 }

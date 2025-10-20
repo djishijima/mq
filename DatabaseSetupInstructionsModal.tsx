@@ -478,5 +478,4 @@ const DatabaseSetupInstructionsModal: React.FC<DatabaseSetupInstructionsModalPro
   );
 };
 
-// FIX: Add default export to the component.
 export default DatabaseSetupInstructionsModal;

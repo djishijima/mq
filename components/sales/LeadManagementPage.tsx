@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-import { Lead, LeadStatus, SortConfig, Toast, ConfirmationDialogProps, User, LeadScore } from '@/types';
-import { generateLeadReplyEmail, analyzeLeadData, scoreLead } from '@/services/geminiService';
-import { formatDate } from '@/utils';
+import { Lead, LeadStatus, SortConfig, Toast, ConfirmationDialogProps, User, LeadScore } from '../../types';
+import { generateLeadReplyEmail, analyzeLeadData, scoreLead } from '../../services/geminiService';
+import { formatDate } from '../../utils';
 
 import { Loader, Pencil, Trash2, Mail, Eye, CheckCircle, Lightbulb, List, KanbanSquare, PieChart } from '../Icons';
 import EmptyState from '../ui/EmptyState';

@@ -1,5 +1,5 @@
 import React from 'react';
-import { LeadStatus } from '@/types';
+import { LeadStatus } from '../../types';
 
 interface LeadStatusBadgeProps {
   status: LeadStatus | string;

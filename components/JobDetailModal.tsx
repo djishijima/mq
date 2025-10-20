@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { Job, JobStatus, InvoiceStatus, ConfirmationDialogProps } from '../types';
 import { PAPER_TYPES, FINISHING_OPTIONS } from '../constants';

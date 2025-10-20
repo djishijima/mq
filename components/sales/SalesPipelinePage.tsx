@@ -1,5 +1,5 @@
 import React from 'react';
-import { Job, JobStatus } from '@/types';
+import { Job, JobStatus } from '../../types';
 
 interface SalesPipelinePageProps {
   jobs: Job[];

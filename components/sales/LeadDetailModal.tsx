@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
-
-import { Lead, LeadStatus, Toast, ConfirmationDialogProps, User, LeadScore } from '@/types';
-import { generateLeadReplyEmail } from '@/services/geminiService';
-import { INQUIRY_TYPES } from '@/constants';
-
+import { Lead, LeadStatus, Toast, ConfirmationDialogProps, User, LeadScore } from '../../types';
 import { X, Save, Loader, Pencil, Trash2, Mail, CheckCircle } from '../Icons';
-import LeadScoreBadge from '../ui/LeadScoreBadge';
 import LeadStatusBadge from './LeadStatusBadge';
+import { generateLeadReplyEmail } from '../../services/geminiService';
+import { INQUIRY_TYPES } from '../../constants';
+import LeadScoreBadge from '../ui/LeadScoreBadge';
 
 interface LeadDetailModalProps {
     isOpen: boolean;
