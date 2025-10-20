@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Lead, LeadStatus, Toast, ConfirmationDialogProps, User } from '../../types';
+import { Lead, LeadStatus, Toast, ConfirmationDialogProps, User, LeadScore } from '../../types';
 import { X, Save, Loader, Pencil, Trash2, Mail, CheckCircle } from '../Icons';
 import LeadStatusBadge from './LeadStatusBadge';
 import { generateLeadReplyEmail } from '../../services/geminiService';
 import { INQUIRY_TYPES } from '../../constants';
+import LeadScoreBadge from '../ui/LeadScoreBadge';
 
 interface LeadDetailModalProps {
     isOpen: boolean;
@@ -14,6 +15,7 @@ interface LeadDetailModalProps {
     addToast: (message: string, type: Toast['type']) => void;
     requestConfirmation: (dialog: Omit<ConfirmationDialogProps, 'isOpen' | 'onClose'>) => void;
     currentUser: User | null;
+    scoreData?: LeadScore;
 }
 
 const DetailSection: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
@@ -89,7 +91,7 @@ const InquiryTypesField: React.FC<{ isEditing: boolean; value: string[]; onChang
 };
 
 
-const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead, onSave, onDelete, addToast, requestConfirmation, currentUser }) => {
+const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead, onSave, onDelete, addToast, requestConfirmation, currentUser, scoreData }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [formData, setFormData] = useState<Partial<Lead>>({});
     const [isSaving, setIsSaving] = useState(false);
@@ -132,8 +134,8 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
 
     const handleSave = async () => {
         setIsSaving(true);
-        const { id, createdAt, ...submissionData } = formData;
-        submissionData.updatedAt = new Date().toISOString();
+        const { id, created_at, ...submissionData } = formData;
+        submissionData.updated_at = new Date().toISOString();
         await onSave(lead.id, submissionData);
         setIsSaving(false);
         setIsEditing(false);
@@ -169,7 +171,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
             const logMessage = `[${timestamp}] AI返信メールを作成しました。`;
             const updatedInfo = `${logMessage}\n${formData.infoSalesActivity || ''}`.trim();
             
-            const updatedData = { infoSalesActivity: updatedInfo, status: LeadStatus.Contacted, updatedAt: new Date().toISOString() };
+            const updatedData = { infoSalesActivity: updatedInfo, status: LeadStatus.Contacted, updated_at: new Date().toISOString() };
             await onSave(lead.id, updatedData);
             setFormData(prev => ({ ...prev, ...updatedData }));
             addToast('Gmailの下書きを作成しました。', 'success');
@@ -190,7 +192,7 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
             const updatedData = {
                 status: LeadStatus.Contacted,
                 infoSalesActivity: updatedInfo,
-                updatedAt: new Date().toISOString()
+                updated_at: new Date().toISOString()
             };
             await onSave(lead.id, updatedData);
             setFormData(prev => ({ ...prev, ...updatedData }));
@@ -231,6 +233,20 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                         <Field label="ソース" name="source" value={formData.source} isEditing={isEditing} onChange={handleChange} />
                     </div>
                     
+                    {scoreData && (
+                        <DetailSection title="AI リードスコア">
+                            <div className="flex items-start gap-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg">
+                                <LeadScoreBadge score={scoreData.score} />
+                                <div className="flex-1">
+                                    <h4 className="font-semibold text-slate-800 dark:text-white">スコアリング理由</h4>
+                                    <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap mt-1">
+                                        {scoreData.rationale}
+                                    </p>
+                                </div>
+                            </div>
+                        </DetailSection>
+                    )}
+
                     <DetailSection title="問い合わせ内容">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                             <InquiryTypesField isEditing={isEditing} value={formData.inquiry_types || []} onChange={handleInquiryTypeChange} />
@@ -244,8 +260,8 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
 
                     <DetailSection title="システム情報">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                            <div><dt className="text-sm font-medium text-slate-500 dark:text-slate-400">作成日時</dt><dd className="mt-1 text-base text-slate-900 dark:text-white">{new Date(lead.createdAt).toLocaleString('ja-JP')}</dd></div>
-                            <div><dt className="text-sm font-medium text-slate-500 dark:text-slate-400">最終更新</dt><dd className="mt-1 text-base text-slate-900 dark:text-white">{lead.updatedAt ? new Date(lead.updatedAt).toLocaleString('ja-JP') : '-'}</dd></div>
+                            <div><dt className="text-sm font-medium text-slate-500 dark:text-slate-400">作成日時</dt><dd className="mt-1 text-base text-slate-900 dark:text-white">{new Date(lead.created_at).toLocaleString('ja-JP')}</dd></div>
+                            <div><dt className="text-sm font-medium text-slate-500 dark:text-slate-400">最終更新</dt><dd className="mt-1 text-base text-slate-900 dark:text-white">{lead.updated_at ? new Date(lead.updated_at).toLocaleString('ja-JP') : '-'}</dd></div>
                         </div>
                     </DetailSection>
                 </div>

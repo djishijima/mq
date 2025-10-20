@@ -1,11 +1,57 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// These values were provided by the user.
-const supabaseUrl = 'https://rwjhpfghhgstvplmggks.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ3amhwZmdoaGdzdHZwbG1nZ2tzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3MDgzNDYsImV4cCI6MjA3NDI4NDM0Nn0.RfCRooN6YVTHJ2Mw-xFCWus3wUVMLkJCLSitB8TNiIo';
+let supabase: SupabaseClient | null = null;
 
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error("Supabase URL and Key must be provided in services/supabaseClient.ts");
+// アプリケーション起動時にローカルストレージから接続情報を読み込もうと試みる
+try {
+    const url = localStorage.getItem('supabaseUrl');
+    const key = localStorage.getItem('supabaseKey');
+    if (url && key) {
+        supabase = createClient(url, key);
+    }
+} catch (e) {
+    console.error("Error initializing Supabase from localStorage", e);
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+// 新しい接続情報でSupabaseクライアントを初期化し、ローカルストレージに保存する関数
+export const initializeSupabase = (url: string, key: string): SupabaseClient | null => {
+    try {
+        localStorage.setItem('supabaseUrl', url);
+        localStorage.setItem('supabaseKey', key);
+        supabase = createClient(url, key);
+        return supabase;
+    } catch (e) {
+        console.error("Error initializing Supabase", e);
+        supabase = null;
+        return null;
+    }
+};
+
+// 現在のSupabaseクライアントインスタンスを取得する関数
+export const getSupabase = (): SupabaseClient => {
+    if (!supabase) {
+        // ここでエラーが投げられた場合、UI側で設定モーダルを表示する
+        throw new Error("Supabase client is not initialized. Please configure credentials.");
+    }
+    return supabase;
+};
+
+// 保存されている接続情報をクリアする関数
+export const clearSupabaseCredentials = () => {
+    try {
+        localStorage.removeItem('supabaseUrl');
+        localStorage.removeItem('supabaseKey');
+        supabase = null;
+    } catch (e) {
+        console.error("Error clearing Supabase credentials", e);
+    }
+}
+
+// 接続情報が設定されているか確認する関数
+export const hasSupabaseCredentials = (): boolean => {
+    try {
+        return !!(localStorage.getItem('supabaseUrl') && localStorage.getItem('supabaseKey'));
+    } catch (e) {
+        return false;
+    }
+};

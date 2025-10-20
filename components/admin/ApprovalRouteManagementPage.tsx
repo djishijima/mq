@@ -1,17 +1,18 @@
-
-
 import React, { useState, useEffect, useCallback } from 'react';
-// FIX: Import ConfirmationDialogProps to use the custom confirmation dialog.
 import { ApprovalRoute, User, Toast, ConfirmationDialogProps } from '../../types';
 import { getApprovalRoutes, addApprovalRoute, updateApprovalRoute, deleteApprovalRoute, getUsers } from '../../services/dataService';
-import { Loader, PlusCircle, X, Save, Trash2, Pencil } from '../Icons';
+import { Loader, PlusCircle, X, Save, Trash2, Pencil, Send } from '../Icons';
+import EmptyState from '../ui/EmptyState';
 
-const ApprovalRouteModal: React.FC<{
+interface ApprovalRouteModalProps {
     route: ApprovalRoute | null;
     allUsers: User[];
     onClose: () => void;
     onSave: (route: Partial<ApprovalRoute>) => Promise<void>;
-}> = ({ route, allUsers, onClose, onSave }) => {
+    addToast: (message: string, type: Toast['type']) => void;
+}
+
+const ApprovalRouteModal: React.FC<ApprovalRouteModalProps> = ({ route, allUsers, onClose, onSave, addToast }) => {
     const [name, setName] = useState(route?.name || '');
     const [steps, setSteps] = useState<{ approver_id: string }[]>(route?.route_data.steps || [{ approver_id: '' }]);
     const [isSaving, setIsSaving] = useState(false);
@@ -32,12 +33,15 @@ const ApprovalRouteModal: React.FC<{
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!name || steps.some(s => !s.approver_id)) {
-            alert('ルート名とすべてのステップの承認者は必須です。');
+            addToast('ルート名とすべてのステップの承認者は必須です。', 'error');
             return;
         }
         setIsSaving(true);
-        await onSave({ ...route, name, route_data: { steps } });
-        setIsSaving(false);
+        try {
+            await onSave({ ...route, name, route_data: { steps } });
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
@@ -83,7 +87,6 @@ const ApprovalRouteModal: React.FC<{
     );
 };
 
-// FIX: Add 'requestConfirmation' prop to handle delete confirmations.
 interface ApprovalRouteManagementPageProps {
     addToast: (message: string, type: Toast['type']) => void;
     requestConfirmation: (dialog: Omit<ConfirmationDialogProps, 'isOpen' | 'onClose'>) => void;
@@ -105,12 +108,14 @@ const ApprovalRouteManagementPage: React.FC<ApprovalRouteManagementPageProps> = 
             const [routesData, usersData] = await Promise.all([getApprovalRoutes(), getUsers()]);
             setRoutes(routesData);
             setAllUsers(usersData);
+            setError('');
         } catch (err: any) {
             setError(err.message || 'データの読み込みに失敗しました。');
+            addToast(err.message || 'データの読み込みに失敗しました。', 'error');
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [addToast]);
 
     useEffect(() => {
         loadData();
@@ -142,7 +147,6 @@ const ApprovalRouteManagementPage: React.FC<ApprovalRouteManagementPageProps> = 
         }
     };
     
-    // FIX: Use requestConfirmation for a better UX instead of window.confirm.
     const handleDeleteRoute = (route: ApprovalRoute) => {
         requestConfirmation({
             title: '承認ルートを削除',
@@ -175,6 +179,13 @@ const ApprovalRouteManagementPage: React.FC<ApprovalRouteManagementPageProps> = 
                 <div className="p-16 text-center"><Loader className="w-8 h-8 mx-auto animate-spin" /></div>
             ) : error ? (
                 <div className="p-16 text-center text-red-600">{error}</div>
+            ) : routes.length === 0 ? (
+                <EmptyState
+                    icon={Send}
+                    title="承認ルートがありません"
+                    message="最初の承認ルートを作成して、申請ワークフローを始めましょう。"
+                    action={{label: "新規ルート作成", onClick: () => handleOpenModal(), icon: PlusCircle}}
+                />
             ) : (
                  <table className="w-full text-base text-left">
                     <thead className="text-sm uppercase bg-slate-50 dark:bg-slate-700">
@@ -209,7 +220,7 @@ const ApprovalRouteManagementPage: React.FC<ApprovalRouteManagementPageProps> = 
                     </tbody>
                 </table>
             )}
-             {isModalOpen && <ApprovalRouteModal route={selectedRoute} allUsers={allUsers} onClose={handleCloseModal} onSave={handleSaveRoute} />}
+             {isModalOpen && <ApprovalRouteModal route={selectedRoute} allUsers={allUsers} onClose={handleCloseModal} onSave={handleSaveRoute} addToast={addToast} />}
         </div>
     );
 };

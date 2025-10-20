@@ -1,39 +1,29 @@
 
-
-import React, { useState, useMemo, useEffect } from 'react';
-import { JournalEntry, SortConfig, AIJournalSuggestion } from '../../types';
-import { PlusCircle, Sparkles, Loader, BookOpen, Trash2, AlertTriangle } from '../Icons';
-import { suggestFullJournalEntry } from '../../services/geminiService';
+import React, { useState, useMemo } from 'react';
+import { JournalEntry, SortConfig } from '../../types';
+import { PlusCircle, Sparkles, Loader, BookOpen } from '../Icons';
+import { suggestJournalEntry } from '../../services/geminiService';
 import EmptyState from '../ui/EmptyState';
 import SortableHeader from '../ui/SortableHeader';
 
 interface JournalLedgerProps {
   entries: JournalEntry[];
-  // FIX: Correct the type of the `onAddEntry` prop to match the expected signature from the parent component (`App.tsx`), which expects an object without `id`, `date`, or `status`.
-  onAddEntry: (entry: Omit<JournalEntry, 'id' | 'date' | 'status'>) => void;
+  onAddEntry: (entry: Omit<JournalEntry, 'id' | 'date'>) => void;
 }
 
 const JournalLedger: React.FC<JournalLedgerProps> = ({ entries, onAddEntry }) => {
   const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'date', direction: 'descending' });
   const [showForm, setShowForm] = useState(false);
-  const [entryList, setEntryList] = useState<Omit<JournalEntry, 'id' | 'date' | 'status'>[]>([]);
+  const [newEntry, setNewEntry] = useState({
+    account: '',
+    description: '',
+    debit: 0,
+    credit: 0,
+  });
   const [error, setError] = useState('');
   const [aiPrompt, setAiPrompt] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
 
-  useEffect(() => {
-    if (showForm && entryList.length === 0) {
-      // Start with two empty rows for a standard double-entry
-      setEntryList([
-        { account: '', description: '', debit: 0, credit: 0 },
-        { account: '', description: '', debit: 0, credit: 0 }
-      ]);
-    } else if (!showForm) {
-      setEntryList([]);
-      setError('');
-      setAiPrompt('');
-    }
-  }, [showForm, entryList.length]);
 
   const sortedEntries = useMemo(() => {
     let sortableItems = [...entries];
@@ -41,22 +31,18 @@ const JournalLedger: React.FC<JournalLedgerProps> = ({ entries, onAddEntry }) =>
       sortableItems.sort((a, b) => {
         const aValue = a[sortConfig.key as keyof JournalEntry];
         const bValue = b[sortConfig.key as keyof JournalEntry];
-        if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
+
+        if (aValue < bValue) {
+          return sortConfig.direction === 'ascending' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'ascending' ? 1 : -1;
+        }
         return 0;
       });
     }
     return sortableItems;
   }, [entries, sortConfig]);
-
-  const { totalDebit, totalCredit, isBalanced } = useMemo(() => {
-    const totals = entryList.reduce((acc, entry) => {
-      acc.debit += Number(entry.debit) || 0;
-      acc.credit += Number(entry.credit) || 0;
-      return acc;
-    }, { debit: 0, credit: 0 });
-    return { totalDebit: totals.debit, totalCredit: totals.credit, isBalanced: totals.debit === totals.credit && totals.debit > 0 };
-  }, [entryList]);
 
   const requestSort = (key: string) => {
     let direction: 'ascending' | 'descending' = 'ascending';
@@ -65,19 +51,14 @@ const JournalLedger: React.FC<JournalLedgerProps> = ({ entries, onAddEntry }) =>
     }
     setSortConfig({ key, direction });
   };
-  
-  const updateEntryRow = (index: number, field: keyof AIJournalSuggestion, value: string | number) => {
-    setEntryList(prev => prev.map((item, i) => i === index ? { ...item, [field]: value } : item));
-  };
 
-  const addEntryRow = () => {
-    setEntryList(prev => [...prev, { account: '', description: '', debit: 0, credit: 0 }]);
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setNewEntry(prev => ({
+      ...prev,
+      [name]: (name === 'debit' || name === 'credit') ? parseFloat(value) || 0 : value,
+    }));
   };
-
-  const removeEntryRow = (index: number) => {
-    setEntryList(prev => prev.filter((_, i) => i !== index));
-  };
-
 
   const handleAiGenerate = async () => {
     if (!aiPrompt) {
@@ -87,14 +68,19 @@ const JournalLedger: React.FC<JournalLedgerProps> = ({ entries, onAddEntry }) =>
     setIsAiLoading(true);
     setError('');
     try {
-        const { entries } = await suggestFullJournalEntry(aiPrompt);
-        if (entries && entries.length > 0) {
-            setEntryList(entries);
-        } else {
-            setError('AIから有効な仕訳が提案されませんでした。');
-        }
+        const suggestion = await suggestJournalEntry(aiPrompt);
+        setNewEntry({
+            account: suggestion.account,
+            description: suggestion.description,
+            debit: suggestion.debit,
+            credit: suggestion.credit
+        });
     } catch (e) {
-        setError(e instanceof Error ? e.message : "AIによる提案の生成中に不明なエラーが発生しました。");
+        if (e instanceof Error) {
+            setError(e.message);
+        } else {
+            setError("AIによる提案の生成中に不明なエラーが発生しました。");
+        }
     } finally {
         setIsAiLoading(false);
     }
@@ -102,22 +88,28 @@ const JournalLedger: React.FC<JournalLedgerProps> = ({ entries, onAddEntry }) =>
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isBalanced) {
-      setError('借方と貸方の合計が一致しません。');
+    if (!newEntry.account || !newEntry.description) {
+      setError('勘定科目と摘要は必須です。');
       return;
     }
-    const validEntries = entryList.filter(e => e.account && (e.debit > 0 || e.credit > 0));
-    if (validEntries.length === 0) {
-      setError('有効な仕訳がありません。');
+    if (newEntry.debit === 0 && newEntry.credit === 0) {
+      setError('借方または貸方のいずれかに数値を入力してください。');
+      return;
+    }
+    if (newEntry.debit > 0 && newEntry.credit > 0) {
+      setError('借方と貸方の両方を同時に入力することはできません。');
       return;
     }
     setError('');
-    validEntries.forEach(entry => onAddEntry(entry));
+    onAddEntry(newEntry);
+    setNewEntry({ account: '', description: '', debit: 0, credit: 0 });
+    setAiPrompt('');
     setShowForm(false);
   };
 
-  const inputClass = "w-full bg-slate-50 dark:bg-slate-800 p-2 text-sm rounded-md border border-slate-300 dark:border-slate-600 focus:ring-blue-500 focus:border-blue-500";
-  
+  const inputClass = "w-full bg-white dark:bg-slate-800 p-2 rounded-md border border-slate-300 dark:border-slate-600 focus:ring-blue-500 focus:border-blue-500";
+  const labelClass = "block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1";
+
   return (
     <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm">
       <div className="flex justify-between items-start mb-4">
@@ -148,10 +140,9 @@ const JournalLedger: React.FC<JournalLedgerProps> = ({ entries, onAddEntry }) =>
                       id="ai-prompt"
                       value={aiPrompt}
                       onChange={(e) => setAiPrompt(e.target.value)}
-                      placeholder="例: カフェでミーティング、コーヒー代1000円を現金で支払った"
-                      className="w-full bg-white dark:bg-slate-800 p-2 rounded-md border border-slate-300 dark:border-slate-600 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="例: カフェでミーティング、コーヒー代1000円"
+                      className={`${inputClass} flex-grow`}
                       disabled={isAiLoading}
-                      onKeyDown={(e) => { if(e.key === 'Enter') { e.preventDefault(); handleAiGenerate(); }}}
                   />
                   <button type="button" onClick={handleAiGenerate} disabled={isAiLoading || !aiPrompt} className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-blue-700 disabled:bg-slate-400 flex items-center gap-2 transition-colors">
                       {isAiLoading ? <Loader className="w-5 h-5 animate-spin"/> : <Sparkles className="w-5 h-5" />}
@@ -160,58 +151,30 @@ const JournalLedger: React.FC<JournalLedgerProps> = ({ entries, onAddEntry }) =>
               </div>
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="overflow-x-auto border border-slate-200 dark:border-slate-700 rounded-lg">
-                <table className="w-full text-sm">
-                    <thead className="bg-slate-100 dark:bg-slate-700/50">
-                        <tr>
-                            <th className="px-3 py-2 text-left font-medium text-slate-600 dark:text-slate-300">勘定科目</th>
-                            <th className="px-3 py-2 text-left font-medium text-slate-600 dark:text-slate-300">摘要</th>
-                            <th className="px-3 py-2 text-left font-medium text-slate-600 dark:text-slate-300">借方</th>
-                            <th className="px-3 py-2 text-left font-medium text-slate-600 dark:text-slate-300">貸方</th>
-                            <th className="p-2 w-12"></th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                        {entryList.map((entry, index) => (
-                            <tr key={index}>
-                                <td className="p-1 min-w-[180px]"><input type="text" placeholder="例: 消耗品費" value={entry.account} onChange={e => updateEntryRow(index, 'account', e.target.value)} className={inputClass} required/></td>
-                                <td className="p-1 min-w-[240px]"><input type="text" placeholder="例: 事務用品購入" value={entry.description} onChange={e => updateEntryRow(index, 'description', e.target.value)} className={inputClass} /></td>
-                                <td className="p-1 min-w-[120px]"><input type="number" placeholder="0" value={entry.debit || ''} onChange={e => updateEntryRow(index, 'debit', Number(e.target.value))} className={`${inputClass} text-right`} /></td>
-                                <td className="p-1 min-w-[120px]"><input type="number" placeholder="0" value={entry.credit || ''} onChange={e => updateEntryRow(index, 'credit', Number(e.target.value))} className={`${inputClass} text-right`} /></td>
-                                <td className="text-center p-1">
-                                    <button type="button" onClick={() => removeEntryRow(index)} className="p-1 text-slate-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-             <div className="flex items-start justify-between mt-2">
-                <button type="button" onClick={addEntryRow} className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-700">
-                    <PlusCircle className="w-4 h-4" /> 行を追加
-                </button>
-                <div className="text-right space-y-1">
-                    <div className="flex justify-end items-center gap-4">
-                        <span className="text-sm text-slate-500 dark:text-slate-400">借方合計:</span>
-                        <span className="text-lg font-bold text-slate-800 dark:text-white w-32 text-right">{`¥${totalDebit.toLocaleString()}`}</span>
-                    </div>
-                    <div className="flex justify-end items-center gap-4">
-                         <span className="text-sm text-slate-500 dark:text-slate-400">貸方合計:</span>
-                        <span className="text-lg font-bold text-slate-800 dark:text-white w-32 text-right">{`¥${totalCredit.toLocaleString()}`}</span>
-                    </div>
-                     {!isBalanced && totalDebit + totalCredit > 0 && (
-                        <div className="flex justify-end items-center gap-4 pt-2 border-t border-dashed border-red-300 dark:border-red-700">
-                             <span className="text-sm font-bold text-red-500 dark:text-red-400">差額:</span>
-                            <span className="text-lg font-bold text-red-500 dark:text-red-400 w-32 text-right">{`¥${(totalDebit - totalCredit).toLocaleString()}`}</span>
-                        </div>
-                    )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label htmlFor="account" className={labelClass}>勘定科目</label>
+                    <input type="text" id="account" name="account" value={newEntry.account} onChange={handleInputChange} className={inputClass} required />
+                </div>
+                <div>
+                    <label htmlFor="description" className={labelClass}>摘要</label>
+                    <input type="text" id="description" name="description" value={newEntry.description} onChange={handleInputChange} className={inputClass} required />
                 </div>
             </div>
-            
-            {error && <p className="text-red-500 text-sm bg-red-100 dark:bg-red-900/50 p-3 rounded-lg flex items-center gap-2"><AlertTriangle className="w-4 h-4"/>{error}</p>}
-            <div className="flex justify-end gap-2 pt-4 border-t border-slate-200 dark:border-slate-600">
-                <button type="button" onClick={() => setShowForm(false)} className="bg-slate-200 dark:bg-slate-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-slate-300 dark:hover:bg-slate-500">キャンセル</button>
-                <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:bg-slate-400 disabled:cursor-not-allowed" disabled={!isBalanced}>保存</button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label htmlFor="debit" className={labelClass}>借方</label>
+                    <input type="number" id="debit" name="debit" value={newEntry.debit} onChange={handleInputChange} className={inputClass} />
+                </div>
+                <div>
+                    <label htmlFor="credit" className={labelClass}>貸方</label>
+                    <input type="number" id="credit" name="credit" value={newEntry.credit} onChange={handleInputChange} className={inputClass} />
+                </div>
+            </div>
+            {error && <p className="text-red-500 text-sm">{error}</p>}
+            <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => { setShowForm(false); setError(''); }} className="bg-slate-200 dark:bg-slate-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-slate-300 dark:hover:bg-slate-500">キャンセル</button>
+                <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold">保存</button>
             </div>
           </form>
         </div>

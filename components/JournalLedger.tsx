@@ -1,17 +1,16 @@
-
-
 import React, { useState, useMemo } from 'react';
 import { JournalEntry, SortConfig } from '../types';
-import { ArrowUpDown, PlusCircle, ChevronDown } from './Icons';
+import { PlusCircle, Sparkles, Loader, BookOpen } from './Icons';
+import { suggestJournalEntry } from '../services/geminiService';
+import EmptyState from './ui/EmptyState';
+import SortableHeader from './ui/SortableHeader';
 
 interface JournalLedgerProps {
   entries: JournalEntry[];
-  // FIX: Correct the type of the `onAddEntry` prop to match the expected signature from the parent component (`App.tsx`), which expects an object without `id`, `date`, or `status`.
-  onAddEntry: (entry: Omit<JournalEntry, 'id' | 'date' | 'status'>) => void;
-  isDemoMode: boolean;
+  onAddEntry: (entry: Omit<JournalEntry, 'id' | 'date'>) => void;
 }
 
-const JournalLedger: React.FC<JournalLedgerProps> = ({ entries, onAddEntry, isDemoMode }) => {
+const JournalLedger: React.FC<JournalLedgerProps> = ({ entries, onAddEntry }) => {
   const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'date', direction: 'descending' });
   const [showForm, setShowForm] = useState(false);
   const [newEntry, setNewEntry] = useState({
@@ -21,6 +20,9 @@ const JournalLedger: React.FC<JournalLedgerProps> = ({ entries, onAddEntry, isDe
     credit: 0,
   });
   const [error, setError] = useState('');
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isAiLoading, setIsAiLoading] = useState(false);
+
 
   const sortedEntries = useMemo(() => {
     let sortableItems = [...entries];
@@ -48,26 +50,6 @@ const JournalLedger: React.FC<JournalLedgerProps> = ({ entries, onAddEntry, isDe
     }
     setSortConfig({ key, direction });
   };
-  
-  const SortableHeader: React.FC<{ sortKey: string; label: string; className?: string }> = ({ sortKey, label, className }) => {
-    const isActive = sortConfig?.key === sortKey;
-    const isAscending = sortConfig?.direction === 'ascending';
-
-    return (
-      <th scope="col" className={`px-6 py-3 ${className || ''}`}>
-          <button onClick={() => requestSort(sortKey)} className="flex items-center gap-1 group">
-              <span className={isActive ? 'font-bold text-slate-800 dark:text-slate-100' : ''}>{label}</span>
-              <div className="w-4 h-4">
-                  {isActive ? (
-                      <ChevronDown className={`w-4 h-4 text-slate-600 dark:text-slate-200 transition-transform duration-200 ${isAscending ? 'rotate-180' : 'rotate-0'}`} />
-                  ) : (
-                      <ArrowUpDown className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  )}
-              </div>
-          </button>
-      </th>
-    );
-  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -77,9 +59,34 @@ const JournalLedger: React.FC<JournalLedgerProps> = ({ entries, onAddEntry, isDe
     }));
   };
 
+  const handleAiGenerate = async () => {
+    if (!aiPrompt) {
+        setError("AIへの依頼内容を入力してください。");
+        return;
+    }
+    setIsAiLoading(true);
+    setError('');
+    try {
+        const suggestion = await suggestJournalEntry(aiPrompt);
+        setNewEntry({
+            account: suggestion.account,
+            description: suggestion.description,
+            debit: suggestion.debit,
+            credit: suggestion.credit
+        });
+    } catch (e) {
+        if (e instanceof Error) {
+            setError(e.message);
+        } else {
+            setError("AIによる提案の生成中に不明なエラーが発生しました。");
+        }
+    } finally {
+        setIsAiLoading(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isDemoMode) return;
     if (!newEntry.account || !newEntry.description) {
       setError('勘定科目と摘要は必須です。');
       return;
@@ -95,6 +102,7 @@ const JournalLedger: React.FC<JournalLedgerProps> = ({ entries, onAddEntry, isDe
     setError('');
     onAddEntry(newEntry);
     setNewEntry({ account: '', description: '', debit: 0, credit: 0 });
+    setAiPrompt('');
     setShowForm(false);
   };
 
@@ -112,8 +120,7 @@ const JournalLedger: React.FC<JournalLedgerProps> = ({ entries, onAddEntry, isDe
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
-          disabled={isDemoMode}
-          className="flex-shrink-0 flex items-center gap-2 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-slate-400 disabled:cursor-not-allowed"
+          className="flex-shrink-0 flex items-center gap-2 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
         >
           <PlusCircle className="w-5 h-5" />
           <span>仕訳を追加</span>
@@ -122,6 +129,26 @@ const JournalLedger: React.FC<JournalLedgerProps> = ({ entries, onAddEntry, isDe
       
       {showForm && (
         <div className="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-lg mb-6 border border-slate-200 dark:border-slate-700 transition-all duration-300 ease-in-out">
+          <div className="bg-blue-50 dark:bg-slate-900/50 p-4 rounded-lg border border-blue-200 dark:border-slate-700 mb-6">
+              <label htmlFor="ai-prompt" className="block text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2">
+              AIアシスタント (仕訳入力)
+              </label>
+              <div className="flex gap-2">
+                  <input
+                      type="text"
+                      id="ai-prompt"
+                      value={aiPrompt}
+                      onChange={(e) => setAiPrompt(e.target.value)}
+                      placeholder="例: カフェでミーティング、コーヒー代1000円"
+                      className={`${inputClass} flex-grow`}
+                      disabled={isAiLoading}
+                  />
+                  <button type="button" onClick={handleAiGenerate} disabled={isAiLoading || !aiPrompt} className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-blue-700 disabled:bg-slate-400 flex items-center gap-2 transition-colors">
+                      {isAiLoading ? <Loader className="w-5 h-5 animate-spin"/> : <Sparkles className="w-5 h-5" />}
+                      <span>{isAiLoading ? '生成中...' : 'AIで生成'}</span>
+                  </button>
+              </div>
+          </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -146,38 +173,47 @@ const JournalLedger: React.FC<JournalLedgerProps> = ({ entries, onAddEntry, isDe
             {error && <p className="text-red-500 text-sm">{error}</p>}
             <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => { setShowForm(false); setError(''); }} className="bg-slate-200 dark:bg-slate-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-slate-300 dark:hover:bg-slate-500">キャンセル</button>
-                <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:bg-slate-400 disabled:cursor-not-allowed" disabled={isDemoMode}>保存</button>
+                <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold">保存</button>
             </div>
           </form>
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-base text-left text-slate-500 dark:text-slate-400">
-          <thead className="text-sm text-slate-700 uppercase bg-slate-50 dark:bg-slate-700 dark:text-slate-300">
-            <tr>
-              <SortableHeader sortKey="date" label="日付" />
-              <SortableHeader sortKey="account" label="勘定科目" />
-              <SortableHeader sortKey="description" label="摘要" />
-              <SortableHeader sortKey="debit" label="借方" className="text-right" />
-              <SortableHeader sortKey="credit" label="貸方" className="text-right" />
-            </tr>
-          </thead>
-          <tbody>
-            {sortedEntries.map((entry) => (
-              <tr key={entry.id} className="bg-white dark:bg-slate-800 border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600">
-                <td className="px-6 py-4 whitespace-nowrap">{new Date(entry.date).toLocaleDateString()}</td>
-                <td className="px-6 py-4 font-medium text-slate-800 dark:text-slate-200">{entry.account}</td>
-                <td className="px-6 py-4">{entry.description}</td>
-                <td className="px-6 py-4 text-right">{entry.debit > 0 ? `¥${entry.debit.toLocaleString()}` : '-'}</td>
-                <td className="px-6 py-4 text-right">{entry.credit > 0 ? `¥${entry.credit.toLocaleString()}` : '-'}</td>
+      {sortedEntries.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="w-full text-base text-left text-slate-500 dark:text-slate-400">
+            <thead className="text-sm text-slate-700 uppercase bg-slate-50 dark:bg-slate-700 dark:text-slate-300">
+              <tr>
+                <SortableHeader sortKey="date" label="日付" sortConfig={sortConfig} requestSort={requestSort} />
+                <SortableHeader sortKey="account" label="勘定科目" sortConfig={sortConfig} requestSort={requestSort} />
+                <SortableHeader sortKey="description" label="摘要" sortConfig={sortConfig} requestSort={requestSort} />
+                <SortableHeader sortKey="debit" label="借方" sortConfig={sortConfig} requestSort={requestSort} className="text-right" />
+                <SortableHeader sortKey="credit" label="貸方" sortConfig={sortConfig} requestSort={requestSort} className="text-right" />
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {sortedEntries.map((entry) => (
+                <tr key={entry.id} className="bg-white dark:bg-slate-800 border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600">
+                  <td className="px-6 py-4 whitespace-nowrap">{new Date(entry.date).toLocaleDateString()}</td>
+                  <td className="px-6 py-4 font-medium text-slate-800 dark:text-slate-200">{entry.account}</td>
+                  <td className="px-6 py-4">{entry.description}</td>
+                  <td className="px-6 py-4 text-right">{entry.debit > 0 ? `¥${entry.debit.toLocaleString()}` : '-'}</td>
+                  <td className="px-6 py-4 text-right">{entry.credit > 0 ? `¥${entry.credit.toLocaleString()}` : '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <EmptyState 
+            icon={BookOpen}
+            title="仕訳がありません"
+            message="「仕訳を追加」ボタンから最初の取引を記録してください。"
+            action={{ label: '仕訳を追加', onClick: () => setShowForm(true), icon: PlusCircle }}
+        />
+      )}
     </div>
   );
 };
 
-export default JournalLedger;
+export default React.memo(JournalLedger);

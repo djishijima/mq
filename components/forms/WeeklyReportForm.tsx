@@ -1,27 +1,48 @@
 
 import React, { useState } from 'react';
 import { submitApplication } from '../../services/dataService';
+import { generateWeeklyReportSummary } from '../../services/geminiService';
 import ApprovalRouteSelector from './ApprovalRouteSelector';
 import { Loader, Sparkles } from '../Icons';
-import { User } from '../../types';
+import { User, Toast } from '../../types';
 import ChatApplicationModal from '../ChatApplicationModal';
 
 interface WeeklyReportFormProps {
     onSuccess: () => void;
     applicationCodeId: string;
     currentUser: User | null;
+    addToast: (message: string, type: Toast['type']) => void;
 }
 
-const WeeklyReportForm: React.FC<WeeklyReportFormProps> = ({ onSuccess, applicationCodeId, currentUser }) => {
+const WeeklyReportForm: React.FC<WeeklyReportFormProps> = ({ onSuccess, applicationCodeId, currentUser, addToast }) => {
     const [formData, setFormData] = useState({ title: `週報 ${new Date().toLocaleDateString('ja-JP')}`, details: '' });
     const [approvalRouteId, setApprovalRouteId] = useState<string>('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isSummaryLoading, setIsSummaryLoading] = useState(false);
     const [error, setError] = useState('');
     const [isChatModalOpen, setIsChatModalOpen] = useState(false);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+    
+    const handleGenerateSummary = async () => {
+        if (!formData.details) {
+            addToast('AIが下書きを作成するために、報告内容のキーワードを入力してください。', 'info');
+            return;
+        }
+        setIsSummaryLoading(true);
+        try {
+            const summary = await generateWeeklyReportSummary(formData.details);
+            setFormData(prev => ({ ...prev, details: summary }));
+            addToast('AIが報告内容の下書きを作成しました。', 'success');
+        } catch (e) {
+            const errorMessage = e instanceof Error ? e.message : '不明なエラーが発生しました。';
+            addToast(errorMessage, 'error');
+        } finally {
+            setIsSummaryLoading(false);
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -72,8 +93,19 @@ const WeeklyReportForm: React.FC<WeeklyReportFormProps> = ({ onSuccess, applicat
                 </div>
 
                 <div>
-                    <label htmlFor="details" className={labelClass}>報告内容 *</label>
-                    <textarea id="details" name="details" rows={10} value={formData.details} onChange={handleChange} className={inputClass} required disabled={isSubmitting} placeholder="今週の業務内容、成果、課題、来週の予定などを記述してください。" />
+                    <div className="flex justify-between items-center mb-1">
+                        <label htmlFor="details" className={labelClass}>報告内容 *</label>
+                        <button
+                            type="button"
+                            onClick={handleGenerateSummary}
+                            disabled={isSummaryLoading || isSubmitting}
+                            className="flex items-center gap-1.5 text-sm font-semibold text-purple-600 hover:text-purple-700 disabled:opacity-50"
+                        >
+                            {isSummaryLoading ? <Loader className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                            AIで下書きを作成
+                        </button>
+                    </div>
+                    <textarea id="details" name="details" rows={10} value={formData.details} onChange={handleChange} className={inputClass} required disabled={isSubmitting} placeholder="今週の業務内容、成果、課題、来週の予定などを記述してください。または、キーワードを入力してAIに下書き作成を依頼してください。" />
                 </div>
             
                 <ApprovalRouteSelector onChange={setApprovalRouteId} isSubmitting={isSubmitting} />

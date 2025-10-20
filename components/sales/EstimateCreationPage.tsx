@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef } from 'react';
 import { Customer, Estimate, EstimateItem, Job, JobStatus, InvoiceStatus, Page, Toast } from '../../types';
 import { draftEstimate } from '../../services/geminiService';
@@ -190,8 +191,8 @@ const EstimateCreationPage: React.FC<EstimateCreationPageProps> = ({ customers, 
                     <p style={{ textAlign: 'right', marginBottom: '5mm' }}>発行日: {new Date().toLocaleDateString('ja-JP')}</p>
                     <p style={{ fontSize: '16px', borderBottom: '1px solid black', paddingBottom: '2mm', marginBottom: '5mm' }}>{selectedCustomer?.customerName || ''} 御中</p>
                     <div style={{ textAlign: 'right', fontSize: '10px' }}>
-                        <p style={{fontWeight: 'bold'}}>文唱堂印刷株式会社</p>
-                        <p>〒112-0002 東京都文京区小石川4-14-12</p>
+                        <p style={{fontWeight: 'bold'}}>株式会社MQ会計</p>
+                        <p>〒100-0001 東京都千代田区千代田1-1</p>
                         <p>TEL: 03-1234-5678 / FAX: 03-1234-5679</p>
                     </div>
                     <div style={{ background: '#f0f0f0', padding: '5mm', marginTop: '10mm' }}>

@@ -1,4 +1,5 @@
 
+
 import React, { useMemo } from 'react';
 import { Job, JobStatus } from '../../types';
 import { Trophy, DollarSign, TrendingUp, Briefcase } from '../Icons';
@@ -7,6 +8,13 @@ import { formatJPY } from '../../utils';
 
 interface SalesRankingProps {
     jobs: Job[];
+}
+
+interface CustomerSalesData {
+    clientName: string;
+    jobCount: number;
+    totalSales: number;
+    totalMargin: number;
 }
 
 const SalesRanking: React.FC<SalesRankingProps> = ({ jobs }) => {
@@ -21,9 +29,11 @@ const SalesRanking: React.FC<SalesRankingProps> = ({ jobs }) => {
                 acc[job.clientName].totalMargin += (job.price - job.variableCost);
             }
             return acc;
-        }, {} as Record<string, { clientName: string, jobCount: number, totalSales: number, totalMargin: number }>);
+        // FIX: Explicitly type the initial value of the reduce function to ensure proper type inference for the accumulator. This resolves type errors in the sort method.
+        }, {} as Record<string, CustomerSalesData>);
 
-        return Object.values(data).sort((a: { totalSales: number }, b: { totalSales: number }) => b.totalSales - a.totalSales);
+        // FIX: Explicitly type `a` and `b` to resolve 'unknown' type error in sort method.
+        return Object.values(data).sort((a: CustomerSalesData, b: CustomerSalesData) => b.totalSales - a.totalSales);
     }, [jobs]);
 
     const { totalRankedSales, totalRankedMargin } = useMemo(() => {
@@ -56,33 +66,28 @@ const SalesRanking: React.FC<SalesRankingProps> = ({ jobs }) => {
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
                 <div className="p-6">
                     <h2 className="text-xl font-semibold text-slate-800 dark:text-white">顧客別 売上ランキング</h2>
-                    <p className="mt-1 text-base text-slate-500 dark:text-slate-400">
-                      「完了」または「進行中」の案件を集計し、総売上高(P)順に表示しています。
-                    </p>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-base text-left text-slate-500 dark:text-slate-400">
                         <thead className="text-sm text-slate-700 uppercase bg-slate-50 dark:bg-slate-700 dark:text-slate-300">
                             <tr>
-                                <th scope="col" className="px-6 py-3 w-24 text-center">順位</th>
+                                <th scope="col" className="px-6 py-3 w-16 text-center">順位</th>
                                 <th scope="col" className="px-6 py-3">クライアント名</th>
                                 <th scope="col" className="px-6 py-3 text-right">案件数</th>
-                                <th scope="col" className="px-6 py-3 text-right">総売上 (P)</th>
-                                <th scope="col" className="px-6 py-3 text-right">総限界利益 (M)</th>
+                                <th scope="col" className="px-6 py-3 text-right">売上高 (P)</th>
+                                <th scope="col" className="px-6 py-3 text-right">限界利益 (M)</th>
                             </tr>
                         </thead>
                         <tbody>
                             {customerData.map((customer, index) => (
                                 <tr key={customer.clientName} className="bg-white dark:bg-slate-800 border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600">
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center justify-center">
-                                            {getRankIcon(index)}
-                                        </div>
+                                    <td className="px-6 py-4 text-center">
+                                        <div className="w-8 h-8 flex items-center justify-center mx-auto">{getRankIcon(index)}</div>
                                     </td>
                                     <td className="px-6 py-4 font-medium text-slate-800 dark:text-slate-200">{customer.clientName}</td>
                                     <td className="px-6 py-4 text-right">{customer.jobCount}</td>
-                                    <td className="px-6 py-4 text-right font-semibold text-slate-800 dark:text-slate-200">{formatJPY(customer.totalSales)}</td>
-                                    <td className="px-6 py-4 text-right font-semibold text-blue-600 dark:text-blue-400">{formatJPY(customer.totalMargin)}</td>
+                                    <td className="px-6 py-4 text-right font-semibold">¥{customer.totalSales.toLocaleString()}</td>
+                                    <td className="px-6 py-4 text-right font-semibold text-blue-600 dark:text-blue-400">¥{customer.totalMargin.toLocaleString()}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -93,4 +98,4 @@ const SalesRanking: React.FC<SalesRankingProps> = ({ jobs }) => {
     );
 };
 
-export default React.memo(SalesRanking);
+export default SalesRanking;

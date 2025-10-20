@@ -50,13 +50,6 @@ const ChatApplicationModal: React.FC<ChatApplicationModalProps> = ({ isOpen, onC
             return;
         }
 
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                onClose();
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-
         const preloadAndStart = async () => {
             setIsPreloading(true);
             setIsLoading(true);
@@ -92,11 +85,7 @@ const ChatApplicationModal: React.FC<ChatApplicationModalProps> = ({ isOpen, onC
         };
         
         preloadAndStart();
-
-        return () => {
-            window.removeEventListener('keydown', handleKeyDown);
-        };
-    }, [isOpen, initialMessage, onClose]);
+    }, [isOpen, initialMessage]);
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();

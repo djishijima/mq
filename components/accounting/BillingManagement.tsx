@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Job, Invoice, JobStatus, InvoiceStatus, Toast } from '../../types';
+import { Job, Invoice, JobStatus, InvoiceStatus } from '../../types';
 import { FileText, Loader, X } from '../Icons';
 import { updateJobReadyToInvoice, createInvoiceFromJobs, getInvoices } from '../../services/dataService';
 
@@ -7,7 +7,6 @@ interface BillingManagementProps {
     jobs: Job[];
     onRefreshData: () => void;
     onMarkPaid: (invoice: Invoice) => void;
-    addToast: (message: string, type: Toast['type']) => void;
 }
 
 type Tab = 'candidates' | 'issued';
@@ -49,7 +48,7 @@ const InvoiceDetailModal: React.FC<{ invoice: Invoice; onClose: () => void; onMa
                 <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-700">
                     <div>
                         <h2 className="text-2xl font-bold text-slate-900 dark:text-white">請求書詳細</h2>
-                        <p className="text-sm text-slate-500">No: {invoice.invoiceNo}</p>
+                        <p className="text-sm text-slate-500">No: {invoice.invoice_no}</p>
                     </div>
                     <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><X className="w-6 h-6" /></button>
                 </div>
@@ -57,11 +56,11 @@ const InvoiceDetailModal: React.FC<{ invoice: Invoice; onClose: () => void; onMa
                     <div className="grid grid-cols-2 gap-4 mb-6">
                         <div>
                             <p className="text-sm font-medium text-slate-500">顧客名</p>
-                            <p className="font-semibold">{invoice.customerName}</p>
+                            <p className="font-semibold">{invoice.customer_name}</p>
                         </div>
                         <div className="text-right">
                             <p className="text-sm font-medium text-slate-500">発行日</p>
-                            <p className="font-semibold">{new Date(invoice.invoiceDate).toLocaleDateString()}</p>
+                            <p className="font-semibold">{new Date(invoice.invoice_date).toLocaleDateString()}</p>
                         </div>
                     </div>
                     <table className="w-full text-base text-left">
@@ -75,16 +74,16 @@ const InvoiceDetailModal: React.FC<{ invoice: Invoice; onClose: () => void; onMa
                             {invoice.items?.map(item => (
                                 <tr key={item.id} className="border-b dark:border-slate-700">
                                     <td className="px-4 py-3">{item.description}</td>
-                                    <td className="px-4 py-3 text-right">{JPY(item.lineTotal)}</td>
+                                    <td className="px-4 py-3 text-right">{JPY(item.line_total)}</td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                     <div className="mt-4 flex justify-end">
                         <div className="w-64 space-y-2">
-                            <div className="flex justify-between"><span className="text-slate-500">小計</span><span>{JPY(invoice.subtotalAmount)}</span></div>
-                            <div className="flex justify-between"><span className="text-slate-500">消費税</span><span>{JPY(invoice.taxAmount)}</span></div>
-                            <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2"><span >合計</span><span>{JPY(invoice.totalAmount)}</span></div>
+                            <div className="flex justify-between"><span className="text-slate-500">小計</span><span>{JPY(invoice.subtotal_amount)}</span></div>
+                            <div className="flex justify-between"><span className="text-slate-500">消費税</span><span>{JPY(invoice.tax_amount)}</span></div>
+                            <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2"><span >合計</span><span>{JPY(invoice.total_amount)}</span></div>
                         </div>
                     </div>
                 </div>
@@ -108,7 +107,7 @@ const InvoiceDetailModal: React.FC<{ invoice: Invoice; onClose: () => void; onMa
 };
 
 
-const BillingManagement: React.FC<BillingManagementProps> = ({ jobs, onRefreshData, onMarkPaid, addToast }) => {
+const BillingManagement: React.FC<BillingManagementProps> = ({ jobs, onRefreshData, onMarkPaid }) => {
     const [activeTab, setActiveTab] = useState<Tab>('candidates');
     const [selectedJobs, setSelectedJobs] = useState<Record<string, boolean>>({});
     const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -123,11 +122,11 @@ const BillingManagement: React.FC<BillingManagementProps> = ({ jobs, onRefreshDa
             setInvoices(data);
         } catch (error) {
             console.error(error);
-            addToast('請求書データの取得に失敗しました。', 'error');
+            alert('請求書データの取得に失敗しました。');
         } finally {
             setIsLoadingInvoices(false);
         }
-    }, [addToast]);
+    }, []);
 
     useEffect(() => {
         if (activeTab === 'issued') {
@@ -154,7 +153,7 @@ const BillingManagement: React.FC<BillingManagementProps> = ({ jobs, onRefreshDa
             onRefreshData();
         } catch (error) {
             console.error(error);
-            addToast('状態の更新に失敗しました。', 'error');
+            alert('状態の更新に失敗しました。');
         }
     };
     
@@ -164,19 +163,19 @@ const BillingManagement: React.FC<BillingManagementProps> = ({ jobs, onRefreshDa
         const selected = jobs.filter(j => selectedJobIds.includes(j.id));
         const customerName = selected[0]?.clientName;
         if (!selected.every(j => j.clientName === customerName)) {
-            addToast('同じクライアントの案件のみをまとめて請求できます。', 'error');
+            alert('同じクライアントの案件のみをまとめて請求できます。');
             return;
         }
 
         setIsProcessing(true);
         try {
             const result = await createInvoiceFromJobs(selectedJobIds);
-            addToast(`請求書 ${result.invoiceNo} が作成されました。`, 'success');
+            alert(`請求書 ${result.invoiceNo} が作成されました。`);
             setSelectedJobs({});
             onRefreshData();
         } catch (error) {
             console.error(error);
-            addToast(`請求書の作成に失敗しました: ${error instanceof Error ? error.message : String(error)}`, 'error');
+            alert(`請求書の作成に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
         } finally {
             setIsProcessing(false);
         }
@@ -255,10 +254,10 @@ const BillingManagement: React.FC<BillingManagementProps> = ({ jobs, onRefreshDa
                             {isLoadingInvoices ? <tr><td colSpan={5} className="text-center p-16"><Loader className="w-8 h-8 animate-spin mx-auto" /></td></tr> :
                             invoices.map(inv => (
                                 <tr key={inv.id} className="bg-white dark:bg-slate-800 border-b dark:border-slate-700 hover:bg-slate-50/50 cursor-pointer" onClick={() => setSelectedInvoice(inv)}>
-                                    <td className="px-6 py-4 font-mono">{inv.invoiceNo}</td>
-                                    <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{inv.customerName}</td>
-                                    <td className="px-6 py-4">{new Date(inv.invoiceDate).toLocaleDateString()}</td>
-                                    <td className="px-6 py-4 text-right font-semibold">{JPY(inv.totalAmount)}</td>
+                                    <td className="px-6 py-4 font-mono">{inv.invoice_no}</td>
+                                    <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">{inv.customer_name}</td>
+                                    <td className="px-6 py-4">{new Date(inv.invoice_date).toLocaleDateString()}</td>
+                                    <td className="px-6 py-4 text-right font-semibold">{JPY(inv.total_amount)}</td>
                                     <td className="px-6 py-4 text-center">
                                          <span className={`px-2.5 py-0.5 text-xs font-medium rounded-full capitalize ${
                                             inv.status === 'paid' ? 'bg-green-100 text-green-800' :

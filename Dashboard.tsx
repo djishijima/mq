@@ -1,5 +1,4 @@
 
-
 import React, { useMemo } from 'react';
 import {
   ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line,
@@ -137,18 +136,20 @@ const Dashboard: React.FC<DashboardProps> = ({ jobs, journalEntries, accountItem
         const mq = pq - vq;
 
         const fBreakdown = { f1: 0, f2: 0, f3: 0, f4: 0, f5: 0 };
-        const accountMap = new Map(accountItems.map(item => [item.name, item]));
+        // FIX: Explicitly type `accountMap` to ensure correct type inference for `accountInfo`.
+        const accountMap: Map<string, AccountItem> = new Map(accountItems.map(item => [item.name, item]));
 
         journalEntries.forEach(entry => {
             const cost = entry.debit - entry.credit;
             if (cost <= 0) return;
 
-            // FIX: Explicitly cast accountInfo to resolve 'unknown' type error on categoryCode access.
-            const accountInfo = accountMap.get(entry.account) as AccountItem | undefined;
+            const accountInfo = accountMap.get(entry.account);
             if (entry.account.includes('給料') || entry.account.includes('人件費')) fBreakdown.f1 += cost;
             else if (entry.account.includes('減価償却')) fBreakdown.f5 += cost;
-            else if (accountInfo?.categoryCode === 'TRP') fBreakdown.f4 += cost; // (販)
-            else if (accountInfo?.categoryCode === 'NOC' && entry.account.includes('支払利息')) fBreakdown.f3 += cost; // 営業外
+            // FIX: Add a truthiness check for `accountInfo` to act as a type guard and resolve the 'unknown' type error.
+            else if (accountInfo && accountInfo.categoryCode === 'TRP') fBreakdown.f4 += cost; // (販)
+            // FIX: Add a truthiness check for `accountInfo` to act as a type guard and resolve the 'unknown' type error.
+            else if (accountInfo && accountInfo.categoryCode === 'NOC' && entry.account.includes('支払利息')) fBreakdown.f3 += cost; // 営業外
             else fBreakdown.f2 += cost; // その他経費
         });
         

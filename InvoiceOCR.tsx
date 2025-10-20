@@ -6,7 +6,7 @@ import { InboxItem, InvoiceData, InboxItemStatus, Toast } from '../types';
 import { Upload, Loader, X, CheckCircle, Save, Trash2, AlertTriangle, RefreshCw } from './Icons';
 
 interface InvoiceOCRProps {
-    onSaveExpenses: (data: InvoiceData, inboxItemId: string) => void;
+    onSaveExpenses: (data: InvoiceData) => void;
     addToast: (message: string, type: Toast['type']) => void;
 }
 
@@ -42,13 +42,13 @@ const InboxItemCard: React.FC<{
     onDelete: (item: InboxItem) => Promise<void>;
     onApprove: (item: InboxItem) => Promise<void>;
 }> = ({ item, onUpdate, onDelete, onApprove }) => {
-    const [localData, setLocalData] = useState<InvoiceData | null>(item.extractedData as InvoiceData | null);
+    const [localData, setLocalData] = useState<InvoiceData | null>(item.extractedData);
     const [isSaving, setIsSaving] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isApproving, setIsApproving] = useState(false);
 
     useEffect(() => {
-        setLocalData(item.extractedData as InvoiceData | null);
+        setLocalData(item.extractedData);
     }, [item.extractedData]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -190,13 +190,11 @@ const InvoiceOCR: React.FC<InvoiceOCRProps> = ({ onSaveExpenses, addToast }) => 
     };
 
     const processFile = async (file: File) => {
-        // FIX: Add missing 'docType' property to fix TypeScript error.
         let tempItem: Omit<InboxItem, 'id' | 'createdAt' | 'fileUrl'> = {
             fileName: file.name,
             filePath: '',
             mimeType: file.type,
             status: 'processing',
-            docType: 'unknown',
             extractedData: null,
             errorMessage: null,
         };
@@ -212,8 +210,6 @@ const InvoiceOCR: React.FC<InvoiceOCRProps> = ({ onSaveExpenses, addToast }) => 
             const data = await extractInvoiceDetails(base64String, file.type);
             tempItem.extractedData = data;
             tempItem.status = 'pending_review';
-            // FIX: Set docType to 'invoice' after successful extraction.
-            tempItem.docType = 'invoice';
 
         } catch (err: any) {
             tempItem.status = 'error';
@@ -247,9 +243,9 @@ const InvoiceOCR: React.FC<InvoiceOCRProps> = ({ onSaveExpenses, addToast }) => 
     };
     
     const handleApproveItem = async (itemToApprove: InboxItem) => {
-        if (!itemToApprove.extractedData || Array.isArray(itemToApprove.extractedData)) return;
+        if (!itemToApprove.extractedData) return;
         try {
-            onSaveExpenses(itemToApprove.extractedData, itemToApprove.id);
+            onSaveExpenses(itemToApprove.extractedData);
             await handleUpdateItem(itemToApprove.id, { status: 'approved' });
         } catch (err: any) {
             addToast(`承認処理に失敗しました: ${err.message}`, 'error');

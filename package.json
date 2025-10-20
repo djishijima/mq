@@ -1,5 +1,5 @@
 {
-  "name": "mq会計管理",
+  "name": "mqdriven",
   "private": true,
   "version": "0.0.0",
   "type": "module",

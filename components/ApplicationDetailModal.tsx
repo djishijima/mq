@@ -39,14 +39,7 @@ const ApplicationDetailModal: React.FC<ApplicationDetailModalProps> = ({
         if (application) {
             setRejectionReason('');
         }
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                onClose();
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [application, onClose]);
+    }, [application]);
 
     const handleApprove = async () => {
         if (!application) return;

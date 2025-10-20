@@ -1,6 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Session } from '@supabase/supabase-js';
-import { supabase } from './services/supabaseClient';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
@@ -15,6 +13,7 @@ import SalesRanking from './components/accounting/SalesRanking';
 import CompanyAnalysisModal from './components/CompanyAnalysisModal';
 // Component Imports
 import BillingManagement from './components/accounting/BillingManagement';
+import PaymentManagement from './components/accounting/PaymentManagement';
 import ApprovalWorkflowPage from './components/accounting/ApprovalWorkflowPage';
 import JournalLedger from './components/accounting/JournalLedger';
 import PurchasingManagement from './components/accounting/PurchasingManagement';
@@ -32,14 +31,16 @@ import SalesPipelinePage from './components/sales/SalesPipelinePage';
 import InventoryManagementPage from './components/inventory/InventoryManagementPage';
 import TrialBalancePage from './components/accounting/TrialBalancePage';
 import BusinessPlanPage from './components/accounting/BusinessPlanPage';
-import LoginPage from './components/LoginPage';
 import { ToastContainer } from './components/Toast';
 import ConfirmationDialog from './components/ConfirmationDialog';
+import SupabaseCredentialsModal from './components/SupabaseCredentialsModal';
+import PeriodClosingPage from './components/accounting/PeriodClosingPage';
 
-import { Page, Job, JournalEntry, Customer, CompanyAnalysis, Invoice, User, Lead, AccountItem, PurchaseOrder, InventoryItem, Toast, ConfirmationDialogProps, InvoiceData, BankStatementTransaction } from './types';
-import { getJobs, addJob, getJournalEntries, addJournalEntry as addJournalEntrySvc, getCustomers, addCustomer, updateCustomer, markInvoiceAsPaid, getLeads, addLead, updateLead, deleteLead, getAccountItems, updateJob, deleteJob, getPurchaseOrders, getInventoryItems, updateInboxItem, runDatabaseSetup, addJournalEntries, getOrCreateUserProfile } from './services/dataService';
+import { Page, Job, JournalEntry, Customer, CompanyAnalysis, Invoice, User, Lead, AccountItem, PurchaseOrder, InventoryItem, Toast, ConfirmationDialogProps, InvoiceData, Employee, ApplicationWithDetails } from './types';
+import { getJobs, addJob, getJournalEntries, addJournalEntry as addJournalEntrySvc, getCustomers, addCustomer, updateCustomer, markInvoiceAsPaid, getLeads, addLead, updateLead, deleteLead, getAccountItems, updateJob, deleteJob, getPurchaseOrders, getInventoryItems, getEmployees, getUsers, getApplications } from './services/dataService';
+import { initializeSupabase, hasSupabaseCredentials, clearSupabaseCredentials } from './services/supabaseClient';
 import { analyzeCompany, getDashboardSuggestion } from './services/geminiService';
-import { Loader, PlusCircle, AlertTriangle, RefreshCw } from './components/Icons';
+import { Loader, PlusCircle } from './components/Icons';
 
 const pageTitles: Record<Page, string> = {
   analysis_dashboard: 'ホーム',
@@ -50,8 +51,8 @@ const pageTitles: Record<Page, string> = {
   sales_orders: '案件・受注管理',
   sales_billing: '売上請求 (AR)',
   purchasing_orders: '発注管理 (PO)',
-  accounting_inbox: 'AI受信箱',
-  accounting_payable_list: '支払予定表 (AP)',
+  purchasing_invoices: '仕入計上 (AP)',
+  purchasing_payments: '支払管理',
   inventory_management: '在庫管理',
   manufacturing_orders: '製造指示',
   manufacturing_progress: '進捗・出来高',
@@ -66,11 +67,11 @@ const pageTitles: Record<Page, string> = {
   approval_form_approval: '稟議',
   approval_form_daily: '日報',
   approval_form_weekly: '週報',
-  accounting_journal: '仕訳入力・確認',
+  accounting_journal: '仕訳帳',
   accounting_general_ledger: '総勘定元帳',
   accounting_trial_balance: '試算表',
   accounting_tax_summary: '消費税集計',
-  accounting_period_closing: '月次・期末処理',
+  accounting_period_closing: '締処理',
   accounting_business_plan: '経営計画',
   analysis_ranking: '売上ランキング',
   admin_audit_log: '監査ログ',
@@ -80,30 +81,8 @@ const pageTitles: Record<Page, string> = {
   settings: '設定',
 };
 
-const ConnectionError = ({ onRetry }: { onRetry: () => void }) => (
-    <div className="flex items-center justify-center h-screen bg-slate-100 dark:bg-slate-900">
-      <div className="text-center p-8 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-lg mx-auto">
-        <AlertTriangle className="w-16 h-16 text-red-500 mx-auto" />
-        <h2 className="mt-6 text-2xl font-bold text-slate-800 dark:text-white">データベース接続エラー</h2>
-        <p className="mt-2 text-slate-500 dark:text-slate-400">
-          アプリケーションのデータベースに接続できませんでした。ネットワーク接続を確認するか、しばらくしてからもう一度お試しください。
-        </p>
-        <button 
-          onClick={onRetry} 
-          className="mt-8 flex items-center justify-center gap-2 w-full bg-blue-600 text-white font-semibold py-3 px-5 rounded-lg shadow-md hover:bg-blue-700 transition-colors">
-          <RefreshCw className="w-5 h-5" />
-          <span>再試行</span>
-        </button>
-      </div>
-    </div>
-);
-
 function App() {
   const [currentPage, setCurrentPage] = useState<Page>('analysis_dashboard');
-  const [session, setSession] = useState<Session | null>(null);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
-
   const [jobs, setJobs] = useState<Job[]>([]);
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -111,6 +90,8 @@ function App() {
   const [accountItems, setAccountItems] = useState<AccountItem[]>([]);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [applications, setApplications] = useState<ApplicationWithDetails[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [dialogProps, setDialogProps] = useState<ConfirmationDialogProps>({
     isOpen: false, title: '', message: '', onConfirm: () => {}, onClose: () => {}
@@ -123,10 +104,12 @@ function App() {
   const [isCreateLeadModalOpen, setIsCreateLeadModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSetupError, setIsSetupError] = useState(false);
-  const [isConnectionError, setIsConnectionError] = useState(false);
-  const [isAttemptingAutoSetup, setIsAttemptingAutoSetup] = useState(false);
+  const [isCredentialsModalOpen, setIsCredentialsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [customerModalMode, setCustomerModalMode] = useState<'view' | 'edit' | 'new'>('view');
@@ -156,13 +139,19 @@ function App() {
     });
   }, []);
 
-  const fetchData = useCallback(async (isRetry = false) => {
+  const fetchData = useCallback(async () => {
+    if (!hasSupabaseCredentials()) {
+      const defaultUrl = 'https://rwjhpfghhgstvplmggks.supabase.co';
+      const defaultKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ3amhwZmdoaGdzdHZwbG1nZ2tzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3MDgzNDYsImV4cCI6MjA3NDI4NDM0Nn0.RfCRooN6YVTHJ2Mw-xFCWus3wUVMLkJCLSitB8TNiIo';
+      initializeSupabase(defaultUrl, defaultKey);
+      addToast('提供された接続情報を保存しました。データの読み込みを開始します。', 'info');
+    }
+
     setIsLoading(true);
-    setIsConnectionError(false);
     setIsSetupError(false);
     
     try {
-      const [jobsData, journalEntriesData, customersData, leadsData, accountItemsData, purchaseOrdersData, inventoryItemsData] = await Promise.all([
+      const [jobsData, journalEntriesData, customersData, leadsData, accountItemsData, purchaseOrdersData, inventoryItemsData, employeesData, usersData, applicationsData] = await Promise.all([
         getJobs(),
         getJournalEntries(),
         getCustomers(),
@@ -170,6 +159,9 @@ function App() {
         getAccountItems(),
         getPurchaseOrders(),
         getInventoryItems(),
+        getEmployees(),
+        getUsers(),
+        getApplications(null), // Fetch all applications initially
       ]);
       setJobs(jobsData);
       setJournalEntries(journalEntriesData);
@@ -178,7 +170,20 @@ function App() {
       setAccountItems(accountItemsData);
       setPurchaseOrders(purchaseOrdersData);
       setInventoryItems(inventoryItemsData);
-      setIsAttemptingAutoSetup(false);
+      setEmployees(employeesData);
+      setAllUsers(usersData);
+      setApplications(applicationsData);
+
+      if (usersData.length > 0) {
+        if (!currentUser || !usersData.find(u => u.id === currentUser.id)) {
+            const adminUser = usersData.find(u => u.role === 'admin');
+            setCurrentUser(adminUser || usersData[0]);
+        }
+      } else {
+        setCurrentUser(null);
+      }
+      
+      setIsCredentialsModalOpen(false);
 
       setIsSuggestionLoading(true);
       getDashboardSuggestion(jobsData)
@@ -187,68 +192,34 @@ function App() {
         .finally(() => setIsSuggestionLoading(false));
 
     } catch (e) {
-      console.error(e);
-      if (e instanceof Error && (e.message.includes('relation') && e.message.includes('does not exist') || e.message.includes('42P01')) && !isRetry) {
-        setIsAttemptingAutoSetup(true);
-        try {
-          await runDatabaseSetup();
-          addToast('データベースの自動セットアップが完了しました。データを再取得します。', 'success');
-          await fetchData(true);
-        } catch (setupError) {
-          addToast('データベースの自動セットアップに失敗しました。手動での設定が必要です。', 'error');
-          console.error('Auto-setup failed:', setupError);
-          setIsSetupError(true);
-          setIsAttemptingAutoSetup(false);
-        }
+      console.error("Fetch Data Error:", e);
+      const errorMessage = e instanceof Error ? e.message.toLowerCase() : '';
+      
+      if (
+        errorMessage.includes('invalid jwt') ||
+        errorMessage.includes('unauthorized') ||
+        errorMessage.includes('api key')
+      ) {
+        addToast('データベースの認証に失敗しました。接続情報が正しいか確認してください。', 'error');
+        clearSupabaseCredentials(); 
+        setIsCredentialsModalOpen(true);
       } else {
-        setIsConnectionError(true);
+        setIsSetupError(true);
       }
     } finally {
       setIsLoading(false);
     }
-  }, [addToast]);
-  
+  }, [addToast, currentUser]);
+
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session);
-      if (session?.user) {
-        try {
-          const userProfile = await getOrCreateUserProfile(session.user);
-          setCurrentUser(userProfile);
-          await fetchData();
-        } catch (error) {
-          console.error("Error getting or creating user profile:", error);
-          addToast('ユーザープロファイルの取得に失敗しました。', 'error');
-          setCurrentUser(null);
-        }
-      } else {
-        setCurrentUser(null);
-        // Clear all data on logout
-        setJobs([]);
-        setJournalEntries([]);
-        setCustomers([]);
-        setLeads([]);
-      }
-      setIsAuthLoading(false);
-    });
+    fetchData();
+  }, [fetchData]);
 
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [fetchData, addToast]);
-
-
-  const handleLogout = async () => {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        addToast('ログアウトに失敗しました。', 'error');
-      } else {
-        setCurrentUser(null);
-        setSession(null);
-        setCurrentPage('analysis_dashboard');
-      }
+  const handleSaveCredentials = (url: string, key: string) => {
+    initializeSupabase(url, key);
+    setIsCredentialsModalOpen(false);
+    fetchData();
   };
-
 
   useEffect(() => {
     setSearchTerm('');
@@ -291,82 +262,47 @@ function App() {
     setIsJobDetailModalOpen(true);
   }, []);
 
-  const handleAddJournalEntry = useCallback(async (entry: Omit<JournalEntry, 'id' | 'date' | 'status'>) => {
+  const handleAddJournalEntry = useCallback(async (entry: Omit<JournalEntry, 'id' | 'date'>) => {
     const newEntry = await addJournalEntrySvc(entry);
     setJournalEntries(prev => [newEntry, ...prev]);
     addToast('新しい仕訳が追加されました。', 'success');
   }, [addToast]);
   
-  const handleSaveExpenseInvoice = useCallback(async (data: InvoiceData, inboxItemId: string) => {
+  const handleSaveExpenseInvoice = useCallback(async (data: InvoiceData) => {
     const description = `仕入 ${data.vendorName} (${data.description})`;
     const account = data.account || '仕入';
-    
-    const entriesToAdd: Omit<JournalEntry, 'id' | 'date' | 'status'>[] = [
-        { account, debit: data.totalAmount, credit: 0, description },
-        { account: '買掛金', debit: 0, credit: data.totalAmount, description }
-    ];
-
-    const newEntries = await addJournalEntries(entriesToAdd);
-    setJournalEntries(prev => [...newEntries.reverse(), ...prev]);
-    
-    await updateInboxItem(inboxItemId, { status: 'approved' });
+    await addJournalEntrySvc({ account, debit: data.totalAmount, credit: 0, description });
+    await addJournalEntrySvc({ account: '買掛金', debit: 0, credit: data.totalAmount, description });
     addToast(`「${data.vendorName}」からの請求書が仕入計上されました。`, 'success');
-  }, [addToast]);
+    fetchData();
+  }, [fetchData, addToast]);
 
-  const handleProcessBankStatement = useCallback(async (transactions: BankStatementTransaction[], inboxItemId: string) => {
-    try {
-        const entriesToAdd: Omit<JournalEntry, 'id' | 'date' | 'status'>[] = [];
-        for (const t of transactions) {
-            if (!t.finalAccount) {
-                addToast(`「${t.description}」の勘定科目が未入力のためスキップしました。`, 'info');
-                continue;
-            }
+  const handleExecutePayment = useCallback(async (supplier: string, amount: number) => {
+      const description = `支払 ${supplier}`;
+      await addJournalEntrySvc({ account: '買掛金', debit: amount, credit: 0, description });
+      await addJournalEntrySvc({ account: '現金', debit: 0, credit: amount, description });
+      addToast(`${supplier}への支払処理が完了しました。`, 'success');
+      fetchData();
+  }, [fetchData, addToast]);
 
-            if (t.withdrawal > 0) {
-                entriesToAdd.push({ account: t.finalAccount, debit: t.withdrawal, credit: 0, description: t.description });
-                entriesToAdd.push({ account: '普通預金', debit: 0, credit: t.withdrawal, description: t.description });
-            } else if (t.deposit > 0) {
-                entriesToAdd.push({ account: '普通預金', debit: t.deposit, credit: 0, description: t.description });
-                entriesToAdd.push({ account: t.finalAccount, debit: 0, credit: t.deposit, description: t.description });
-            }
-        }
-
-        if (entriesToAdd.length > 0) {
-            const newEntries = await addJournalEntries(entriesToAdd);
-            setJournalEntries(prev => [...newEntries.reverse(), ...prev]);
-        }
-        
-        await updateInboxItem(inboxItemId, { status: 'approved' });
-        addToast('銀行明細の仕訳が作成されました。', 'success');
-    } catch (e) {
-        addToast('銀行明細の処理に失敗しました。', 'error');
-        console.error(e);
-    }
-  }, [addToast]);
 
   const handleMarkInvoicePaid = useCallback(async (invoice: Invoice) => {
     try {
         await markInvoiceAsPaid(invoice.id);
-        const jobIdsInInvoice = invoice.items?.map(item => item.jobId).filter(Boolean) as string[] || [];
+        const jobIdsInInvoice = invoice.items?.map(item => item.job_id).filter(Boolean) as string[] || [];
         const jobsToUpdate = jobs.filter(job => jobIdsInInvoice.includes(job.id));
 
-        const entriesToAdd: Omit<JournalEntry, 'id' | 'date' | 'status'>[] = [];
         for (const updatedJob of jobsToUpdate) {
-            entriesToAdd.push({ account: '普通預金', debit: updatedJob.price, credit: 0, description: `売上入金 ${updatedJob.clientName} (${updatedJob.id})` });
-            entriesToAdd.push({ account: '売掛金', debit: 0, credit: updatedJob.price, description: `売上入金 ${updatedJob.clientName} (${updatedJob.id})` });
+            await handleAddJournalEntry({ account: '現金', debit: updatedJob.price, credit: 0, description: `売上入金 ${updatedJob.clientName} (${updatedJob.id})` });
+            await handleAddJournalEntry({ account: '売掛金', debit: 0, credit: updatedJob.price, description: `売上入金 ${updatedJob.clientName} (${updatedJob.id})` });
         }
-
-        if (entriesToAdd.length > 0) {
-          await addJournalEntries(entriesToAdd);
-        }
-
         addToast('請求書の入金処理が完了しました。', 'success');
         await fetchData();
     } catch (e) {
         addToast('請求書の入金処理に失敗しました。', 'error');
     }
-  }, [jobs, fetchData, addToast]);
-
+  }, [jobs, handleAddJournalEntry, fetchData, addToast]);
+  
   const handleSelectCustomer = useCallback((customer: Customer) => {
     setSelectedCustomer(customer);
     setCustomerModalMode('view');
@@ -420,7 +356,7 @@ function App() {
     }
   }, []);
 
-  const handleAddLead = useCallback(async (leadData: Partial<Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>>) => {
+  const handleAddLead = useCallback(async (leadData: Partial<Omit<Lead, 'id' | 'created_at' | 'updated_at'>>) => {
     try {
         const newLead = await addLead(leadData);
         setLeads(prev => [newLead, ...prev]);
@@ -484,7 +420,7 @@ function App() {
   const { primaryAction, search } = getHeaderConfig();
 
   const renderPage = () => {
-    if (isLoading && !isAttemptingAutoSetup) {
+    if (isLoading) {
       return <div className="flex items-center justify-center h-full"><Loader className="w-12 h-12 animate-spin text-blue-600" /></div>;
     }
     
@@ -498,7 +434,7 @@ function App() {
       case 'sales_orders':
         return <JobList jobs={jobs} searchTerm={searchTerm} onSelectJob={handleSelectJob} onNewJob={() => setIsCreateJobModalOpen(true)} />;
       case 'sales_customers':
-        return <CustomerList customers={customers} searchTerm={searchTerm} onSelectCustomer={handleSelectCustomer} onEditCustomer={handleEditCustomer} onAnalyzeCustomer={handleAnalyzeCustomer} addToast={addToast} currentUser={currentUser} />;
+        return <CustomerList customers={customers} searchTerm={searchTerm} onSelectCustomer={handleSelectCustomer} onEditCustomer={handleEditCustomer} onAnalyzeCustomer={handleAnalyzeCustomer} addToast={addToast} currentUser={currentUser} onNewCustomer={handleNewCustomer} />;
       case 'accounting_journal':
         return <JournalLedger entries={journalEntries} onAddEntry={handleAddJournalEntry} />;
       case 'analysis_ranking':
@@ -506,7 +442,7 @@ function App() {
       case 'settings':
         return <SettingsPage addToast={addToast} />;
       case 'sales_billing':
-        return <BillingManagement jobs={jobs} onRefreshData={fetchData} onMarkPaid={handleMarkInvoicePaid} addToast={addToast} />;
+        return <BillingManagement jobs={jobs} onRefreshData={fetchData} onMarkPaid={handleMarkInvoicePaid} />;
       case 'purchasing_orders':
           return <PurchasingManagement purchaseOrders={purchaseOrders} />;
       case 'inventory_management':
@@ -517,8 +453,10 @@ function App() {
           return <TrialBalancePage journalEntries={journalEntries} />;
       case 'accounting_business_plan':
           return <BusinessPlanPage />;
+      case 'accounting_period_closing':
+          return <PeriodClosingPage addToast={addToast} jobs={jobs} applications={applications} journalEntries={journalEntries} onNavigate={handleNavigate} />;
       case 'hr_labor_cost':
-          return <LaborCostManagement employees={[]} />;
+          return <LaborCostManagement employees={employees} />;
       case 'manufacturing_cost':
           return <ManufacturingCostManagement jobs={jobs} />;
       case 'approval_list':
@@ -535,10 +473,10 @@ function App() {
           return <ApprovalWorkflowPage currentUser={currentUser} view="form" formCode="DLY" addToast={addToast} onNavigate={handleNavigate} />;
       case 'approval_form_weekly':
           return <ApprovalWorkflowPage currentUser={currentUser} view="form" formCode="WKR" addToast={addToast} onNavigate={handleNavigate} />;
-      case 'accounting_inbox':
-        return <InvoiceOCR onSaveExpenses={handleSaveExpenseInvoice} onProcessBankStatement={handleProcessBankStatement} addToast={addToast} requestConfirmation={requestConfirmation} />;
-      case 'accounting_payable_list':
-          return <PlaceholderPage title={pageTitles[currentPage]} />;
+      case 'purchasing_invoices':
+        return <InvoiceOCR onSaveExpenses={handleSaveExpenseInvoice} addToast={addToast} requestConfirmation={requestConfirmation} />;
+      case 'purchasing_payments':
+          return <PaymentManagement journalEntries={journalEntries} onExecutePayment={handleExecutePayment} />;
       case 'admin_user_management':
           return <UserManagementPage addToast={addToast} requestConfirmation={requestConfirmation} />;
       case 'admin_route_management':
@@ -549,40 +487,24 @@ function App() {
         return <PlaceholderPage title={pageTitles[currentPage]} />;
     }
   };
-  
-  if (isAuthLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-slate-100 dark:bg-slate-900">
-        <Loader className="w-12 h-12 animate-spin text-blue-600" />
-      </div>
-    );
-  }
-  
-  if (isAttemptingAutoSetup) {
-    return (
-        <div className="flex flex-col items-center justify-center h-screen bg-slate-100 dark:bg-slate-900">
-            <Loader className="w-12 h-12 animate-spin text-blue-600" />
-            <h2 className="mt-6 text-xl font-semibold text-slate-700 dark:text-slate-200">データベースを自動セットアップ中です...</h2>
-            <p className="mt-2 text-slate-500 dark:text-slate-400">初回起動時、またはスキーマが古くなっている場合にこの処理が実行されます。</p>
-        </div>
-    );
-  }
 
-  if (isConnectionError) {
-    return <ConnectionError onRetry={fetchData} />;
+  if (isCredentialsModalOpen && !isSetupError) {
+    return <SupabaseCredentialsModal onSave={handleSaveCredentials} onShowSetup={() => setIsSetupError(true)} />;
   }
   
   if (isSetupError) {
     return <DatabaseSetupInstructionsModal onRetry={fetchData} />;
   }
 
-  if (!currentUser) {
-    return <LoginPage />;
-  }
-
   return (
     <div className="flex h-screen bg-slate-100 dark:bg-slate-900 font-sans">
-      <Sidebar currentPage={currentPage} onNavigate={handleNavigate} currentUser={currentUser} onLogout={handleLogout} />
+      <Sidebar 
+        currentPage={currentPage} 
+        onNavigate={handleNavigate} 
+        currentUser={currentUser} 
+        allUsers={allUsers}
+        onUserChange={setCurrentUser}
+      />
       <main className="flex-1 flex flex-col overflow-y-auto">
         <div className="p-8 flex-1 flex flex-col">
           <Header title={pageTitles[currentPage]} primaryAction={primaryAction} search={search} />

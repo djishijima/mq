@@ -126,7 +126,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ addToast }) => {
                             className="w-32 flex items-center justify-center gap-2 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 disabled:bg-slate-400"
                         >
                             {isSaving ? <Loader className="w-5 h-5 animate-spin"/> : <Save className="w-5 h-5" />}
-                            <span>{isSaving ? '保存中...' : '保存'}</span>
+                            <span>{isSaving ? '保存中...' : '設定を保存'}</span>
                         </button>
                     </div>
                 </div>

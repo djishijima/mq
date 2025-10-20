@@ -1,7 +1,6 @@
-
 import React, { useState, useMemo } from 'react';
 import { Customer, SortConfig, Toast, User } from '../types';
-import { Pencil, Eye, Mail, Lightbulb, Users, Loader } from './Icons';
+import { Pencil, Eye, Mail, Lightbulb, Users, PlusCircle, Loader } from './Icons';
 import EmptyState from './ui/EmptyState';
 import SortableHeader from './ui/SortableHeader';
 import { generateSalesEmail } from '../services/geminiService';
@@ -14,9 +13,10 @@ interface CustomerListProps {
   onAnalyzeCustomer: (customer: Customer) => void;
   addToast: (message: string, type: Toast['type']) => void;
   currentUser: User | null;
+  onNewCustomer: () => void;
 }
 
-const CustomerList: React.FC<CustomerListProps> = ({ customers, searchTerm, onSelectCustomer, onEditCustomer, onAnalyzeCustomer, addToast, currentUser }) => {
+const CustomerList: React.FC<CustomerListProps> = ({ customers, searchTerm, onSelectCustomer, onEditCustomer, onAnalyzeCustomer, addToast, currentUser, onNewCustomer }) => {
   const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'customerName', direction: 'ascending' });
   const [isGeneratingEmail, setIsGeneratingEmail] = useState<string | null>(null);
 
@@ -80,7 +80,7 @@ const CustomerList: React.FC<CustomerListProps> = ({ customers, searchTerm, onSe
   };
   
   if (customers.length === 0 && !searchTerm) {
-      return <EmptyState icon={Users} title="顧客が登録されていません" message="最初の顧客を登録して、取引を開始しましょう。" />;
+      return <EmptyState icon={Users} title="顧客が登録されていません" message="最初の顧客を登録して、取引を開始しましょう。" action={{ label: "新規顧客登録", onClick: onNewCustomer, icon: PlusCircle }} />;
   }
 
   return (

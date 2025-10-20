@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import ExpenseReimbursementForm from './forms/ExpenseReimbursementForm';
 import TransportExpenseForm from './forms/TransportExpenseForm';
@@ -8,7 +9,8 @@ import ApplicationList from './ApplicationList';
 // FIX: Import getApplicationCodes and ApplicationCode type.
 import { getApplications, getApplicationCodes } from '../services/dataService';
 // FIX: Import User type.
-import { ApplicationWithDetails, ApplicationCode, User } from '../types';
+// FIX: Import Toast type to use in addToast prop.
+import { ApplicationWithDetails, ApplicationCode, User, Toast } from '../types';
 import { Loader, PlusCircle } from './Icons';
 
 type FormType = 'expense' | 'transport' | 'leave' | 'approval' | 'daily_report' | 'weekly_report';
@@ -26,9 +28,11 @@ interface BusinessSupportPageProps {
     isDemoMode: boolean;
     // FIX: Add currentUser prop.
     currentUser: User | null;
+    // FIX: Add addToast prop to pass to child components.
+    addToast: (message: string, type: Toast['type']) => void;
 }
 
-const BusinessSupportPage: React.FC<BusinessSupportPageProps> = ({ isDemoMode, currentUser }) => {
+const BusinessSupportPage: React.FC<BusinessSupportPageProps> = ({ isDemoMode, currentUser, addToast }) => {
     const [view, setView] = useState<'list' | 'form'>('list');
     const [activeCategory, setActiveCategory] = useState(NAV_ITEMS[0]);
     const [applications, setApplications] = useState<ApplicationWithDetails[]>([]);
@@ -91,10 +95,12 @@ const BusinessSupportPage: React.FC<BusinessSupportPageProps> = ({ isDemoMode, c
 
         // FIX: Create formProps with the required applicationCodeId. isDemoMode is not needed by the forms.
         // FIX: Pass currentUser to form components.
+        // FIX: Pass addToast prop to satisfy DailyReportFormProps.
         const formProps = {
             onSuccess: handleFormSuccess,
             applicationCodeId: activeApplicationCode.id,
             currentUser,
+            addToast,
         };
         switch (activeCategory.id) {
             case 'expense': return <ExpenseReimbursementForm {...formProps} />;

@@ -1,15 +1,17 @@
 
 import React, { useState } from 'react';
 import { submitApplication } from '../../services/dataService';
+import { generateDailyReportSummary } from '../../services/geminiService';
 import ApprovalRouteSelector from './ApprovalRouteSelector';
 import { Loader, Sparkles } from '../Icons';
-import { User } from '../../types';
+import { User, Toast } from '../../types';
 import ChatApplicationModal from '../ChatApplicationModal';
 
 interface DailyReportFormProps {
     onSuccess: () => void;
     applicationCodeId: string;
     currentUser: User | null;
+    addToast: (message: string, type: Toast['type']) => void;
 }
 
 interface DailyReportData {
@@ -21,7 +23,7 @@ interface DailyReportData {
     nextDayPlan: string;
 }
 
-const DailyReportForm: React.FC<DailyReportFormProps> = ({ onSuccess, applicationCodeId, currentUser }) => {
+const DailyReportForm: React.FC<DailyReportFormProps> = ({ onSuccess, applicationCodeId, currentUser, addToast }) => {
     const [formData, setFormData] = useState<DailyReportData>({
         reportDate: new Date().toISOString().split('T')[0],
         startTime: '09:00',
@@ -32,12 +34,31 @@ const DailyReportForm: React.FC<DailyReportFormProps> = ({ onSuccess, applicatio
     });
     const [approvalRouteId, setApprovalRouteId] = useState<string>('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isSummaryLoading, setIsSummaryLoading] = useState(false);
     const [error, setError] = useState('');
     const [isChatModalOpen, setIsChatModalOpen] = useState(false);
     
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleGenerateSummary = async () => {
+        if (!formData.customerName && !formData.activityContent) {
+            addToast('AIが下書きを作成するために、顧客名または活動内容のキーワードを入力してください。', 'info');
+            return;
+        }
+        setIsSummaryLoading(true);
+        try {
+            const summary = await generateDailyReportSummary(formData.customerName, formData.activityContent);
+            setFormData(prev => ({ ...prev, activityContent: summary }));
+            addToast('AIが活動内容の下書きを作成しました。', 'success');
+        } catch (e) {
+            const errorMessage = e instanceof Error ? e.message : '不明なエラーが発生しました。';
+            addToast(errorMessage, 'error');
+        } finally {
+            setIsSummaryLoading(false);
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -104,8 +125,19 @@ const DailyReportForm: React.FC<DailyReportFormProps> = ({ onSuccess, applicatio
 
 
                 <div>
-                    <label htmlFor="activityContent" className={labelClass}>活動内容 *</label>
-                    <textarea id="activityContent" name="activityContent" rows={8} value={formData.activityContent} onChange={handleChange} className={inputClass} required disabled={isSubmitting} placeholder="本日の業務内容、進捗、課題などを具体的に記述してください。" />
+                    <div className="flex justify-between items-center mb-1">
+                        <label htmlFor="activityContent" className={labelClass}>活動内容 *</label>
+                        <button
+                            type="button"
+                            onClick={handleGenerateSummary}
+                            disabled={isSummaryLoading || isSubmitting}
+                            className="flex items-center gap-1.5 text-sm font-semibold text-purple-600 hover:text-purple-700 disabled:opacity-50"
+                        >
+                            {isSummaryLoading ? <Loader className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                            AIで下書きを作成
+                        </button>
+                    </div>
+                    <textarea id="activityContent" name="activityContent" rows={8} value={formData.activityContent} onChange={handleChange} className={inputClass} required disabled={isSubmitting} placeholder="本日の業務内容、進捗、課題などを具体的に記述してください。または、キーワードを入力してAIに下書き作成を依頼してください。" />
                 </div>
                 
                 <div>

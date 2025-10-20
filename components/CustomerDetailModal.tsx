@@ -24,16 +24,6 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ customer, mod
     const [error, setError] = useState('');
     const [activeTab, setActiveTab] = useState(TABS[0].id);
 
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                onClose();
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onClose]);
-
     const formatDateForInput = (dateString: string | null | undefined) => {
         if (!dateString) return '';
         try {

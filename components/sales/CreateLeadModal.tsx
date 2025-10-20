@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Lead, LeadStatus } from '../../types';
 import { Loader, X, Save } from '../Icons';
 import { INQUIRY_TYPES } from '../../constants';
@@ -22,19 +22,6 @@ const CreateLeadModal: React.FC<CreateLeadModalProps> = ({ isOpen, onClose, onAd
   });
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 

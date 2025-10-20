@@ -1,5 +1,7 @@
 
+
 import React, { useState, useEffect } from 'react';
+// FIX: Import ConfirmationDialogProps to use the custom confirmation dialog.
 import { Job, JobStatus, InvoiceStatus, ConfirmationDialogProps } from '../types';
 import { PAPER_TYPES, FINISHING_OPTIONS } from '../constants';
 import { X, Pencil, Save, Loader, Trash2 } from './Icons';
@@ -11,6 +13,7 @@ interface JobDetailModalProps {
   onClose: () => void;
   onUpdateJob: (jobId: string, updatedData: Partial<Job>) => Promise<void>;
   onDeleteJob: (jobId: string) => Promise<void>;
+  // FIX: Add requestConfirmation prop to enable the custom confirmation dialog.
   requestConfirmation: (dialog: Omit<ConfirmationDialogProps, 'isOpen' | 'onClose'>) => void;
 }
 
@@ -26,19 +29,6 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, isOpen, onClose, o
     }
   }, [job]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isOpen, onClose]);
-
   if (!isOpen || !job) return null;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -53,6 +43,7 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, isOpen, onClose, o
     setIsEditing(false);
   };
 
+  // FIX: Use the requestConfirmation prop for a consistent and safer delete confirmation UX.
   const handleDelete = () => {
     requestConfirmation({
         title: '案件を削除',

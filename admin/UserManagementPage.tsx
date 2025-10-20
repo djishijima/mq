@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { User, Toast } from '../../types';
 import { getUsers, addUser, updateUser, deleteUser } from '../../services/dataService';
@@ -10,15 +11,18 @@ const UserModal: React.FC<{
     onClose: () => void;
     onSave: (user: Partial<User>) => Promise<void>;
 }> = ({ user, onClose, onSave }) => {
+    // FIX: Add email state to collect user's email address.
     const [name, setName] = useState(user?.name || '');
+    const [email, setEmail] = useState(user?.email || '');
     const [role, setRole] = useState<'admin' | 'user'>(user?.role || 'user');
     const [isSaving, setIsSaving] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!name) return;
+        // FIX: Add email to the validation and save payload.
+        if (!name || !email) return;
         setIsSaving(true);
-        await onSave({ ...user, name, role });
+        await onSave({ ...user, name, email, role });
         setIsSaving(false);
     };
 
@@ -33,6 +37,11 @@ const UserModal: React.FC<{
                     <div>
                         <label htmlFor="name" className="block text-sm font-medium mb-1">氏名</label>
                         <input id="name" type="text" value={name} onChange={e => setName(e.target.value)} required className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg p-2.5" />
+                    </div>
+                    {/* FIX: Add email input field to the modal form. */}
+                    <div>
+                        <label htmlFor="email" className="block text-sm font-medium mb-1">メールアドレス</label>
+                        <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg p-2.5" />
                     </div>
                     <div>
                         <label htmlFor="role" className="block text-sm font-medium mb-1">役割</label>
@@ -97,7 +106,8 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ addToast }) => 
                 await updateUser(userData.id, userData);
                 addToast('ユーザー情報が更新されました。', 'success');
             } else {
-                await addUser({ name: userData.name || '', role: userData.role || 'user' });
+                // FIX: Add missing 'email' property to the object passed to 'addUser' to satisfy the function's signature.
+                await addUser({ name: userData.name || '', email: userData.email || null, role: userData.role || 'user' });
                 addToast('新規ユーザーが追加されました。', 'success');
             }
             await loadUsers();

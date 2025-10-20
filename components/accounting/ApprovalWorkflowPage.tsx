@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useMemo } from 'react';
 import ApplicationList from '../ApplicationList';
 import ApplicationDetailModal from '../ApplicationDetailModal';
@@ -164,11 +163,7 @@ const ApprovalWorkflowPage: React.FC<ApprovalWorkflowPageProps> = ({ currentUser
             return <div className="text-center p-8"><Loader className="w-8 h-8 mx-auto animate-spin" /></div>;
         }
 
-        const activeApplicationCode = applicationCodes.find(c =>
-            c.code === formCode ||
-            (formCode === 'APL' && c.code === 'NOC') ||
-            (formCode === 'DLY' && c.code === 'DRP')
-        );
+        const activeApplicationCode = applicationCodes.find(c => c.code === formCode);
 
         if (!activeApplicationCode || !currentUser) {
             return <div className="bg-red-100 text-red-700 p-4 rounded-md">エラー: 申請フォームを読み込めませんでした。</div>;
@@ -178,14 +173,15 @@ const ApprovalWorkflowPage: React.FC<ApprovalWorkflowPageProps> = ({ currentUser
             onSuccess: handleFormSuccess,
             applicationCodeId: activeApplicationCode.id,
             currentUser: currentUser,
+            addToast: addToast,
         };
 
         switch(activeApplicationCode.code) {
             case 'EXP': return <ExpenseReimbursementForm {...formProps} />;
             case 'TRP': return <TransportExpenseForm {...formProps} />;
             case 'LEV': return <LeaveApplicationForm {...formProps} />;
-            case 'APL': case 'NOC': return <ApprovalForm {...formProps} />;
-            case 'DLY': case 'DRP': return <DailyReportForm {...formProps} />;
+            case 'APL': return <ApprovalForm {...formProps} />;
+            case 'DLY': return <DailyReportForm {...formProps} />;
             case 'WKR': return <WeeklyReportForm {...formProps} />;
             default: return <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-sm text-center">フォームが見つかりません。</div>;
         }

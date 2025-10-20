@@ -1,13 +1,13 @@
 
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { extractInvoiceDetails } from '../services/geminiService';
 import { getInboxItems, addInboxItem, updateInboxItem, deleteInboxItem, uploadToInbox } from '../services/dataService';
-import { InboxItem, InvoiceData, InboxItemStatus, Toast, ConfirmationDialogProps, BankStatementTransaction } from '../types';
+import { InboxItem, InvoiceData, InboxItemStatus, Toast, ConfirmationDialogProps } from '../types';
 import { Upload, Loader, X, CheckCircle, Save, Trash2, AlertTriangle, RefreshCw } from './Icons';
 
 interface InvoiceOCRProps {
-    onSaveExpenses: (data: InvoiceData, inboxItemId: string) => Promise<void>;
-    onProcessBankStatement: (transactions: BankStatementTransaction[], inboxItemId: string) => Promise<void>;
+    onSaveExpenses: (data: InvoiceData) => void;
     addToast: (message: string, type: Toast['type']) => void;
     requestConfirmation: (dialog: Omit<ConfirmationDialogProps, 'isOpen' | 'onClose'>) => void;
 }
@@ -45,7 +45,7 @@ const InboxItemCard: React.FC<{
     onApprove: (item: InboxItem) => Promise<void>;
     requestConfirmation: (dialog: Omit<ConfirmationDialogProps, 'isOpen' | 'onClose'>) => void;
 }> = ({ item, onUpdate, onDelete, onApprove, requestConfirmation }) => {
-    const [localData, setLocalData] = useState<InvoiceData | BankStatementTransaction[] | null>(item.extractedData);
+    const [localData, setLocalData] = useState<InvoiceData | null>(item.extractedData);
     const [isSaving, setIsSaving] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isApproving, setIsApproving] = useState(false);
@@ -55,7 +55,7 @@ const InboxItemCard: React.FC<{
     }, [item.extractedData]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        if (!localData || Array.isArray(localData)) return;
+        if (!localData) return;
         const { name, value } = e.target;
         setLocalData({
             ...localData,
@@ -121,21 +121,15 @@ const InboxItemCard: React.FC<{
                     </div>
                     {item.status === 'processing' && <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-700/50 rounded-lg"><Loader className="w-8 h-8 animate-spin text-blue-500" /><p className="mt-2 text-slate-500">AIが解析中...</p></div>}
                     {item.status === 'error' && <div className="flex-1 flex flex-col items-center justify-center bg-red-50 dark:bg-red-900/30 rounded-lg p-4"><AlertTriangle className="w-8 h-8 text-red-500" /><p className="mt-2 text-red-700 dark:text-red-300 font-semibold">解析エラー</p><p className="text-sm text-red-600 dark:text-red-400 mt-1 text-center">{item.errorMessage}</p></div>}
-                    {localData && !Array.isArray(localData) && (
+                    {localData && (
                         <div className="space-y-3">
                              <div>
                                 <label htmlFor={`vendorName-${item.id}`} className="text-sm font-medium text-slate-600 dark:text-slate-300">発行元</label>
                                 <input id={`vendorName-${item.id}`} name="vendorName" type="text" value={localData.vendorName} onChange={handleChange} placeholder="発行元" className={inputClass} readOnly={item.status === 'approved'} />
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label htmlFor={`invoiceDate-${item.id}`} className="text-sm font-medium text-slate-600 dark:text-slate-300">発行日</label>
-                                    <input id={`invoiceDate-${item.id}`} name="invoiceDate" type="date" value={localData.invoiceDate} onChange={handleChange} placeholder="発行日" className={inputClass} readOnly={item.status === 'approved'} />
-                                </div>
-                                <div>
-                                    <label htmlFor={`dueDate-${item.id}`} className="text-sm font-medium text-slate-600 dark:text-slate-300">支払期日</label>
-                                    <input id={`dueDate-${item.id}`} name="dueDate" type="date" value={localData.dueDate || ''} onChange={handleChange} placeholder="支払期日" className={inputClass} readOnly={item.status === 'approved'} />
-                                </div>
+                            <div>
+                                <label htmlFor={`invoiceDate-${item.id}`} className="text-sm font-medium text-slate-600 dark:text-slate-300">発行日</label>
+                                <input id={`invoiceDate-${item.id}`} name="invoiceDate" type="date" value={localData.invoiceDate} onChange={handleChange} placeholder="発行日" className={inputClass} readOnly={item.status === 'approved'} />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
@@ -168,7 +162,7 @@ const InboxItemCard: React.FC<{
     );
 };
 
-const InvoiceOCR: React.FC<InvoiceOCRProps> = ({ onSaveExpenses, onProcessBankStatement, addToast, requestConfirmation }) => {
+const InvoiceOCR: React.FC<InvoiceOCRProps> = ({ onSaveExpenses, addToast, requestConfirmation }) => {
     const [items, setItems] = useState<InboxItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isUploading, setIsUploading] = useState(false);
@@ -202,13 +196,11 @@ const InvoiceOCR: React.FC<InvoiceOCRProps> = ({ onSaveExpenses, onProcessBankSt
     };
 
     const processFile = async (file: File) => {
-        // FIX: Add missing 'docType' property to fix TypeScript error.
         let tempItem: Omit<InboxItem, 'id' | 'createdAt' | 'fileUrl'> = {
             fileName: file.name,
             filePath: '',
             mimeType: file.type,
             status: 'processing',
-            docType: 'unknown',
             extractedData: null,
             errorMessage: null,
         };
@@ -224,8 +216,6 @@ const InvoiceOCR: React.FC<InvoiceOCRProps> = ({ onSaveExpenses, onProcessBankSt
             const data = await extractInvoiceDetails(base64String, file.type);
             tempItem.extractedData = data;
             tempItem.status = 'pending_review';
-            // FIX: Set docType to 'invoice' after successful extraction.
-            tempItem.docType = 'invoice';
 
         } catch (err: any) {
             tempItem.status = 'error';
@@ -260,17 +250,9 @@ const InvoiceOCR: React.FC<InvoiceOCRProps> = ({ onSaveExpenses, onProcessBankSt
     
     const handleApproveItem = async (itemToApprove: InboxItem) => {
         if (!itemToApprove.extractedData) return;
-
         try {
-            if (itemToApprove.docType === 'invoice' && !Array.isArray(itemToApprove.extractedData)) {
-                await onSaveExpenses(itemToApprove.extractedData, itemToApprove.id);
-            } else if (itemToApprove.docType === 'bank_statement' && Array.isArray(itemToApprove.extractedData)) {
-                await onProcessBankStatement(itemToApprove.extractedData, itemToApprove.id);
-            } else {
-                throw new Error('未対応のドキュメントタイプです。');
-            }
-            // Optimization: Instead of reloading the whole list, just remove the approved item from the local state.
-            setItems(prev => prev.filter(i => i.id !== itemToApprove.id));
+            onSaveExpenses(itemToApprove.extractedData);
+            await handleUpdateItem(itemToApprove.id, { status: 'approved' });
         } catch (err: any) {
             addToast(`承認処理に失敗しました: ${err.message}`, 'error');
         }

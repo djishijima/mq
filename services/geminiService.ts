@@ -1,7 +1,5 @@
-
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
-// FIX: Import JobStatus enum.
-import { AISuggestions, Customer, CompanyAnalysis, InvoiceData, AIJournalSuggestion, User, ApplicationCode, Estimate, EstimateItem, Lead, ApprovalRoute, Job, JobStatus, LeadStatus } from '../types';
+import { AISuggestions, Customer, CompanyAnalysis, InvoiceData, AIJournalSuggestion, User, ApplicationCode, Estimate, EstimateItem, Lead, ApprovalRoute, Job, LeadStatus, LeadScore, JournalEntry } from '../types';
 
 const API_KEY = process.env.API_KEY;
 
@@ -10,6 +8,7 @@ if (!API_KEY) {
 }
 
 const ai = new GoogleGenAI({ apiKey: API_KEY! });
+
 const model = "gemini-2.5-flash";
 
 const suggestJobSchema = {
@@ -69,7 +68,7 @@ export const suggestJobParameters = async (prompt: string, paperTypes: string[],
       },
     });
 
-    const jsonText = response.text;
+    const jsonText = response.text.trim();
     const parsedJson = JSON.parse(jsonText);
 
     return parsedJson as AISuggestions;
@@ -132,7 +131,7 @@ export const draftEstimate = async (prompt: string): Promise<Partial<Estimate>> 
             },
         });
         
-        const jsonText = response.text;
+        const jsonText = response.text.trim();
         return JSON.parse(jsonText) as Partial<Estimate>;
 
     } catch (error) {
@@ -147,7 +146,6 @@ const extractInvoiceSchema = {
   properties: {
     vendorName: { type: Type.STRING, description: "請求書の発行元企業名または個人名。" },
     invoiceDate: { type: Type.STRING, description: "請求書の発行日 (YYYY-MM-DD形式)。" },
-    dueDate: { type: Type.STRING, description: "支払期日 (YYYY-MM-DD形式)。" },
     totalAmount: { type: Type.NUMBER, description: "請求書の合計金額。" },
     description: { type: Type.STRING, description: "請求内容の概要。品目やサービス内容を簡潔にまとめる。" },
     costType: { type: Type.STRING, description: "費用の種類を推測する。変動費なら'V'、固定費なら'F'。", enum: ['V', 'F'] },
@@ -155,13 +153,13 @@ const extractInvoiceSchema = {
     relatedCustomer: { type: Type.STRING, description: "関連する顧客名。もしあれば。" },
     project: { type: Type.STRING, description: "関連するプロジェクト名。もしあれば。" },
   },
-  required: ["vendorName", "invoiceDate", "dueDate", "totalAmount", "description", "costType", "account"],
+  required: ["vendorName", "invoiceDate", "totalAmount", "description", "costType", "account"],
 };
 
 export const extractInvoiceDetails = async (base64Image: string, mimeType: string): Promise<InvoiceData> => {
   try {
     const imagePart = { inlineData: { data: base64Image, mimeType } };
-    const textPart = { text: `添付された画像から請求書情報を抽出し、JSON形式で返してください。特に発行元、発行日、支払期日、合計金額、内容、そして費用が変動費(V)か固定費(F)かを推測してください。また、摘要から勘定科目を推測してください。` };
+    const textPart = { text: `添付された画像から請求書情報を抽出し、JSON形式で返してください。特に発行元、発行日、合計金額、内容、そして費用が変動費(V)か固定費(F)かを推測してください。また、摘要から勘定科目を推測してください。` };
 
     const response = await ai.models.generateContent({
       model: model,
@@ -172,13 +170,12 @@ export const extractInvoiceDetails = async (base64Image: string, mimeType: strin
       },
     });
 
-    const jsonText = response.text;
+    const jsonText = response.text.trim();
     const parsed = JSON.parse(jsonText);
 
     return {
       vendorName: parsed.vendorName || '',
       invoiceDate: parsed.invoiceDate || '',
-      dueDate: parsed.dueDate || '',
       totalAmount: parsed.totalAmount || 0,
       description: parsed.description || '',
       costType: parsed.costType || 'V',
@@ -194,31 +191,20 @@ export const extractInvoiceDetails = async (base64Image: string, mimeType: strin
 };
 
 
-const suggestFullJournalEntrySchema = {
+const suggestJournalSchema = {
   type: Type.OBJECT,
   properties: {
-    entries: {
-      type: Type.ARRAY,
-      description: "貸借が一致する一対の仕訳リスト。借方合計と貸方合計は必ず一致させること。",
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          account: { type: Type.STRING, description: "この仕訳行の勘定科目。例: '消耗品費', '現金'" },
-          description: { type: Type.STRING, description: "取引の簡潔な説明（摘要）。すべての行で同じ摘要を共有することが多い。" },
-          debit: { type: Type.NUMBER, description: "借方金額。貸方の場合は0。" },
-          credit: { type: Type.NUMBER, description: "貸方金額。借方の場合は0。" },
-        },
-        required: ["account", "description", "debit", "credit"],
-      }
-    }
+    account: { type: Type.STRING, description: "取引に最も適した勘定科目。" },
+    description: { type: Type.STRING, description: "取引の簡潔な説明（摘要）。" },
+    debit: { type: Type.NUMBER, description: "借方金額。貸方の場合は0。" },
+    credit: { type: Type.NUMBER, description: "貸方金額。借方の場合は0。" },
   },
-  required: ["entries"],
+  required: ["account", "description", "debit", "credit"],
 };
 
-export const suggestFullJournalEntry = async (prompt: string): Promise<{ entries: AIJournalSuggestion[] }> => {
+export const suggestJournalEntry = async (prompt: string): Promise<AIJournalSuggestion> => {
   try {
-    const fullPrompt = `あなたは経験豊富な経理担当者です。以下のユーザーの自然言語入力に基づいて、貸借が一致する一対（または複数）の仕訳を提案してください。
-    例えば、「現金で事務用品を10000円購入」という入力に対しては、借方に「消耗品費 10000円」、貸方に「現金 10000円」という一対の仕訳を生成します。
+    const fullPrompt = `以下のユーザーの自然言語入力に基づいて、単一の仕訳エントリを提案してください。借方と貸方のどちらか一方のみに金額が入るようにしてください。
     ユーザー入力: "${prompt}"`;
     
     const response = await ai.models.generateContent({
@@ -226,18 +212,14 @@ export const suggestFullJournalEntry = async (prompt: string): Promise<{ entries
       contents: fullPrompt,
       config: {
         responseMimeType: "application/json",
-        responseSchema: suggestFullJournalEntrySchema,
+        responseSchema: suggestJournalSchema,
       },
     });
 
-    const jsonText = response.text;
-    const result = JSON.parse(jsonText);
-    if (!result.entries || !Array.isArray(result.entries)) {
-        throw new Error("AIからのレスポンス形式が正しくありません。");
-    }
-    return result;
+    const jsonText = response.text.trim();
+    return JSON.parse(jsonText) as AIJournalSuggestion;
   } catch (error) {
-    console.error("Error calling Gemini API for full journal entry:", error);
+    console.error("Error calling Gemini API for journal entry:", error);
     throw new Error("AIによる仕訳提案の取得に失敗しました。");
   }
 };
@@ -288,7 +270,7 @@ export const analyzeCompany = async (customer: Customer): Promise<CompanyAnalysi
             },
         });
 
-        const jsonText = response.text;
+        const jsonText = response.text.trim();
         return JSON.parse(jsonText) as CompanyAnalysis;
     } catch (error) {
         console.error("Error calling Gemini API for company analysis:", error);
@@ -350,7 +332,7 @@ export const generateSalesEmail = async (customer: Customer, userName: string): 
             },
         });
 
-        const jsonText = response.text;
+        const jsonText = response.text.trim();
         return JSON.parse(jsonText);
     } catch (error) {
         console.error("Error calling Gemini API for sales email:", error);
@@ -405,7 +387,7 @@ export const generateLeadReplyEmail = async (lead: Lead, userName: string): Prom
             },
         });
 
-        const jsonText = response.text;
+        const jsonText = response.text.trim();
         return JSON.parse(jsonText);
     } catch (error) {
         console.error("Error calling Gemini API for lead reply email:", error);
@@ -472,19 +454,15 @@ const dashboardSuggestionSchema = {
 export const getDashboardSuggestion = async (jobs: Job[]): Promise<string> => {
   try {
     const today = new Date();
-    const overdueJobs = jobs.filter(j => j.status !== JobStatus.Completed && new Date(j.dueDate) < today).length;
+    const overdueJobs = jobs.filter(j => j.status !== '完了' && new Date(j.dueDate) < today).length;
     const highMarginJobs = jobs.filter(j => (j.price - j.variableCost) > 100000).length;
 
     const prompt = `あなたは経営コンサルタントAIです。以下のサマリーデータに基づき、印刷会社の経営者へ簡潔で具体的な行動指示を一つ提案してください。150文字以内で、日本語でお願いします。
 
-### データ
-- 期限切れの未完了案件: ${overdueJobs}件
-- 限界利益が10万円を超える高利益案件: ${highMarginJobs}件
-
-### 指示
-- 上記のデータの中から、最も重要と思われる項目を1つ選び、具体的なアクションを促す提案を作成してください。
-- 例えば、「期限切れの案件が3件あります。すぐに対応を検討してください。」のように、必ず具体的な数値を含めてください。
-- もし特筆すべき事項がなければ、「現在、対応が必要な緊急の案件はありません。」と返してください。`;
+    - 期限切れの未完了案件: ${overdueJobs}件
+    - 限界利益が10万円を超える高利益案件: ${highMarginJobs}件
+    
+    例:「期限切れの案件が${overdueJobs}件あります。すぐに対応を検討してください。」 or 「高利益案件が${highMarginJobs}件あります。優先して生産計画を立てましょう。」`;
 
     const response = await ai.models.generateContent({
       model: model,
@@ -495,7 +473,7 @@ export const getDashboardSuggestion = async (jobs: Job[]): Promise<string> => {
       },
     });
 
-    const jsonText = response.text;
+    const jsonText = response.text.trim();
     const parsed = JSON.parse(jsonText);
     return parsed.suggestion || "現在、特別な指示はありません。";
   } catch (error) {
@@ -530,7 +508,7 @@ export const analyzeLeadData = async (leads: Lead[]): Promise<string> => {
     const untouchedLeads = statusCounts[LeadStatus.Untouched] || 0;
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const staleUntouchedLeads = leads.filter(
-      l => l.status === LeadStatus.Untouched && new Date(l.createdAt) < sevenDaysAgo
+      l => l.status === LeadStatus.Untouched && new Date(l.created_at) < sevenDaysAgo
     ).length;
 
     const prompt = `あなたは優秀な営業マネージャーです。以下のリードデータサマリーに基づき、営業チームへの簡潔で具体的なアクションにつながる分析コメントを一つ提案してください。200文字以内で、日本語でお願いします。
@@ -555,11 +533,201 @@ export const analyzeLeadData = async (leads: Lead[]): Promise<string> => {
       },
     });
 
-    const jsonText = response.text;
+    const jsonText = response.text.trim();
     const parsed = JSON.parse(jsonText);
     return parsed.suggestion || "データから特別な提案は見つかりませんでした。";
   } catch (error) {
     console.error("Error calling Gemini API for lead analysis:", error);
     return "AIによる分析に失敗しました。";
   }
+};
+
+const leadScoringSchema = {
+  type: Type.OBJECT,
+  properties: {
+    score: {
+      type: Type.INTEGER,
+      description: "A lead score from 0 to 100, where 100 is the highest quality lead.",
+    },
+    rationale: {
+      type: Type.STRING,
+      description: "A brief, bulleted explanation of why this score was given, based on the lead's data. Must be in Japanese.",
+    },
+  },
+  required: ["score", "rationale"],
+};
+
+export const scoreLead = async (lead: Lead): Promise<LeadScore> => {
+  try {
+    const prompt = `
+    あなたは印刷会社の営業支援AIです。以下のリード情報に基づいて、リードスコアリングを行ってください。
+    スコアは0から100点で評価し、100点が最も成約確度の高いリードです。
+    スコアリングの理由も簡潔な箇条書きで説明してください。
+
+    ### リードスコアリングの評価基準
+    - **高評価 (+)**:
+        - 問い合わせ種別が「見積依頼」「デモ依頼」「導入相談」。
+        - メッセージに「至急」「予算」「具体的納期」などの緊急性や具体性を示すキーワードが含まれる。
+        - ソースが「紹介」。
+        - 企業情報（従業員数、予算など）が具体的。
+    - **中評価 (+/-)**:
+        - 問い合わせ種別が「サービスに関する質問」「価格に関する問い合わせ」。
+        - Webサイトからの流入で、特定のキャンペーン(UTM)情報がある。
+    - **低評価 (-)**:
+        - 問い合わせ種別が「資料請求」「その他」。
+        - メッセージが非常に短い、または曖昧。
+        - ソースが不明または一般的なWeb検索。
+
+    ### リード情報
+    - 会社名: ${lead.company}
+    - 担当者名: ${lead.name}
+    - ステータス: ${lead.status}
+    - ソース: ${lead.source || '不明'}
+    - 問い合わせ種別: ${lead.inquiry_types?.join(', ') || lead.inquiry_type || '不明'}
+    - メッセージ: ${lead.message || 'なし'}
+    - 従業員数: ${lead.employees || '不明'}
+    - 予算感: ${lead.budget || '不明'}
+    - UTMキャンペーン: ${lead.utm_campaign || 'なし'}
+
+    上記の情報と評価基準を総合的に判断し、スコアと理由をJSON形式で返してください。
+    `;
+
+    const response = await ai.models.generateContent({
+      model: model,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: leadScoringSchema,
+      },
+    });
+
+    const jsonText = response.text.trim();
+    const parsed = JSON.parse(jsonText);
+    
+    // Ensure score is within range
+    parsed.score = Math.max(0, Math.min(100, parsed.score || 0));
+
+    return parsed as LeadScore;
+
+  } catch (error) {
+    console.error("Error calling Gemini API for lead scoring:", error);
+    // Return a default low score on error
+    return {
+        score: 0,
+        rationale: "AIによるスコアリング中にエラーが発生しました。"
+    };
+  }
+};
+
+export const generateDailyReportSummary = async (customerName: string, activityKeywords: string): Promise<string> => {
+    try {
+        const prompt = `
+        あなたは優秀な営業担当者です。以下の情報に基づいて、簡潔でプロフェッショナルな営業日報の「活動内容」を作成してください。
+        箇条書きなどを用いて、分かりやすくまとめてください。
+
+        ### 情報
+        - 訪問先・顧客名: ${customerName}
+        - 活動内容のキーワード: ${activityKeywords}
+
+        ### 作成例
+        **訪問先:** 株式会社ABC商事
+        **活動内容:**
+        - 新製品「MQ-Solver X」のデモンストレーションを実施。
+        - 担当の佐藤部長より、現行システムの課題（コスト、処理速度）についてヒアリング。
+        - 次回、具体的な導入効果を試算した提案書を持参する約束を取り付けた。
+        - 課題：競合のXYZ社も同様の提案をしている模様。価格面での優位性もアピールする必要がある。
+        `;
+        
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: prompt,
+        });
+
+        return response.text.trim();
+    } catch (error) {
+        console.error("Error calling Gemini API for daily report summary:", error);
+        throw new Error("AIによる日報の要約作成に失敗しました。");
+    }
+};
+
+export const generateWeeklyReportSummary = async (keywords: string): Promise<string> => {
+    try {
+        const prompt = `
+        あなたは優秀なビジネスパーソンです。以下のキーワードに基づいて、今週の業務内容をまとめたプロフェッショナルな週報を作成してください。
+        「今週の成果」「課題」「来週の予定」といったセクションに分けて、箇条書きで分かりやすく記述してください。
+
+        ### 今週の活動キーワード
+        ${keywords}
+
+        ### 作成例
+        **今週の成果:**
+        - 株式会社ABC商事様より、新製品「MQ-Solver X」を正式受注（受注額: 500万円）。
+        - 新規リード5件獲得。うち2件は見積提出済み。
+
+        **課題と対策:**
+        - Dプロジェクトの進捗に遅れが発生。原因は資材の納期遅延。
+        - 対策として、代替サプライヤーと交渉を開始。来週水曜日までには結論を出す予定。
+
+        **来週の予定:**
+        - 株式会社XYZ様へ最終提案（月曜日）
+        - Eプロジェクトのキックオフミーティング（水曜日）
+        - チーム内週次レビュー（金曜日）
+        `;
+        
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: prompt,
+        });
+
+        return response.text.trim();
+    } catch (error) {
+        console.error("Error calling Gemini API for weekly report summary:", error);
+        throw new Error("AIによる週報の要約作成に失敗しました。");
+    }
+};
+
+export const generateClosingSummary = async (
+    period: '月次' | '週次',
+    currentJobs: Job[],
+    pastJobs: Job[],
+    currentJournal: JournalEntry[],
+    pastJournal: JournalEntry[]
+): Promise<string> => {
+    try {
+        const currentPQ = currentJobs.reduce((sum, job) => sum + job.price, 0);
+        const currentMQ = currentJobs.reduce((sum, job) => sum + (job.price - job.variableCost), 0);
+        const currentF = currentJournal.reduce((sum, entry) => sum + (entry.debit > entry.credit ? entry.debit - entry.credit : 0), 0);
+
+        const pastPQ = pastJobs.reduce((sum, job) => sum + job.price, 0);
+
+        const prompt = `
+        あなたは会計コンサルタントAIです。以下の${period}の業績データを分析し、経営者向けの簡潔なサマリーレポートを作成してください。
+        箇条書きで分かりやすく、重要なポイントに絞って記述してください。
+
+        ### 今${period}のデータ
+        - 売上高(PQ): ${currentPQ.toLocaleString()}円
+        - 限界利益(MQ): ${currentMQ.toLocaleString()}円
+        - 固定費(F): ${currentF.toLocaleString()}円
+        - 利益(G): ${(currentMQ - currentF).toLocaleString()}円
+
+        ### 前${period}のデータ
+        - 売上高(PQ): ${pastPQ.toLocaleString()}円
+
+        ### レポート作成の指示
+        1.  **業績総括:** 売上高、限界利益、最終的な利益について簡潔に述べてください。
+        2.  **前期間との比較:** 売上高の変動に焦点を当て、増減の理由を推測してください。
+        3.  **特記事項:** 固定費の内訳や、特に利益率の高かった案件など、特筆すべき点があれば指摘してください。
+        4.  **次のアクションへの提案:** 分析結果から、次に取り組むべき課題やアクションを1つ提案してください。
+        `;
+        
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: prompt,
+        });
+
+        return response.text.trim();
+    } catch (error) {
+        console.error("Error calling Gemini API for closing summary:", error);
+        throw new Error("AIによる決算サマリーの生成に失敗しました。");
+    }
 };

@@ -1,7 +1,4 @@
-
-
 import React, { useState, useEffect, useCallback } from 'react';
-// FIX: Import ConfirmationDialogProps to use the custom confirmation dialog.
 import { User, Toast, ConfirmationDialogProps } from '../../types';
 import { getUsers, addUser, updateUser, deleteUser } from '../../services/dataService';
 import { Loader, PlusCircle, X, Save, Trash2, Pencil } from '../Icons';
@@ -12,14 +9,15 @@ const UserModal: React.FC<{
     onSave: (user: Partial<User>) => Promise<void>;
 }> = ({ user, onClose, onSave }) => {
     const [name, setName] = useState(user?.name || '');
+    const [email, setEmail] = useState(user?.email || '');
     const [role, setRole] = useState<'admin' | 'user'>(user?.role || 'user');
     const [isSaving, setIsSaving] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!name) return;
+        if (!name || !email) return;
         setIsSaving(true);
-        await onSave({ ...user, name, role });
+        await onSave({ ...user, name, email, role });
         setIsSaving(false);
     };
 
@@ -34,6 +32,10 @@ const UserModal: React.FC<{
                     <div>
                         <label htmlFor="name" className="block text-sm font-medium mb-1">氏名</label>
                         <input id="name" type="text" value={name} onChange={e => setName(e.target.value)} required className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg p-2.5" />
+                    </div>
+                    <div>
+                        <label htmlFor="email" className="block text-sm font-medium mb-1">メールアドレス</label>
+                        <input id="email" type="email" value={email || ''} onChange={e => setEmail(e.target.value)} required className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg p-2.5" />
                     </div>
                     <div>
                         <label htmlFor="role" className="block text-sm font-medium mb-1">役割</label>
@@ -55,7 +57,6 @@ const UserModal: React.FC<{
     );
 };
 
-// FIX: Add 'requestConfirmation' prop to handle delete confirmations.
 interface UserManagementPageProps {
     addToast: (message: string, type: Toast['type']) => void;
     requestConfirmation: (dialog: Omit<ConfirmationDialogProps, 'isOpen' | 'onClose'>) => void;
@@ -100,7 +101,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ addToast, reque
                 await updateUser(userData.id, userData);
                 addToast('ユーザー情報が更新されました。', 'success');
             } else {
-                await addUser({ name: userData.name || '', role: userData.role || 'user' });
+                await addUser({ name: userData.name || '', email: userData.email || null, role: userData.role || 'user' });
                 addToast('新規ユーザーが追加されました。', 'success');
             }
             await loadUsers();
@@ -110,7 +111,6 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ addToast, reque
         }
     };
 
-    // FIX: Use requestConfirmation for a better UX instead of window.confirm.
     const handleDeleteUser = (user: User) => {
         requestConfirmation({
             title: 'ユーザーを削除',
@@ -148,6 +148,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ addToast, reque
                     <thead className="text-sm uppercase bg-slate-50 dark:bg-slate-700">
                         <tr>
                             <th className="px-6 py-3">氏名</th>
+                            <th className="px-6 py-3">メールアドレス</th>
                             <th className="px-6 py-3">役割</th>
                             <th className="px-6 py-3">登録日</th>
                             <th className="px-6 py-3 text-center">操作</th>
@@ -157,6 +158,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ addToast, reque
                         {users.map(user => (
                             <tr key={user.id} className="border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50">
                                 <td className="px-6 py-4 font-medium">{user.name}</td>
+                                <td className="px-6 py-4 text-slate-500">{user.email}</td>
                                 <td className="px-6 py-4">
                                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 text-slate-800'}`}>
                                         {user.role === 'admin' ? '管理者' : '一般ユーザー'}

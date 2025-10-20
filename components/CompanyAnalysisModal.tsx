@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { CompanyAnalysis } from '../types';
 import { X, Loader, AlertTriangle, Lightbulb } from './Icons';
 
@@ -19,19 +19,6 @@ const AnalysisSection: React.FC<{ title: string; children: React.ReactNode }> = 
 );
 
 const CompanyAnalysisModal: React.FC<CompanyAnalysisModalProps> = ({ isOpen, onClose, analysis, customerName, isLoading, error }) => {
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                onClose();
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => {
-            window.removeEventListener('keydown', handleKeyDown);
-        };
-    }, [isOpen, onClose]);
-
     if (!isOpen) return null;
 
     return (
