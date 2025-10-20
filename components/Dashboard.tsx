@@ -4,10 +4,10 @@ import React, { useMemo } from 'react';
 import {
   ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line,
 } from 'recharts';
-import { Job, JournalEntry, AccountItem } from '../types';
+import { Job, JournalEntry, AccountItem, JobStatus } from '../types';
 import { MONTHLY_GOALS } from '../constants';
 import { formatJPY } from '../utils';
-import { Lightbulb, Loader } from './Icons';
+import { Lightbulb, Loader, AlertTriangle } from './Icons';
 
 const AISuggestionCard: React.FC<{ suggestion: string; isLoading: boolean }> = ({ suggestion, isLoading }) => (
     <div className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-800 dark:to-slate-900/70 p-6 rounded-2xl shadow-sm flex items-start gap-4 col-span-1 lg:col-span-2">
@@ -29,6 +29,41 @@ const AISuggestionCard: React.FC<{ suggestion: string; isLoading: boolean }> = (
         </div>
     </div>
 );
+
+const ActionItemsCard: React.FC<{ jobs: Job[] }> = ({ jobs }) => {
+    const actionItems = useMemo(() => {
+        const overdue = jobs.filter(j => j.status !== JobStatus.Completed && new Date(j.dueDate) < new Date());
+        const needsInvoicing = jobs.filter(j => j.status === JobStatus.Completed && !j.invoiceId);
+        return { overdue, needsInvoicing };
+    }, [jobs]);
+
+    if (actionItems.overdue.length === 0 && actionItems.needsInvoicing.length === 0) {
+        return null;
+    }
+
+    return (
+        <div className="bg-gradient-to-br from-yellow-50 to-orange-100 dark:from-slate-800 dark:to-slate-900/70 p-6 rounded-2xl shadow-sm flex items-start gap-4">
+             <div className="bg-yellow-200 dark:bg-yellow-900/50 p-3 rounded-full flex-shrink-0">
+                <AlertTriangle className="w-6 h-6 text-yellow-600 dark:text-yellow-300" />
+            </div>
+            <div>
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-white">アクションアイテム</h3>
+                <ul className="mt-2 text-slate-600 dark:text-slate-300 list-disc pl-5 space-y-1">
+                    {actionItems.overdue.length > 0 && (
+                        <li>
+                            <span className="font-semibold text-red-600 dark:text-red-400">{actionItems.overdue.length}件</span>の案件が期限切れです。
+                        </li>
+                    )}
+                     {actionItems.needsInvoicing.length > 0 && (
+                        <li>
+                           <span className="font-semibold text-orange-600 dark:text-orange-400">{actionItems.needsInvoicing.length}件</span>の完了案件が請求書未発行です。
+                        </li>
+                    )}
+                </ul>
+            </div>
+        </div>
+    );
+};
 
 
 const Meter: React.FC<{ value: number; goal: number; }> = ({ value, goal }) => {
@@ -103,7 +138,6 @@ const Dashboard: React.FC<DashboardProps> = ({ jobs, journalEntries, accountItem
         const mq = pq - vq;
 
         const fBreakdown = { f1: 0, f2: 0, f3: 0, f4: 0, f5: 0 };
-        // FIX: Explicitly type `accountMap` to ensure correct type inference for `accountInfo`.
         const accountMap: Map<string, AccountItem> = new Map(accountItems.map(item => [item.name, item]));
 
         journalEntries.forEach(entry => {
@@ -113,9 +147,7 @@ const Dashboard: React.FC<DashboardProps> = ({ jobs, journalEntries, accountItem
             const accountInfo = accountMap.get(entry.account);
             if (entry.account.includes('給料') || entry.account.includes('人件費')) fBreakdown.f1 += cost;
             else if (entry.account.includes('減価償却')) fBreakdown.f5 += cost;
-            // FIX: Add a truthiness check for `accountInfo` to act as a type guard and resolve the 'unknown' type error.
             else if (accountInfo && accountInfo.categoryCode === 'TRP') fBreakdown.f4 += cost; // (販)
-            // FIX: Add a truthiness check for `accountInfo` to act as a type guard and resolve the 'unknown' type error.
             else if (accountInfo && accountInfo.categoryCode === 'NOC' && entry.account.includes('支払利息')) fBreakdown.f3 += cost; // 営業外
             else fBreakdown.f2 += cost; // その他経費
         });
@@ -179,7 +211,10 @@ const Dashboard: React.FC<DashboardProps> = ({ jobs, journalEntries, accountItem
 
     return (
         <div className="space-y-6">
-            <AISuggestionCard suggestion={suggestion} isLoading={isSuggestionLoading} />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <AISuggestionCard suggestion={suggestion} isLoading={isSuggestionLoading} />
+                <ActionItemsCard jobs={jobs} />
+            </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <MQCard title="PQ (売上高)" value={pq} colorClass="bg-sky-700 dark:bg-sky-800" meterGoal={MONTHLY_GOALS.pq} />

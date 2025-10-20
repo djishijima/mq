@@ -20,7 +20,7 @@ interface ApprovalWorkflowPageProps {
     formCode?: string;
     searchTerm?: string;
     addToast: (message: string, type: Toast['type']) => void;
-    onNavigate?: (page: Page) => void;
+    onNavigate: (page: Page) => void;
 }
 
 const TABS_CONFIG = {

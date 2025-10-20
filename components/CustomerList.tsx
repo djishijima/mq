@@ -4,6 +4,7 @@ import { Pencil, Eye, Mail, Lightbulb, Users, PlusCircle, Loader } from './Icons
 import EmptyState from './ui/EmptyState';
 import SortableHeader from './ui/SortableHeader';
 import { generateSalesEmail } from '../services/geminiService';
+import { DropdownMenu, DropdownMenuItem } from './ui/DropdownMenu';
 
 interface CustomerListProps {
   customers: Customer[];
@@ -109,19 +110,22 @@ const CustomerList: React.FC<CustomerListProps> = ({ customers, searchTerm, onSe
                 <td className="px-6 py-4">{customer.phoneNumber || '-'}</td>
                 <td className="px-6 py-4 truncate max-w-sm">{customer.address1 || '-'}</td>
                 <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex justify-center items-center gap-1">
-                        <button onClick={() => onSelectCustomer(customer)} className="p-2 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-blue-600 transition-colors" aria-label="詳細表示">
-                            <Eye className="w-5 h-5" />
-                        </button>
-                        <button onClick={() => onEditCustomer(customer)} className="p-2 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-green-600 transition-colors" aria-label="編集">
-                            <Pencil className="w-5 h-5" />
-                        </button>
-                        <button onClick={() => onAnalyzeCustomer(customer)} className="p-2 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-yellow-500 transition-colors" aria-label="AI企業分析">
-                            <Lightbulb className="w-5 h-5" />
-                        </button>
-                        <button onClick={(e) => handleGenerateProposal(e, customer)} className="p-2 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-purple-600 transition-colors" aria-label="提案メール作成" disabled={isGeneratingEmail === customer.id}>
-                            {isGeneratingEmail === customer.id ? <Loader className="w-5 h-5 animate-spin" /> : <Mail className="w-5 h-5" />}
-                        </button>
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity focus-within:opacity-100">
+                        <DropdownMenu>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onSelectCustomer(customer); }}>
+                                <Eye className="w-4 h-4" /> 詳細表示
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEditCustomer(customer); }}>
+                                <Pencil className="w-4 h-4" /> 編集
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onAnalyzeCustomer(customer); }}>
+                                <Lightbulb className="w-4 h-4" /> AI企業分析
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => handleGenerateProposal(e, customer)} disabled={isGeneratingEmail === customer.id}>
+                                {isGeneratingEmail === customer.id ? <Loader className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                                提案メール作成
+                            </DropdownMenuItem>
+                        </DropdownMenu>
                     </div>
                 </td>
               </tr>

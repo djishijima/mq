@@ -29,10 +29,8 @@ const SalesRanking: React.FC<SalesRankingProps> = ({ jobs }) => {
                 acc[job.clientName].totalMargin += (job.price - job.variableCost);
             }
             return acc;
-        // FIX: Explicitly type the initial value of the reduce function to ensure proper type inference for the accumulator. This resolves type errors in the sort method.
         }, {} as Record<string, CustomerSalesData>);
 
-        // FIX: Explicitly type `a` and `b` to resolve 'unknown' type error in sort method.
         return Object.values(data).sort((a: CustomerSalesData, b: CustomerSalesData) => b.totalSales - a.totalSales);
     }, [jobs]);
 

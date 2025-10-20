@@ -24,6 +24,16 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ customer, mod
     const [error, setError] = useState('');
     const [activeTab, setActiveTab] = useState(TABS[0].id);
 
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                onClose();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [onClose]);
+
     const formatDateForInput = (dateString: string | null | undefined) => {
         if (!dateString) return '';
         try {
@@ -135,17 +145,24 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ customer, mod
         );
     };
 
+    const Divider = () => <hr className="my-6 border-slate-200 dark:border-slate-700 md:col-span-2" />;
+    
     const renderTabContent = () => {
         const gridClass = "grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4";
 
         switch (activeTab) {
             case 'basic': return (
                 <div className={gridClass}>
+                    {renderField('顧客名', customer?.customerName, 'customerName', 'text', { className: 'md:col-span-2' })}
+                    {renderField('顧客名 (カナ)', customer?.customerNameKana, 'customerNameKana', 'text', { className: 'md:col-span-2' })}
                     {renderField('顧客コード', customer?.customerCode, 'customerCode')}
-                    {renderField('顧客名', customer?.customerName, 'customerName')}
-                    {renderField('顧客名 (カナ)', customer?.customerNameKana, 'customerNameKana')}
                     {renderField('顧客名2', customer?.name2, 'name2')}
+                    
+                    <Divider />
+
                     {renderField('代表者', customer?.representative, 'representative')}
+                    {renderField('電話番号', customer?.phoneNumber, 'phoneNumber')}
+                    {renderField('FAX', customer?.fax, 'fax')}
                     <div className="md:col-span-2">
                         <label className="block text-sm font-medium leading-6 text-slate-900 dark:text-white">住所</label>
                         <div className="mt-1">
@@ -154,32 +171,28 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ customer, mod
                                     <input type="text" name="zipCode" id="zipCode" placeholder="郵便番号" value={formData.zipCode || ''} onChange={handleChange} disabled={isSubmitting} className="block w-1/2 rounded-md border-0 py-1.5 px-2.5 text-slate-900 dark:text-white bg-white dark:bg-slate-700 shadow-sm ring-1 ring-inset ring-slate-300 dark:ring-slate-600 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-base disabled:opacity-50" />
                                     <input type="text" name="address1" id="address1" placeholder="住所1" value={formData.address1 || ''} onChange={handleChange} disabled={isSubmitting} className="block w-full rounded-md border-0 py-1.5 px-2.5 text-slate-900 dark:text-white bg-white dark:bg-slate-700 shadow-sm ring-1 ring-inset ring-slate-300 dark:ring-slate-600 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-base disabled:opacity-50" />
                                     <input type="text" name="address2" id="address2" placeholder="住所2" value={formData.address2 || ''} onChange={handleChange} disabled={isSubmitting} className="block w-full rounded-md border-0 py-1.5 px-2.5 text-slate-900 dark:text-white bg-white dark:bg-slate-700 shadow-sm ring-1 ring-inset ring-slate-300 dark:ring-slate-600 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-base disabled:opacity-50" />
-                                    <input type="text" name="address3" id="address3" placeholder="住所3" value={formData.address3 || ''} onChange={handleChange} disabled={isSubmitting} className="block w-full rounded-md border-0 py-1.5 px-2.5 text-slate-900 dark:text-white bg-white dark:bg-slate-700 shadow-sm ring-1 ring-inset ring-slate-300 dark:ring-slate-600 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-base disabled:opacity-50" />
                                 </div>
                             ) : (
                                 <div className="text-base leading-6 text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-words min-h-[40px] flex items-center py-1.5">
-                                    {customer?.zipCode || customer?.address1 || customer?.address2 || customer?.address3 ? (
+                                    {customer?.zipCode || customer?.address1 || customer?.address2 ? (
                                         <>
                                             {customer?.zipCode && `〒${customer.zipCode}`}
                                             <br />
-                                            {`${customer?.address1 || ''}${customer?.address2 || ''}${customer?.address3 || ''}`}
+                                            {`${customer?.address1 || ''}${customer?.address2 || ''}`}
                                         </>
                                     ) : '-'}
                                 </div>
                             )}
                         </div>
                     </div>
-                    {renderField('最寄り駅', customer?.nearestStation, 'nearestStation')}
-                    {renderField('電話番号', customer?.phoneNumber, 'phoneNumber')}
-                    {renderField('FAX', customer?.fax, 'fax')}
+
+                     <Divider />
+
                     {renderField('設立年月日', customer?.foundationDate, 'foundationDate', 'date')}
                     {renderField('資本金', customer?.capital, 'capital')}
                     {renderField('年商', isEditing ? customer?.annualSales : formattedCurrency(customer?.annualSales), 'annualSales')}
                     {renderField('従業員数', customer?.employeesCount, 'employeesCount')}
                     {renderField('事業内容', customer?.companyContent, 'companyContent', 'textarea', { className: 'md:col-span-2' })}
-                    {renderField('会社特徴', customer?.companyFeatures, 'companyFeatures', 'textarea', { className: 'md:col-span-2' })}
-                    {renderField('キーパーソン', customer?.keyPerson, 'keyPerson', 'textarea', { className: 'md:col-span-2' })}
-                    {renderField('主要製品', customer?.mainProducts, 'mainProducts', 'textarea', { className: 'md:col-span-2' })}
                 </div>
             );
             case 'financial': return (
@@ -188,82 +201,32 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ customer, mod
                     {renderField('顧客区分', customer?.customerDivision, 'customerDivision')}
                     {renderField('販売種別', customer?.salesType, 'salesType')}
                     {renderField('与信限度額', isEditing ? customer?.creditLimit : formattedCurrency(customer?.creditLimit), 'creditLimit')}
+                    <Divider />
                     {renderField('締日', customer?.closingDay, 'closingDay')}
                     {renderField('支払日', customer?.payDay, 'payDay')}
                     {renderField('回収方法', customer?.recoveryMethod, 'recoveryMethod')}
                     {renderField('支払方法', customer?.payMoney, 'payMoney')}
-                    {renderField('取引条件', customer?.tradeTerms, 'tradeTerms')}
-                    {renderField('手形支払日', customer?.billPaymentDay, 'billPaymentDay')}
-                    {renderField('手形支払', customer?.billPay, 'billPay', 'number')}
-                    {renderField('掛売支払', customer?.creditSalesPay, 'creditSalesPay', 'number')}
-                    {renderField('消費税端数処理', customer?.taxFraction, 'taxFraction')}
-                    {renderField('税込みフラグ', customer?.taxInFlag, 'taxInFlag')}
+                    <Divider />
                     {renderField('銀行名', customer?.bankName, 'bankName', 'text', { className: 'md:col-span-2' })}
                     {renderField('支店名', customer?.branchName, 'branchName')}
-                    {renderField('支店コード', customer?.branchCode, 'branchCode')}
                     {renderField('口座番号', customer?.accountNo, 'accountNo')}
-                    {renderField('口座名義カナ', customer?.accountNameKana, 'accountNameKana')}
-                    {renderField('PQ', customer?.pq, 'pq')}
-                    {renderField('VQ', customer?.vq, 'vq')}
-                    {renderField('MQ', customer?.mq, 'mq')}
-                    {renderField('M率', customer?.mRate, 'mRate')}
                 </div>
             );
             case 'sales': return (
                 <div className={gridClass}>
                     {renderField('営業担当者コード', customer?.salesUserCode, 'salesUserCode')}
-                    {renderField('支援会社フラグ', customer?.supportCompanyFlag, 'supportCompanyFlag')}
-                    {renderField('予算フラグ', customer?.budgetFlag, 'budgetFlag')}
                     {renderField('取引開始日', customer?.startDate, 'startDate', 'date')}
-                    {renderField('取引終了日', customer?.endDate, 'endDate', 'date')}
-                    {renderField('紹介者', customer?.introducer, 'introducer')}
-                    {renderField('前任者', customer?.previousPerson, 'previousPerson')}
-                    {renderField('受注率', customer?.orderRate, 'orderRate')}
-                    {renderField('粗利', customer?.grossProfit, 'grossProfit')}
-                    {renderField('経緯', customer?.keii, 'keii', 'textarea', { className: 'md:col-span-2' })}
-                    {renderField('販売動向', customer?.salesTrends, 'salesTrends', 'textarea', { className: 'md:col-span-2' })}
-                    {renderField('商品別粗利', customer?.grossProfitByProduct, 'grossProfitByProduct', 'textarea', { className: 'md:col-span-2' })}
-                    {renderField('営業実績', customer?.businessResult, 'businessResult', 'textarea', { className: 'md:col-span-2' })}
-                    {renderField('顧客動向', customer?.customerTrend, 'customerTrend', 'textarea', { className: 'md:col-span-2' })}
-                    {renderField('何があったか', customer?.whatHappened, 'whatHappened', 'textarea', { className: 'md:col-span-2' })}
-                    {renderField('競合対策', customer?.responseToCompetitors, 'responseToCompetitors', 'textarea', { className: 'md:col-span-2' })}
+                    <Divider />
                     {renderField('営業目標', customer?.salesGoal, 'salesGoal', 'textarea', { className: 'md:col-span-2' })}
-                    {renderField('外部要因', customer?.externalItems, 'externalItems', 'textarea', { className: 'md:col-span-2' })}
-                    {renderField('内部要因', customer?.internalItems, 'internalItems', 'textarea', { className: 'md:col-span-2' })}
-                    {renderField('見積ポイント', customer?.quotationPoint, 'quotationPoint', 'textarea', { className: 'md:col-span-2' })}
-                    {renderField('競合情報', customer?.rivalInfo, 'rivalInfo', 'textarea', { className: 'md:col-span-2' })}
-                    {renderField('成長性', customer?.growthPotential, 'growthPotential', 'textarea', { className: 'md:col-span-2' })}
-                    {renderField('失注案件', customer?.lostOrders, 'lostOrders', 'textarea', { className: 'md:col-span-2' })}
-                    {renderField('月次計画', customer?.monthlyPlan, 'monthlyPlan', 'textarea', { className: 'md:col-span-2' })}
-                    {renderField('年間行動計画', customer?.annualActionPlan, 'annualActionPlan', 'textarea', { className: 'md:col-span-2' })}
-                    {renderField('一般書', customer?.ippanPub, 'ippanPub')}
-                    {renderField('教科書', customer?.textPub, 'textPub')}
-                    {renderField('業界紙', customer?.gyokaiPub, 'gyokaiPub')}
-                    {renderField('商業印刷', customer?.shoinPub, 'shoinPub')}
-                    {renderField('通信教育', customer?.tsushinEdu, 'tsushinEdu')}
-                    {renderField('その他', customer?.otherPub, 'otherPub')}
+                    {renderField('営業アイデア', customer?.infoSalesIdeas, 'infoSalesIdeas', 'textarea', {rows: 5, className: 'md:col-span-2'})}
+                    {renderField('要求事項', customer?.infoRequirements, 'infoRequirements', 'textarea', {rows: 5, className: 'md:col-span-2'})}
                 </div>
             );
             case 'notes': return (
                 <div className={gridClass}>
                     {renderField('備考', customer?.note, 'note', 'textarea', {rows: 5, className: 'md:col-span-2'})}
-                    {renderField('情報履歴', customer?.infoHistory, 'infoHistory', 'textarea', {rows: 5, className: 'md:col-span-2'})}
                     {renderField('営業活動', customer?.infoSalesActivity, 'infoSalesActivity', 'textarea', {rows: 5, className: 'md:col-span-2'})}
-                    {renderField('受注フロー', customer?.infoOrderFlow, 'infoOrderFlow', 'textarea', {rows: 5, className: 'md:col-span-2'})}
-                    {renderField('取引状況', customer?.infoTransactionProgress, 'infoTransactionProgress', 'textarea', {rows: 5, className: 'md:col-span-2'})}
-                    {renderField('現在受注', customer?.infoCurrentOrders, 'infoCurrentOrders', 'textarea', {rows: 5, className: 'md:col-span-2'})}
-                    {renderField('今後提案', customer?.infoFutureProposals, 'infoFutureProposals', 'textarea', {rows: 5, className: 'md:col-span-2'})}
-                    {renderField('競合他社', customer?.infoCompetitors, 'infoCompetitors', 'textarea', {rows: 5, className: 'md:col-span-2'})}
-                    {renderField('要求事項', customer?.infoRequirements, 'infoRequirements', 'textarea', {rows: 5, className: 'md:col-span-2'})}
-                    {renderField('営業アイデア', customer?.infoSalesIdeas, 'infoSalesIdeas', 'textarea', {rows: 5, className: 'md:col-span-2'})}
-                    {renderField('経営メモ', customer?.infoManagementNotes, 'infoManagementNotes', 'textarea', {rows: 5, className: 'md:col-span-2'})}
-                    {renderField('その他情報', customer?.infoOther, 'infoOther', 'textarea', {rows: 5, className: 'md:col-span-2'})}
-                    {renderField('作図メモ', customer?.drawingMemo, 'drawingMemo', 'textarea', {rows: 5, className: 'md:col-span-2'})}
-                    {renderField('作図日', customer?.drawingDate, 'drawingDate', 'date')}
-                    {renderField('担当者情報', customer?.customerContactInfo, 'customerContactInfo', 'textarea', {rows: 5, className: 'md:col-span-2'})}
-                    {renderField('組織図', customer?.orgChart, 'orgChart', 'textarea', {rows: 5, className: 'md:col-span-2'})}
-                    {renderField('事故履歴', customer?.accidentHistory, 'accidentHistory', 'textarea', {rows: 5, className: 'md:col-span-2'})}
-                    {renderField('お客様の声', customer?.customerVoice, 'customerVoice', 'textarea', {rows: 5, className: 'md:col-span-2'})}
+                    {renderField('情報履歴', customer?.infoHistory, 'infoHistory', 'textarea', {rows: 5, className: 'md:col-span-2'})}
                 </div>
             );
             default: return null;

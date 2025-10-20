@@ -2,10 +2,8 @@
 
 import React, { useState } from 'react';
 import { Loader, Save, Mail, CheckCircle } from './Icons';
-// FIX: Import Toast type.
 import { Toast } from '../types';
 
-// FIX: Add addToast prop.
 interface SettingsPageProps {
     addToast: (message: string, type: Toast['type']) => void;
 }
@@ -35,7 +33,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ addToast }) => {
         setTimeout(() => {
             setIsSaving(false);
             console.log('Saved settings:', settings);
-            // FIX: Use addToast for user feedback.
             addToast('設定が正常に保存されました。', 'success');
         }, 1500);
     };
@@ -48,10 +45,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ addToast }) => {
             console.log('Testing connection with:', settings);
             // Simulate a random success/failure
             if (Math.random() > 0.2) {
-                // FIX: Use addToast for user feedback.
                 addToast('テストメールが正常に送信されました。', 'success');
             } else {
-                // FIX: Use addToast for user feedback.
                 addToast('接続に失敗しました。設定を確認してください。', 'error');
             }
         }, 2000);

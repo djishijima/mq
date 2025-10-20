@@ -10,7 +10,6 @@ interface JobListProps {
   jobs: Job[];
   searchTerm: string;
   onSelectJob: (job: Job) => void;
-  // FIX: Add onNewJob prop to fix type error in App.tsx.
   onNewJob: () => void;
 }
 

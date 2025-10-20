@@ -64,7 +64,6 @@ const ManufacturingCostManagement: React.FC<ManufacturingCostManagementProps> = 
                                 fill="#8884d8"
                                 dataKey="value"
                                 nameKey="name"
-                                // FIX: The 'percent' property is not correctly typed by recharts. Explicitly casting to 'any' to bypass the TypeScript error.
                                 label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
                             >
                                 {costBreakdownData.map((entry, index) => (

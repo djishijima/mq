@@ -218,7 +218,6 @@ const dbLeadToLead = (dbLead: DbLead): Lead => ({
     search_keywords: dbLead.search_keywords,
     utm_source: dbLead.utm_source,
     utm_medium: dbLead.utm_medium,
-    // FIX: Corrected typo from `dbCust` to `dbLead` to fix reference error.
     utm_campaign: dbLead.utm_campaign,
     utm_term: dbLead.utm_term,
     utm_content: dbLead.utm_content,
