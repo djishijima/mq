@@ -1,7 +1,9 @@
 
 import React, { useState, useMemo, useRef } from 'react';
-import { Customer, Estimate, EstimateItem, Job, JobStatus, InvoiceStatus, Page, Toast } from '../../types';
-import { draftEstimate } from '../../services/geminiService';
+
+import { draftEstimate } from '@/services/geminiService';
+import { Customer, Estimate, EstimateItem, Job, JobStatus, InvoiceStatus, Page, Toast } from '@/types';
+
 import { Loader, Sparkles, PlusCircle, Trash2, FileText, Send } from '../Icons';
 
 declare const jspdf: any;

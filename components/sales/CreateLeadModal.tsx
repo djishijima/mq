@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { INQUIRY_TYPES } from '@/constants';
 import { Lead, LeadStatus } from '@/types';
-import { Loader, X, Save } from '../Icons';
+import { Loader, X, Save } from '@/components/Icons';
 
 interface CreateLeadModalProps {
   isOpen: boolean;
