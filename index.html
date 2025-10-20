@@ -43,6 +43,15 @@
   }
 }
 </script>
+const dedupeById = <T extends { id: string }>(items: T[]): T[] => {
+  const map = new Map<string, T>();
+  items.forEach(item => {
+    map.set(item.id, item);
+  });
+  return Array.from(map.values());
+};
+
+
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-base">
   <div id="root"></div>
