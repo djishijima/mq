@@ -1,16 +1,15 @@
-
-
 import React, { useState, useMemo } from 'react';
-import { Lead, LeadStatus, SortConfig, Toast, ConfirmationDialogProps, User } from '../../types';
-import { Loader, Pencil, Trash2, Mail, Eye, CheckCircle, Lightbulb, List, KanbanSquare } from '../Icons';
-import LeadDetailModal from './LeadDetailModal';
-import LeadStatusBadge from './LeadStatusBadge';
-import LeadKanbanView from './LeadKanbanView';
-import { generateLeadReplyEmail } from '../../services/geminiService';
-import { formatDate } from '../../utils';
-import EmptyState from '../ui/EmptyState';
-import SortableHeader from '../ui/SortableHeader';
-import { DropdownMenu, DropdownMenuItem } from '../ui/DropdownMenu';
+import { Lead, LeadStatus, SortConfig, Toast, ConfirmationDialogProps, EmployeeUser } from '../../types';
+import { Loader, Pencil, Trash2, Mail, Eye, CheckCircle, Lightbulb, List, KanbanSquare } from './Icons';
+// FIX: Correcting the import path assuming this file is in the root, or there's an issue with relative path resolution.
+import LeadDetailModal from './components/sales/LeadDetailModal';
+import LeadStatusBadge from './components/sales/LeadStatusBadge';
+import LeadKanbanView from './components/sales/LeadKanbanView';
+import { generateLeadReplyEmail } from './services/geminiService';
+import { formatDate } from './utils';
+import EmptyState from './components/ui/EmptyState';
+import SortableHeader from './components/ui/SortableHeader';
+import { DropdownMenu, DropdownMenuItem } from './components/ui/DropdownMenu';
 
 interface LeadManagementPageProps {
   leads: Lead[];
@@ -20,7 +19,8 @@ interface LeadManagementPageProps {
   onDeleteLead: (leadId: string) => Promise<void>;
   addToast: (message: string, type: Toast['type']) => void;
   requestConfirmation: (dialog: Omit<ConfirmationDialogProps, 'isOpen' | 'onClose'>) => void;
-  currentUser: User | null;
+  // FIX: Change currentUser prop type from User to EmployeeUser to match LeadDetailModal's expectation.
+  currentUser: EmployeeUser | null;
 }
 
 const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTerm, onRefresh, onUpdateLead, onDeleteLead, addToast, requestConfirmation, currentUser }) => {
@@ -63,8 +63,8 @@ const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTe
         });
     };
     
-    const handleGenerateReply = async (e: React.MouseEvent, lead: Lead) => {
-        e.stopPropagation();
+    // FIX: Refactored function to remove MouseEvent parameter for easier use in modal.
+    const handleGenerateReply = async (lead: Lead) => {
         if (!lead.email) {
             addToast('返信先のメールアドレスが登録されていません。', 'error');
             return;
@@ -250,7 +250,8 @@ const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTe
                                                             {isMarkingContacted === lead.id ? <Loader className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} コンタクト済にする
                                                         </DropdownMenuItem>
                                                      )}
-                                                    <DropdownMenuItem onClick={(e) => handleGenerateReply(e, lead)}>
+                                                    {/* FIX: Update onClick handler to stop propagation and call the refactored function. */}
+                                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleGenerateReply(lead); }}>
                                                         {isReplyingTo === lead.id ? <Loader className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />} AIで返信作成
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem onClick={(e) => handleDeleteClick(e, lead)} className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50">
@@ -288,6 +289,8 @@ const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTe
                 addToast={addToast}
                 requestConfirmation={requestConfirmation}
                 currentUser={currentUser}
+                // FIX: Add missing 'onGenerateReply' prop.
+                onGenerateReply={handleGenerateReply}
             />
         </>
     );

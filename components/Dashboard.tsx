@@ -130,15 +130,29 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ jobs, journalEntries, accountItems, suggestion, isSuggestionLoading }) => {
     
     const mqData = useMemo(() => {
-        // --- Overall Metrics ---
-        const pq = jobs.reduce((sum, job) => sum + job.price, 0);
-        const vq = jobs.reduce((sum, job) => sum + job.variableCost, 0);
+        const today = new Date();
+        const currentYear = today.getFullYear();
+        const currentMonth = today.getMonth();
+
+        const currentMonthJobs = jobs.filter(job => {
+            const jobDate = new Date(job.createdAt);
+            return jobDate.getFullYear() === currentYear && jobDate.getMonth() === currentMonth;
+        });
+
+        const currentMonthJournalEntries = journalEntries.filter(entry => {
+            const entryDate = new Date(entry.date);
+            return entryDate.getFullYear() === currentYear && entryDate.getMonth() === currentMonth;
+        });
+
+        // --- Overall Metrics (for current month) ---
+        const pq = currentMonthJobs.reduce((sum, job) => sum + job.price, 0);
+        const vq = currentMonthJobs.reduce((sum, job) => sum + job.variableCost, 0);
         const mq = pq - vq;
 
         const fBreakdown = { f1: 0, f2: 0, f3: 0, f4: 0, f5: 0 };
         const accountMap: Map<string, AccountItem> = new Map(accountItems.map(item => [item.name, item]));
 
-        journalEntries.forEach(entry => {
+        currentMonthJournalEntries.forEach(entry => {
             const cost = entry.debit - entry.credit;
             if (cost <= 0) return;
 
@@ -153,9 +167,8 @@ const Dashboard: React.FC<DashboardProps> = ({ jobs, journalEntries, accountItem
         const f = fBreakdown.f1 + fBreakdown.f2 + fBreakdown.f3 + fBreakdown.f4 + fBreakdown.f5;
         const g = mq - f;
 
-        // --- Monthly Trend Data ---
+        // --- Monthly Trend Data (for last 12 months) ---
         const monthlyMetrics: { [key: string]: { PQ: number, VQ: number, F: number } } = {};
-        const today = new Date();
         for (let i = 11; i >= 0; i--) {
             const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
             const monthKey = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}`;

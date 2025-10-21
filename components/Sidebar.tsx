@@ -1,13 +1,13 @@
 import * as React from 'react';
-import { Page, User } from '../types';
+import { Page, EmployeeUser } from '../types';
 import { LayoutDashboard, Users, Settings, Package, FileText, Briefcase, ChevronDown, DollarSign, TrendingUp, Inbox, PieChart, ShoppingCart, BookOpen, CreditCard, HardHat, CheckCircle, Archive, Bug } from './Icons';
 
 interface SidebarProps {
   currentPage: Page;
   onNavigate: (page: Page) => void;
-  currentUser: User | null;
-  allUsers: User[];
-  onUserChange: (user: User) => void;
+  currentUser: EmployeeUser | null;
+  allUsers: EmployeeUser[];
+  onUserChange: (user: EmployeeUser | null) => void;
 }
 
 type NavItemType = {
@@ -30,6 +30,7 @@ const ALL_NAV_CATEGORIES: NavCategoryType[] = [
         icon: Briefcase,
         adminOnly: true,
         items: [
+            { page: 'sales_dashboard', name: '販売ダッシュボード' },
             { page: 'sales_leads', name: 'リード' },
             { page: 'sales_customers', name: '取引先' },
             { page: 'sales_pipeline', name: 'パイプライン（進捗）' },
@@ -58,7 +59,7 @@ const ALL_NAV_CATEGORIES: NavCategoryType[] = [
         items: [
             { page: 'inventory_management', name: '在庫管理' },
             { page: 'manufacturing_orders', name: '製造指示' },
-            { page: 'manufacturing_progress', name: '進捗・出来高' },
+            { page: 'manufacturing_progress', name: '製造パイプライン' },
             { page: 'manufacturing_cost', name: '製造原価' },
         ]
     },
@@ -174,9 +175,7 @@ const CollapsibleNavItem: React.FC<{
 const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, currentUser, allUsers, onUserChange }) => {
   const [openCategories, setOpenCategories] = React.useState<Record<string, boolean>>({});
 
-  const visibleCategories = currentUser?.role === 'admin'
-      ? ALL_NAV_CATEGORIES
-      : ALL_NAV_CATEGORIES.filter(cat => !cat.adminOnly);
+  const visibleCategories = ALL_NAV_CATEGORIES;
 
   React.useEffect(() => {
     const activeCategory = visibleCategories.find(cat => cat.items.some(item => item.page === currentPage));
@@ -224,40 +223,22 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, currentUser,
         </ul>
       </nav>
       <div className="mt-auto pt-4 border-t border-slate-700 space-y-4">
-        {currentUser && (
-          <div className="px-3 py-2">
-             <label className="text-xs font-medium text-slate-400">現在のユーザー</label>
-             <select 
-                value={currentUser.id} 
+        <div className="px-3 py-2">
+           <label htmlFor="user-select" className="text-xs font-medium text-slate-400">ユーザー切替</label>
+           <select 
+                id="user-select"
+                className="w-full mt-1 bg-slate-700 border-slate-600 rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+                value={currentUser?.id || ''}
                 onChange={(e) => {
                     const selectedUser = allUsers.find(u => u.id === e.target.value);
-                    if (selectedUser) {
-                        onUserChange(selectedUser);
-                    }
+                    onUserChange(selectedUser || null);
                 }}
-                className="w-full mt-1 bg-slate-700 text-white p-2 rounded-md border border-slate-600 focus:ring-blue-500 focus:border-blue-500 appearance-none"
-                aria-label="ユーザー切り替え"
-             >
+           >
                 {allUsers.map(user => (
-                    <option key={user.id} value={user.id}>
-                        {user.name} ({user.role === 'admin' ? '管理者' : 'ユーザー'})
-                    </option>
+                    <option key={user.id} value={user.id}>{user.name}</option>
                 ))}
-             </select>
-          </div>
-        )}
-        <a
-            href="#"
-            onClick={(e) => { e.preventDefault(); onNavigate('settings'); }}
-            className={`flex items-center p-3 rounded-lg transition-colors duration-200 ${
-                currentPage === 'settings'
-                ? 'bg-slate-700 text-white'
-                : 'text-slate-300 hover:bg-slate-700 hover:text-white'
-            }`}
-        >
-            <Settings className="w-5 h-5" />
-            <span className="ml-4 font-medium">設定</span>
-        </a>
+           </select>
+        </div>
       </div>
     </aside>
   );

@@ -1,7 +1,18 @@
-// FIX: Removed self-import which caused multiple declaration conflicts.
+export type Page =
+  | 'analysis_dashboard' | 'sales_dashboard' | 'sales_leads' | 'sales_customers' | 'sales_pipeline'
+  | 'sales_estimates' | 'sales_orders' | 'sales_billing' | 'analysis_ranking'
+  | 'purchasing_orders' | 'purchasing_invoices' | 'purchasing_payments'
+  | 'inventory_management' | 'manufacturing_orders' | 'manufacturing_progress' | 'manufacturing_cost'
+  | 'hr_attendance' | 'hr_man_hours' | 'hr_labor_cost'
+  | 'approval_list' | 'approval_form_expense' | 'approval_form_transport' | 'approval_form_leave'
+  | 'approval_form_approval' | 'approval_form_daily' | 'approval_form_weekly'
+  | 'accounting_journal' | 'accounting_general_ledger' | 'accounting_trial_balance'
+  | 'accounting_tax_summary' | 'accounting_period_closing' | 'accounting_business_plan'
+  | 'admin_audit_log' | 'admin_journal_queue' | 'admin_user_management' | 'admin_route_management'
+  | 'admin_bug_reports' | 'settings';
 
 export enum JobStatus {
-  Pending = '保留中',
+  Pending = '保留',
   InProgress = '進行中',
   Completed = '完了',
   Cancelled = 'キャンセル',
@@ -13,8 +24,48 @@ export enum InvoiceStatus {
   Paid = '入金済',
 }
 
+export enum LeadStatus {
+    Untouched = '未対応',
+    New = '新規',
+    Contacted = 'コンタクト済',
+    Qualified = '有望',
+    Disqualified = '失注',
+    Converted = '商談化',
+    Closed = 'クローズ',
+}
+
+export enum PurchaseOrderStatus {
+    Ordered = '発注済',
+    Received = '受領済',
+    Cancelled = 'キャンセル',
+}
+
+export enum ManufacturingStatus {
+  OrderReceived = '受注',
+  DataCheck = 'データチェック',
+  Prepress = '製版',
+  Printing = '印刷',
+  Finishing = '加工',
+  AwaitingShipment = '出荷待ち',
+  Delivered = '納品済',
+}
+
+export enum EstimateStatus {
+  Draft = '見積中',
+  Ordered = '受注',
+  Lost = '失注',
+}
+
+export enum BugReportStatus {
+    Open = '未対応',
+    InProgress = '対応中',
+    Closed = '完了',
+}
+
+
 export interface Job {
   id: string;
+  jobNumber: number;
   clientName: string;
   title: string;
   status: JobStatus;
@@ -23,110 +74,90 @@ export interface Job {
   paperType: string;
   finishing: string;
   details: string;
-  createdAt: Date;
-  price: number; // P (売上高)
-  variableCost: number; // V (変動費)
-  invoiceStatus: InvoiceStatus;
-  invoicedAt?: string;
-  paidAt?: string;
-  readyToInvoice?: boolean;
-  invoiceId?: string | null;
-}
-
-export interface Employee {
-  id: string;
-  name: string;
-  department: string;
-  position: string;
-  hireDate: string;
-  salary: number; // 月給
-}
-
-export type Page =
-  // ホーム
-  | 'analysis_dashboard'
-  // 販売
-  | 'sales_leads' // リード
-  | 'sales_customers' // 取引先
-  | 'sales_pipeline' // パイプライン(進捗)
-  | 'sales_estimates' // 見積
-  | 'sales_orders' // 受注
-  | 'sales_billing' // 売上請求 (AR)
-  // 購買
-  | 'purchasing_orders'
-  | 'purchasing_invoices'
-  | 'purchasing_payments'
-  // 在庫／製造
-  | 'inventory_management'
-  | 'manufacturing_orders'
-  | 'manufacturing_progress'
-  | 'manufacturing_cost'
-  // 人事労務
-  | 'hr_attendance'
-  | 'hr_man_hours'
-  | 'hr_labor_cost'
-  // 申請・承認
-  | 'approval_list'
-  | 'approval_form_expense'
-  | 'approval_form_transport'
-  | 'approval_form_leave'
-  | 'approval_form_approval'
-  | 'approval_form_daily'
-  | 'approval_form_weekly'
-  // 会計
-  | 'accounting_journal'
-  | 'accounting_general_ledger'
-  | 'accounting_trial_balance'
-  | 'accounting_tax_summary'
-  | 'accounting_period_closing'
-  | 'accounting_business_plan'
-  | 'analysis_ranking'
-  // ログ／監査
-  | 'admin_audit_log'
-  | 'admin_journal_queue'
-  // 管理
-  | 'admin_user_management'
-  | 'admin_route_management'
-  | 'admin_bug_reports' // 改善要望一覧
-  // 設定
-  | 'settings';
-
-
-export interface AISuggestions {
-  title: string;
-  quantity: number;
-  paperType: string;
-  finishing: string;
-  details: string;
+  createdAt: string;
   price: number;
   variableCost: number;
-}
-
-export interface AIJournalSuggestion {
-  account: string;
-  description: string;
-  debit: number;
-  credit: number;
+  invoiceStatus: InvoiceStatus;
+  invoicedAt?: string | null;
+  paidAt?: string | null;
+  readyToInvoice?: boolean;
+  invoiceId?: string | null;
+  manufacturingStatus?: ManufacturingStatus;
 }
 
 export interface JournalEntry {
-  id: string;
-  date: Date;
+  id: number;
+  date: string;
   account: string;
   debit: number;
   credit: number;
   description: string;
 }
 
-export interface AccountItem {
+export interface User {
   id: string;
-  code: string;
   name: string;
-  categoryCode: string;
-  isActive: boolean;
-  sortOrder: number;
+  email: string | null;
+  role: 'admin' | 'user';
+  created_at: string;
+}
+
+export interface EmployeeUser {
+  id: string;
+  name: string;
+  department: string | null;
+  title: string | null;
+  email: string;
+  role: 'admin' | 'user';
+  created_at: string;
+}
+
+export interface Customer {
+  id: string;
+  customerCode?: string;
+  customerName: string;
+  customerNameKana?: string;
+  representative?: string;
+  phoneNumber?: string;
+  address1?: string;
+  companyContent?: string;
+  annualSales?: string;
+  employeesCount?: string;
+  note?: string;
+  infoSalesActivity?: string;
+  infoRequirements?: string;
+  infoHistory?: string;
   createdAt: string;
-  updatedAt: string;
+  post_no?: string;
+  address_2?: string;
+  fax?: string;
+  closingDay?: string;
+  monthly_plan?: string;
+  payDay?: string;
+  recoveryMethod?: string;
+  user_id?: string;
+  // from modal
+  name2?: string;
+  websiteUrl?: string;
+  zipCode?: string;
+  address2?: string;
+  foundationDate?: string;
+  capital?: string;
+  customerRank?: string;
+  customerDivision?: string;
+  salesType?: string;
+  creditLimit?: string;
+  payMoney?: string;
+  bankName?: string;
+  branchName?: string;
+  accountNo?: string;
+  salesUserCode?: string;
+  startDate?: string;
+  endDate?: string;
+  drawingDate?: string;
+  salesGoal?: string;
+  infoSalesIdeas?: string;
+  customerContactInfo?: string; // for mailto
 }
 
 export interface SortConfig {
@@ -134,293 +165,87 @@ export interface SortConfig {
   direction: 'ascending' | 'descending';
 }
 
-export enum PurchaseOrderStatus {
-  Ordered = '発注済',
-  Received = '受領済',
-  Cancelled = 'キャンセル',
-}
-
-export interface PurchaseOrder {
-  id: string;
-  supplierName: string;
-  itemName: string;
-  orderDate: string;
-  quantity: number;
-  unitPrice: number;
-  status: PurchaseOrderStatus;
-  createdAt: string;
-}
-
-export interface InventoryItem {
-    id: string;
-    name: string;
-    category: string;
+export interface AISuggestions {
+    title: string;
     quantity: number;
-    unit: string;
-    unitPrice: number;
-    createdAt: string;
-}
-
-
-export interface Customer {
-    id: string;
-    customerCode: string | null;
-    customerCodeAlt: string | null;
-    customerName: string;
-    customerNameKana: string | null;
-    name2: string | null;
-    customerRank: string | null;
-    customerDivision: string | null;
-    salesType: string | null;
-    supportCompanyFlag: string | null;
-    zipCode: string | null;
-    address1: string | null;
-    address2: string | null;
-    address3: string | null;
-    nearestStation: string | null;
-    phoneNumber: string | null;
-    fax: string | null;
-    representative: string | null;
-    foundationDate: string | null;
-    capital: string | null;
-    annualSales: string | null;
-    employeesCount: string | null;
-    creditLimit: string | null;
-    closingDay: string | null;
-    payDay: string | null;
-    recoveryMethod: string | null;
-    payMoney: string | null;
-    tradeTerms: string | null;
-    bankName: string | null;
-    branchName: string | null;
-    branchCode: string | null;
-    accountNo: string | null;
-    accountNameKana: string | null;
-    salesUserCode: string | null;
-    note: string | null;
-    infoHistory: string | null;
-    infoSalesActivity: string | null;
-    infoOrderFlow: string | null;
-    infoTransactionProgress: string | null;
-    infoCurrentOrders: string | null;
-    infoFutureProposals: string | null;
-    infoCompetitors: string | null;
-    infoRequirements: string | null;
-    infoSalesIdeas: string | null;
-    infoManagementNotes: string | null;
-    infoOther: string | null;
-    createUserId: string | null;
-    createDate: string | null;
-    updateUserId: string | null;
-    updateDate: string | null;
-    drawingMemo: string | null;
-    drawingDate: string | null;
-    billPaymentDay: string | null;
-    billPay: number | null;
-    creditSalesPay: number | null;
-    taxFraction: number | null;
-    taxInFlag: string | null;
-    budgetFlag: string | null;
-    startDate: string | null;
-    endDate: string | null;
-    introducer: string | null;
-    keii: string | null;
-    previousPerson: string | null;
-    salesTrends: string | null;
-    grossProfit: string | null;
-    grossProfitByProduct: string | null;
-    companyContent: string | null;
-    keyPerson: string | null;
-    orderRate: string | null;
-    ippanPub: string | null;
-    textPub: string | null;
-    gyokaiPub: string | null;
-    shoinPub: string | null;
-    tsushinEdu: string | null;
-    otherPub: string | null;
-    businessResult: string | null;
-    companyFeatures: string | null;
-    customerTrend: string | null;
-    whatHappened: string | null;
-    responseToCompetitors: string | null;
-    salesGoal: string | null;
-    externalItems: string | null;
-    internalItems: string | null;
-    quotationPoint: string | null;
-    mainProducts: string | null;
-    totalOrderAmount: string | null;
-    rivalInfo: string | null;
-    customerContactInfo: string | null;
-    orgChart: string | null;
-    pq: string | null;
-    vq: string | null;
-    mq: string | null;
-    mRate: string | null;
-    accidentHistory: string | null;
-    customerVoice: string | null;
-    annualActionPlan: string | null;
-    lostOrders: string | null;
-    growthPotential: string | null;
-    monthlyPlan: string | null;
-    createdAt: string;
+    paperType: string;
+    finishing: string;
+    details: string;
+    price: number;
+    variableCost: number;
 }
 
 export interface CompanyAnalysis {
-  swot: string;
-  painPoints: string;
-  potentialNeeds: string;
-  salesStrategy: string;
+    swot: string;
+    painPointsAndNeeds: string;
+    suggestedActions: string;
+    proposalEmail: {
+        subject: string;
+        body: string;
+    };
 }
 
-
-// Types for Approval Workflow
-export interface User {
-  id: string;
-  name: string;
-  email: string | null;
-  created_at: string;
-  role: 'admin' | 'user';
-}
-
-export interface ApplicationCode {
-  id: string;
-  code: string;
-  name: string;
-  description: string | null;
-  created_at: string;
-}
-
-export interface ApprovalRoute {
-    id: string;
-    name: string;
-    route_data: { steps: { approver_id: string }[] };
-    created_at: string;
-}
-
-export interface Application {
-    id: string;
-    applicant_id: string;
-    application_code_id: string;
-    form_data: any; // JSONB
-    status: 'draft' | 'pending_approval' | 'approved' | 'rejected';
-    submitted_at: string | null;
-    approved_at: string | null;
-    rejected_at: string | null;
-    approval_route_id: string | null;
-    current_level: number;
-    approver_id: string | null;
-    created_at: string;
-    rejection_reason: string | null;
-}
-
-export type ApplicationWithDetails = Application & {
-  applicant: User | null;
-  approver: User | null;
-  application_codes: ApplicationCode | null;
-  approval_routes: ApprovalRoute | null;
-};
-
-
-// Types for Inbox (AI-OCR)
 export interface InvoiceData {
     vendorName: string;
     invoiceDate: string;
     totalAmount: number;
     description: string;
-    costType: 'V' | 'F'; // V: 変動費, F: 固定費
-    account?: string;
+    costType: 'V' | 'F';
+    account: string;
     relatedCustomer?: string;
     project?: string;
 }
 
-export type InboxItemStatus = 'processing' | 'pending_review' | 'approved' | 'error';
-
-export interface InboxItem {
-    id: string;
-    fileName: string;
-    filePath: string;
-    fileUrl: string;
-    mimeType: string;
-    status: InboxItemStatus;
-    extractedData: InvoiceData | null;
-    errorMessage: string | null;
-    createdAt: string;
-}
-
-// Types for new Invoicing flow
-export enum InvoiceStatusEnum {
-    Draft = 'draft',
-    Issued = 'issued',
-    Sent = 'sent',
-    Paid = 'paid',
-    Void = 'void',
-}
-
-export interface InvoiceItem {
-    id: string;
-    invoiceId: string;
-    job_id?: string;
+export interface AIJournalSuggestion {
+    account: string;
     description: string;
+    debit: number;
+    credit: number;
+}
+
+export interface ApplicationCode {
+    id: string;
+    code: string;
+    name: string;
+    description: string;
+    created_at: string;
+}
+
+export interface EstimateItem {
+    division: 'paper' | 'print' | 'design' | 'finishing' | 'other' | 'その他';
+    content: string;
     quantity: number;
     unit: string;
-    unit_price: number;
-    line_total: number;
-    sort_index: number;
-}
-
-export interface Invoice {
-    id: string;
-    invoice_no: string;
-    invoice_date: string;
-    due_date?: string;
-    customer_name: string;
-    subtotal_amount: number;
-    tax_amount: number;
-    total_amount: number;
-    status: InvoiceStatusEnum;
-    created_at: string;
-    items?: InvoiceItem[];
-}
-
-// Types for AI Estimate Generation
-export interface EstimateItem {
-  division: string; // 区分 (e.g., 'paper', 'print', 'other')
-  content: string; // 内容
-  quantity: number; // 数量
-  unit: string; // 単位
-  unitPrice: number; // 単価
-  price: number; // 金額
-  cost: number; // 原価
-  costRate: number; // 原価率
-  subtotal: number; // 小計
+    unitPrice: number;
+    price: number;
+    cost: number;
+    costRate: number;
+    subtotal: number;
 }
 
 export interface Estimate {
-  customerName: string;
-  title: string;
-  total: number;
-  // All other fields from the form
-  version?: number;
-  deliveryDate?: string;
-  deliveryMethod?: string;
-  paymentTerms?: string;
-  notes?: string;
-  items: EstimateItem[];
-}
-
-// Types for Lead Management
-export enum LeadStatus {
-    Untouched = '未対応',
-    New = '新規',
-    Contacted = 'コンタクト済',
-    Qualified = '見込みあり',
-    Disqualified = '見込みなし',
-    Converted = 'コンバート済',
-    Closed = '終了',
+    id: string;
+    estimateNumber: number;
+    customerName: string;
+    title: string;
+    items: EstimateItem[];
+    total: number;
+    deliveryDate: string;
+    paymentTerms: string;
+    deliveryMethod: string;
+    notes: string;
+    status: EstimateStatus;
+    version: number;
+    userId: string;
+    user?: User;
+    createdAt: string;
+    updatedAt: string;
 }
 
 export interface Lead {
     id: string;
+    status: LeadStatus;
+    created_at: string;
     name: string;
     email: string | null;
     phone: string | null;
@@ -428,7 +253,6 @@ export interface Lead {
     source: string | null;
     tags: string[] | null;
     message: string | null;
-    created_at: string;
     updated_at: string | null;
     referrer: string | null;
     referrer_url: string | null;
@@ -447,66 +271,117 @@ export interface Lead {
     country: string | null;
     city: string | null;
     region: string | null;
-    status: LeadStatus;
     employees: string | null;
     budget: string | null;
     timeline: string | null;
-    inquiry_type: string | null; // Old field, can be deprecated
-    inquiry_types: string[] | null; // New multi-select field
-    infoSalesActivity: string | null; // New activity log field
+    inquiry_type: string | null;
+    inquiry_types: string[] | null;
+    infoSalesActivity: string | null;
+    score?: number;
 }
 
-export interface LeadScore {
-  score: number;
-  rationale: string;
+export interface ApprovalRoute {
+    id: string;
+    name: string;
+    route_data: {
+        steps: { approver_id: string }[];
+    };
+    created_at: string;
 }
 
-// Types for Business Plan Page
-export interface BusinessPlanRow {
-  type: '目標' | '実績' | '前年';
-  monthly: (number | string)[];
-  cumulative: (number | string)[];
+export interface Application {
+    id: string;
+    applicant_id: string;
+    application_code_id: string;
+    form_data: any;
+    status: 'draft' | 'pending_approval' | 'approved' | 'rejected';
+    submitted_at: string | null;
+    approved_at: string | null;
+    rejected_at: string | null;
+    current_level: number;
+    approver_id: string | null;
+    rejection_reason: string | null;
+    approval_route_id: string;
+    created_at: string;
 }
 
-export interface BusinessPlanItem {
-  name: string;
-  totalValue: number | string;
-  data: BusinessPlanRow[];
+export interface ApplicationWithDetails extends Application {
+    applicant?: User;
+    application_codes?: ApplicationCode;
+    approval_routes?: ApprovalRoute;
+}
+
+export interface Employee {
+    id: string;
+    name: string;
+    department: string;
+    title: string;
+    hire_date: string;
+    salary: number;
+    created_at: string;
+}
+
+export interface AccountItem {
+    id: string;
+    code: string;
+    name: string;
+    categoryCode: string;
+    isActive: boolean;
+    sort_order: number;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface PurchaseOrder {
+    id: string;
+    supplierName: string;
+    itemName: string;
+    orderDate: string;
+    quantity: number;
+    unitPrice: number;
+    status: PurchaseOrderStatus;
+}
+
+export interface InventoryItem {
+    id: string;
+    name: string;
+    category: string;
+    quantity: number;
+    unit: string;
+    unitPrice: number;
 }
 
 export interface BusinessPlan {
-  name: string;
-  headers: string[];
-  items: BusinessPlanItem[];
+    name: string;
+    headers: string[];
+    items: {
+        name: string;
+        totalValue: number | string;
+        data: {
+            type: '目標' | '実績' | '前年';
+            monthly: (number | string)[];
+            cumulative: (number | string)[];
+        }[];
+    }[];
 }
 
 export interface Toast {
-  id: number;
-  message: string;
-  type: 'success' | 'error' | 'info';
+    id: number;
+    message: string;
+    type: 'success' | 'error' | 'info';
 }
-
+  
 export interface ConfirmationDialogProps {
-  isOpen: boolean;
-  title: string;
-  message: string;
-  onConfirm: () => void;
-  onClose: () => void;
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onClose: () => void;
 }
 
-export interface ClosingChecklistItem {
-    id: string;
-    description: string;
-    status: 'ok' | 'needs_review';
-    count: number;
-    actionPage: Page;
-}
-
-// Types for Bug/Improvement Reports
-export enum BugReportStatus {
-  Open = '未対応',
-  InProgress = '対応中',
-  Closed = '完了',
+export interface LeadScore {
+    score: number;
+    rationale: string;
 }
 
 export interface BugReport {
@@ -517,4 +392,58 @@ export interface BugReport {
   description: string;
   status: BugReportStatus;
   created_at: string;
+}
+
+export interface ClosingChecklistItem {
+    id: string;
+    description: string;
+    count: number;
+    status: 'ok' | 'needs_review';
+    actionPage?: Page;
+}
+
+export interface InvoiceItem {
+    id: string;
+    invoice_id: string;
+    job_id?: string;
+    description: string;
+    quantity: number;
+    unit: string;
+    unit_price: number;
+    line_total: number;
+    sort_index: number;
+}
+
+export interface Invoice {
+    id: string;
+    invoice_no: string;
+    invoice_date: string;
+    due_date?: string;
+    customer_name: string;
+    subtotal_amount: number;
+    tax_amount: number;
+    total_amount: number;
+    status: 'draft' | 'issued' | 'paid' | 'void';
+    created_at: string;
+    paid_at?: string;
+    items?: InvoiceItem[];
+}
+
+export enum InboxItemStatus {
+  Processing = 'processing',
+  PendingReview = 'pending_review',
+  Approved = 'approved',
+  Error = 'error',
+}
+
+export interface InboxItem {
+    id: string;
+    fileName: string;
+    filePath: string;
+    fileUrl: string;
+    mimeType: string;
+    status: InboxItemStatus;
+    extractedData: InvoiceData | null;
+    errorMessage: string | null;
+    createdAt: string;
 }

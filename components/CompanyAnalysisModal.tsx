@@ -1,25 +1,34 @@
 import React from 'react';
-import { CompanyAnalysis } from '../types';
-import { X, Loader, AlertTriangle, Lightbulb } from './Icons';
+import { CompanyAnalysis, Customer, EmployeeUser } from '../types';
+import { X, Loader, AlertTriangle, Lightbulb, Mail } from './Icons';
 
 interface CompanyAnalysisModalProps {
     isOpen: boolean;
     onClose: () => void;
     analysis: CompanyAnalysis | null;
-    customerName: string;
+    customer: Customer | null;
     isLoading: boolean;
     error: string;
+    currentUser: EmployeeUser | null;
 }
 
 const AnalysisSection: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
     <div>
         <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2 border-b border-slate-300 dark:border-slate-600 pb-2">{title}</h3>
-        <div className="text-base text-slate-600 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">{children}</div>
+        <div className="text-base text-slate-600 dark:text-slate-300 whitespace-pre-wrap leading-relaxed prose prose-slate dark:prose-invert max-w-none">{children}</div>
     </div>
 );
 
-const CompanyAnalysisModal: React.FC<CompanyAnalysisModalProps> = ({ isOpen, onClose, analysis, customerName, isLoading, error }) => {
+const CompanyAnalysisModal: React.FC<CompanyAnalysisModalProps> = ({ isOpen, onClose, analysis, customer, isLoading, error, currentUser }) => {
     if (!isOpen) return null;
+
+    const handleCreateEmail = () => {
+        if (!analysis || !analysis.proposalEmail || !customer || !currentUser) return;
+        const { subject, body } = analysis.proposalEmail;
+        const finalBody = body.replace(/\[あなたの名前\]/g, currentUser.name);
+        const mailto = `mailto:${customer.customerContactInfo || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(finalBody)}`;
+        window.open(mailto, '_blank');
+    };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
@@ -29,7 +38,7 @@ const CompanyAnalysisModal: React.FC<CompanyAnalysisModalProps> = ({ isOpen, onC
                         <Lightbulb className="w-7 h-7 text-blue-500" />
                         <div>
                             <h2 className="text-2xl font-bold text-slate-900 dark:text-white">AI企業分析</h2>
-                             <p className="text-sm text-slate-500 dark:text-slate-400">{customerName}</p>
+                             <p className="text-sm text-slate-500 dark:text-slate-400">{customer?.customerName}</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
@@ -56,20 +65,32 @@ const CompanyAnalysisModal: React.FC<CompanyAnalysisModalProps> = ({ isOpen, onC
                             <AnalysisSection title="SWOT分析">
                                 {analysis.swot}
                             </AnalysisSection>
-                             <AnalysisSection title="想定される課題（ペインポイント）">
-                                {analysis.painPoints}
+                             <AnalysisSection title="課題と潜在的ニーズ">
+                                {analysis.painPointsAndNeeds}
                             </AnalysisSection>
-                             <AnalysisSection title="潜在的な印刷ニーズ">
-                                {analysis.potentialNeeds}
+                             <AnalysisSection title="提案アクション">
+                                {analysis.suggestedActions}
                             </AnalysisSection>
-                             <AnalysisSection title="営業戦略の提案">
-                                {analysis.salesStrategy}
-                            </AnalysisSection>
+                            <div className="pt-4 mt-4 border-t border-slate-200 dark:border-slate-700">
+                                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">AI提案メール</h3>
+                                <div className="p-4 bg-slate-50 dark:bg-slate-700/50 rounded-lg space-y-2 border border-slate-200 dark:border-slate-700">
+                                    <p className="font-semibold text-slate-800 dark:text-slate-100">{analysis.proposalEmail.subject}</p>
+                                    <p className="text-base text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{analysis.proposalEmail.body.replace(/\[あなたの名前\]/g, currentUser?.name || '担当者名')}</p>
+                                </div>
+                            </div>
                         </>
                     )}
                 </div>
 
-                <div className="flex justify-end gap-4 p-6 border-t border-slate-200 dark:border-slate-700">
+                <div className="flex justify-between items-center gap-4 p-6 border-t border-slate-200 dark:border-slate-700">
+                     <button
+                        onClick={handleCreateEmail}
+                        disabled={!analysis || isLoading}
+                        className="flex items-center gap-2 bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 font-semibold py-2 px-4 rounded-lg hover:bg-purple-200 dark:hover:bg-purple-800/50 disabled:opacity-50"
+                    >
+                        <Mail className="w-4 h-4" />
+                        この内容でメールを作成
+                    </button>
                     <button onClick={onClose} className="bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600">
                         閉じる
                     </button>

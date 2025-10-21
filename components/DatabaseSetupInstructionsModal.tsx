@@ -1,9 +1,5 @@
-import React, { useState } from 'react';
-import { RefreshCw } from './Icons';
-
-interface DatabaseSetupInstructionsModalProps {
-  onRetry: () => void;
-}
+import React from 'react';
+import { X } from './Icons';
 
 const sqlScript = `-- Supabase SQL Editorで以下のスクリプト全体を実行してください。
 -- このスクリプトは何度実行しても安全なように設計されています。
@@ -43,7 +39,8 @@ CREATE TABLE IF NOT EXISTS public.users (
 
 -- 案件情報を保存する "jobs" テーブル
 CREATE TABLE IF NOT EXISTS public.jobs (
-  id TEXT PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_number SERIAL NOT NULL UNIQUE,
   client_name TEXT NOT NULL,
   title TEXT NOT NULL,
   status TEXT NOT NULL,
@@ -59,7 +56,8 @@ CREATE TABLE IF NOT EXISTS public.jobs (
   invoiced_at TIMESTAMPTZ,
   paid_at TIMESTAMPTZ,
   ready_to_invoice BOOLEAN,
-  invoice_id TEXT
+  invoice_id TEXT,
+  manufacturing_status TEXT
 );
 
 -- 会計の仕訳情報を保存する "journal_entries" テーブル
@@ -109,17 +107,20 @@ CREATE TABLE IF NOT EXISTS public.customers (
     monthly_plan TEXT,
     pay_day TEXT,
     recovery_method TEXT,
-    user_id UUID REFERENCES public.users(id)
+    user_id UUID REFERENCES public.users(id),
+    website_url TEXT
 );
 
--- 従業員情報を保存する "employees" テーブル
+-- 従業員情報を保存する "employees" テーブル (user_id と active を追加)
 CREATE TABLE IF NOT EXISTS public.employees (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID UNIQUE REFERENCES public.users(id) ON DELETE SET NULL,
   name TEXT NOT NULL,
   department TEXT,
-  position TEXT,
+  title TEXT,
   hire_date DATE,
   salary INTEGER NOT NULL,
+  active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -272,6 +273,81 @@ CREATE TABLE IF NOT EXISTS public.invoice_items (
     sort_index INTEGER NOT NULL
 );
 
+-- 見積もり関連テーブル
+CREATE TABLE IF NOT EXISTS public.estimates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    estimate_number SERIAL NOT NULL UNIQUE,
+    customer_name TEXT NOT NULL,
+    title TEXT NOT NULL,
+    total NUMERIC NOT NULL,
+    delivery_date DATE,
+    payment_terms TEXT,
+    delivery_method TEXT,
+    notes TEXT,
+    status TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1,
+    user_id UUID REFERENCES public.users(id),
+    created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS public.estimate_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    estimate_id UUID REFERENCES public.estimates(id) ON DELETE CASCADE,
+    division TEXT,
+    content TEXT NOT NULL,
+    quantity NUMERIC,
+    unit TEXT,
+    unit_price NUMERIC,
+    price NUMERIC,
+    cost NUMERIC,
+    cost_rate REAL,
+    subtotal NUMERIC
+);
+
+-- 経費申請テーブル
+CREATE TABLE IF NOT EXISTS public.expenses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    status TEXT NOT NULL,
+    project_id TEXT,
+    requester_id UUID REFERENCES public.users(id),
+    account TEXT,
+    tax_code TEXT,
+    amount_ex NUMERIC,
+    tax_amount NUMERIC,
+    amount_in NUMERIC,
+    cost_type TEXT,
+    occurred_on DATE,
+    vendor TEXT,
+    memo TEXT,
+    delta_m NUMERIC,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.expense_attachments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    expense_id UUID REFERENCES public.expenses(id) ON DELETE CASCADE,
+    file_name TEXT NOT NULL,
+    file_url TEXT NOT NULL
+);
+
+-- =================================================================
+-- === スキーマの更新 (下位互換性のための修正) ===
+-- =================================================================
+-- 以前のセットアップで 'jobs' テーブルに 'manufacturing_status' カラムが存在しない場合に追加します。
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'jobs' AND column_name = 'manufacturing_status'
+  ) THEN
+    ALTER TABLE public.jobs ADD COLUMN manufacturing_status TEXT;
+    RAISE NOTICE 'Column "manufacturing_status" added to "jobs" table.';
+  END IF;
+END;
+$$;
+
 
 -- =================================================================
 -- === 重要: ユーザ同期の問題を修正するトリガー関数 ===
@@ -350,6 +426,29 @@ FROM auth.users au
 LEFT JOIN public.users pu ON pu.id = au.id
 WHERE pu.id IS NULL;
 
+-- =================================================================
+-- === 新規: 有効な従業員ビュー ===
+-- =================================================================
+-- アプリケーションがユーザー一覧を取得するためのビューを作成します。
+CREATE OR REPLACE VIEW public.v_employees_active AS
+SELECT
+  u.id AS user_id,
+  COALESCE(e.name, u.name) AS name,
+  e.department,
+  e.title,
+  u.role,
+  u.created_at,
+  e.active,
+  u.email
+FROM public.users u
+LEFT JOIN public.employees e ON e.user_id = u.id
+WHERE COALESCE(e.active, true) = true;
+
+-- ビューと基底テーブルへのアクセス権を明示的に付与
+GRANT SELECT ON public.users TO anon, authenticated;
+GRANT SELECT ON public.employees TO anon, authenticated;
+GRANT SELECT ON public.v_employees_active TO anon, authenticated;
+
 
 -- 5. アプリケーションの動作に必要な初期データの登録
 -- 勘定科目マスターの初期データ
@@ -376,20 +475,16 @@ ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.de
 
 
 -- アプリケーションの基本動作に必要なデモユーザーを登録します
-INSERT INTO public.users (id, name, email, role)
-SELECT * FROM (VALUES
-  ('a1b2c3d4-e5f6-4890-8234-567890abcdef'::uuid, '山田 太郎 (部長)', 'yamada.taro@example.com', 'admin'),
-  ('b2c3d4e5-f6a7-4901-8345-67890abcdef1'::uuid, '鈴木 花子 (課長)', 'suzuki.hanako@example.com', 'user'),
-  ('c3d4e5f6-a7b8-4012-8456-7890abcdef12'::uuid, '橋本 唱一', 'hashimoto.shoichi@example.com', 'user')
-) AS v(id, name, email, role)
-ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, role = EXCLUDED.role, email = EXCLUDED.email;
-
--- 従業員データの初期登録
-INSERT INTO public.employees (id, name, department, position, hire_date, salary) VALUES
-('e1e1e1e1-e1e1-41e1-81e1-e1e1e1e1e1e1'::uuid, '佐藤 一郎', '営業部', '部長', '2010-04-01', 500000),
-('e2e2e2e2-e2e2-42e2-82e2-e2e2e2e2e2e2'::uuid, '田中 次郎', '製造部', '課長', '2015-04-01', 400000),
-('e3e3e3e3-e3e3-43e3-83e3-e3e3e3e3e3e3'::uuid, '伊藤 三郎', '営業部', '担当', '2020-04-01', 300000)
-ON CONFLICT (id) DO NOTHING;
+-- (auth.usersに存在しない場合、トリガーによって自動的に作成されます)
+INSERT INTO public.employees (user_id, name, department, title, hire_date, salary, active) VALUES
+((SELECT id FROM auth.users WHERE email = 'yamada.taro@example.com' LIMIT 1), '山田 太郎', '営業部', '部長', '2010-04-01', 500000, true),
+((SELECT id FROM auth.users WHERE email = 'suzuki.hanako@example.com' LIMIT 1), '鈴木 花子', '製造部', '課長', '2015-04-01', 400000, true),
+((SELECT id FROM auth.users WHERE email = 'hashimoto.shoichi@example.com' LIMIT 1), '橋本 唱一', '営業部', '担当', '2020-04-01', 300000, true)
+ON CONFLICT (user_id) DO UPDATE 
+SET name = EXCLUDED.name, 
+    department = EXCLUDED.department, 
+    title = EXCLUDED.title,
+    active = EXCLUDED.active;
 
 
 -- 6. RLS (Row-Level Security) の有効化とポリシー設定
@@ -404,7 +499,8 @@ DECLARE
         'jobs', 'journal_entries', 'account_items', 'customers', 'employees', 'leads', 
         'inbox_items', 'application_codes', 'approval_routes', 'applications', 
         'purchase_orders', 'inventory_items', 'invoices', 'invoice_items',
-        'departments', 'positions', 'bug_reports'
+        'departments', 'positions', 'bug_reports', 'estimates', 'estimate_items',
+        'expenses', 'expense_attachments'
     ];
 BEGIN
     -- usersテーブルのRLSが無効化されていることを確認
@@ -431,52 +527,50 @@ BEGIN
     END LOOP;
 END;
 $$;
+
+-- =================================================================
+-- === 新規: 匿名ユーザー向け読み取りポリシー ===
+-- =================================================================
+-- employeesテーブルに、匿名ユーザー(anon)が有効な従業員のみを読み取れるSELECTポリシーを追加します。
+-- これにより、アプリケーション起動時にユーザー一覧を正常に取得できるようになります。
+DROP POLICY IF EXISTS "Allow anon read access on active employees" ON public.employees;
+CREATE POLICY "Allow anon read access on active employees"
+ON public.employees
+FOR SELECT
+TO anon
+USING (COALESCE(active, true) = true);
 `;
 
+interface DatabaseSetupInstructionsModalProps {
+    onRetry: () => void;
+}
+
 const DatabaseSetupInstructionsModal: React.FC<DatabaseSetupInstructionsModalProps> = ({ onRetry }) => {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(sqlScript);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-slate-100 dark:bg-slate-900 flex justify-center items-center z-[200] p-4 font-sans">
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col">
-        <div className="p-6 border-b border-slate-200 dark:border-slate-700">
-          <h2 className="text-2xl font-bold text-slate-800 dark:text-white">データベース セットアップガイド</h2>
-          <p className="mt-1 text-slate-500 dark:text-slate-400">
-            以下のSQLスクリプトをSupabaseのSQL Editorにコピー＆ペーストして実行し、必要なテーブルと設定をセットアップしてください。
-          </p>
+    return (
+        <div className="fixed inset-0 bg-slate-100 dark:bg-slate-900 flex justify-center items-center z-[200] p-4">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col">
+                <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+                    <h2 className="text-2xl font-bold text-slate-800 dark:text-white">データベース セットアップガイド</h2>
+                    <p className="mt-1 text-slate-500 dark:text-slate-400">
+                        以下のSQLスクリプトをSupabaseのSQL Editorで実行して、必要なテーブルと設定をセットアップしてください。
+                    </p>
+                </div>
+                <div className="flex-1 p-6 overflow-auto">
+                    <pre className="bg-slate-100 dark:bg-slate-900 p-4 rounded-lg text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+                        <code>{sqlScript}</code>
+                    </pre>
+                </div>
+                <div className="flex justify-end p-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-700">
+                    <button
+                        onClick={onRetry}
+                        className="bg-blue-600 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md hover:bg-blue-700"
+                    >
+                        セットアップ完了、再接続を試す
+                    </button>
+                </div>
+            </div>
         </div>
-        <div className="flex-1 p-6 overflow-y-auto bg-slate-50 dark:bg-slate-900/50">
-          <pre className="text-xs p-4 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 whitespace-pre-wrap break-all">
-            <code>{sqlScript}</code>
-          </pre>
-        </div>
-        <div className="flex justify-between items-center p-4 bg-slate-100 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-700">
-          <button
-            onClick={handleCopy}
-            className={`font-semibold py-2 px-4 rounded-lg ${
-              copied ? 'bg-green-600 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'
-            }`}
-          >
-            {copied ? 'コピーしました！' : 'スクリプトをコピー'}
-          </button>
-          <button
-            onClick={onRetry}
-            className="flex items-center gap-2 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600"
-          >
-            <RefreshCw className="w-5 h-5" />
-            セットアップ後に再接続
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+    );
 };
 
-// FIX: Add default export to the component.
 export default DatabaseSetupInstructionsModal;

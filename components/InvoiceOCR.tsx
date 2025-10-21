@@ -27,10 +27,10 @@ const readFileAsBase64 = (file: File): Promise<string> => {
 
 const StatusBadge: React.FC<{ status: InboxItemStatus }> = ({ status }) => {
     const statusMap: Record<InboxItemStatus, { text: string; className: string }> = {
-        processing: { text: '処理中', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' },
-        pending_review: { text: '要確認', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300' },
-        approved: { text: '承認済', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' },
-        error: { text: 'エラー', className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' },
+        [InboxItemStatus.Processing]: { text: '処理中', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' },
+        [InboxItemStatus.PendingReview]: { text: '要確認', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300' },
+        [InboxItemStatus.Approved]: { text: '承認済', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' },
+        [InboxItemStatus.Error]: { text: 'エラー', className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' },
     };
     const { text, className } = statusMap[status];
     return <span className={`px-2.5 py-1 text-sm font-medium rounded-full ${className}`}>{text}</span>;
@@ -68,6 +68,7 @@ const InboxItemCard: React.FC<{
         setIsSaving(false);
     };
     
+    // FIX: Use requestConfirmation prop instead of window.confirm for consistent UI.
     const handleDelete = async () => {
         requestConfirmation({
             title: 'ファイルを削除',
@@ -198,7 +199,8 @@ const InvoiceOCR: React.FC<InvoiceOCRProps> = ({ onSaveExpenses, addToast, reque
             fileName: file.name,
             filePath: '',
             mimeType: file.type,
-            status: 'processing',
+            // FIX: Use enum member instead of string literal.
+            status: InboxItemStatus.Processing,
             extractedData: null,
             errorMessage: null,
         };
@@ -213,10 +215,12 @@ const InvoiceOCR: React.FC<InvoiceOCRProps> = ({ onSaveExpenses, addToast, reque
             const base64String = await readFileAsBase64(file);
             const data = await extractInvoiceDetails(base64String, file.type);
             tempItem.extractedData = data;
-            tempItem.status = 'pending_review';
+            // FIX: Use enum member instead of string literal.
+            tempItem.status = InboxItemStatus.PendingReview;
 
         } catch (err: any) {
-            tempItem.status = 'error';
+            // FIX: Use enum member instead of string literal.
+            tempItem.status = InboxItemStatus.Error;
             tempItem.errorMessage = err.message || '不明なエラーが発生しました。';
         } finally {
              setItems(prev => prev.filter(i => i.id !== tempId));
@@ -250,7 +254,8 @@ const InvoiceOCR: React.FC<InvoiceOCRProps> = ({ onSaveExpenses, addToast, reque
         if (!itemToApprove.extractedData) return;
         try {
             onSaveExpenses(itemToApprove.extractedData);
-            await handleUpdateItem(itemToApprove.id, { status: 'approved' });
+            // FIX: Use enum member instead of string literal.
+            await handleUpdateItem(itemToApprove.id, { status: InboxItemStatus.Approved });
         } catch (err: any) {
             addToast(`承認処理に失敗しました: ${err.message}`, 'error');
         }

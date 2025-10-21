@@ -1,12 +1,25 @@
-
 import React from 'react';
 import { InventoryItem } from '../../types';
+import { Package, PlusCircle } from '../Icons';
+import EmptyState from '../ui/EmptyState';
 
 interface InventoryManagementPageProps {
   inventoryItems: InventoryItem[];
+  onSelectItem: (item: InventoryItem) => void;
 }
 
-const InventoryManagementPage: React.FC<InventoryManagementPageProps> = ({ inventoryItems }) => {
+const InventoryManagementPage: React.FC<InventoryManagementPageProps> = ({ inventoryItems, onSelectItem }) => {
+  if (inventoryItems.length === 0) {
+      return (
+          <EmptyState
+            icon={Package}
+            title="在庫品目がありません"
+            message="最初の在庫品目を登録してください。"
+            action={{ label: "新規品目登録", onClick: () => onSelectItem(null as any), icon: PlusCircle }}
+          />
+      )
+  }
+  
   return (
     <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
       <div className="p-6">
@@ -30,8 +43,8 @@ const InventoryManagementPage: React.FC<InventoryManagementPageProps> = ({ inven
           </thead>
           <tbody>
             {inventoryItems.map((item) => (
-              <tr key={item.id} className="bg-white dark:bg-slate-800 border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600">
-                <td className="px-6 py-4 font-mono text-sm">{item.id}</td>
+              <tr key={item.id} onClick={() => onSelectItem(item)} className="bg-white dark:bg-slate-800 border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 cursor-pointer">
+                <td className="px-6 py-4 font-mono text-sm">{item.id.substring(0, 8)}...</td>
                 <td className="px-6 py-4 font-medium text-slate-800 dark:text-slate-200">{item.name}</td>
                 <td className="px-6 py-4">{item.category}</td>
                 <td className="px-6 py-4 text-right">{item.quantity.toLocaleString()}</td>
@@ -40,13 +53,6 @@ const InventoryManagementPage: React.FC<InventoryManagementPageProps> = ({ inven
                 <td className="px-6 py-4 text-right font-semibold">¥{(item.quantity * item.unitPrice).toLocaleString()}</td>
               </tr>
             ))}
-            {inventoryItems.length === 0 && (
-              <tr>
-                <td colSpan={7} className="text-center py-16 text-slate-500 dark:text-slate-400">
-                  <p>在庫データがありません。</p>
-                </td>
-              </tr>
-            )}
           </tbody>
         </table>
       </div>

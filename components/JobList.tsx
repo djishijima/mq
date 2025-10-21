@@ -14,7 +14,7 @@ interface JobListProps {
 }
 
 const JobList: React.FC<JobListProps> = ({ jobs, searchTerm, onSelectJob, onNewJob }) => {
-  const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'createdAt', direction: 'descending' });
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'jobNumber', direction: 'descending' });
 
   const filteredJobs = useMemo(() => {
     if (!searchTerm) return jobs;
@@ -22,7 +22,7 @@ const JobList: React.FC<JobListProps> = ({ jobs, searchTerm, onSelectJob, onNewJ
     return jobs.filter(job => 
       job.clientName.toLowerCase().includes(lowercasedTerm) ||
       job.title.toLowerCase().includes(lowercasedTerm) ||
-      job.id.toLowerCase().includes(lowercasedTerm)
+      String(job.jobNumber).includes(lowercasedTerm)
     );
   }, [jobs, searchTerm]);
 
@@ -70,37 +70,35 @@ const JobList: React.FC<JobListProps> = ({ jobs, searchTerm, onSelectJob, onNewJ
         <table className="w-full text-base text-left text-slate-500 dark:text-slate-400">
           <thead className="text-sm text-slate-700 uppercase bg-slate-50 dark:bg-slate-700 dark:text-slate-300">
             <tr>
-              <SortableHeader sortKey="id" label="案件ID" sortConfig={sortConfig} requestSort={requestSort}/>
-              <SortableHeader sortKey="clientName" label="クライアント / タイトル" sortConfig={sortConfig} requestSort={requestSort} />
-              <SortableHeader sortKey="price" label="売上高 (P)" sortConfig={sortConfig} requestSort={requestSort} />
-              <SortableHeader sortKey="variableCost" label="変動費 (V)" sortConfig={sortConfig} requestSort={requestSort} />
-              <th scope="col" className="px-6 py-3 font-medium whitespace-nowrap">限界利益 (M)</th>
-              <SortableHeader sortKey="status" label="ステータス" sortConfig={sortConfig} requestSort={requestSort} />
+              <SortableHeader sortKey="jobNumber" label="案件番号" sortConfig={sortConfig} requestSort={requestSort}/>
+              <SortableHeader sortKey="clientName" label="顧客名 / 案件名" sortConfig={sortConfig} requestSort={requestSort} />
+              <SortableHeader sortKey="paperType" label="紙種" sortConfig={sortConfig} requestSort={requestSort} />
+              <SortableHeader sortKey="quantity" label="部数" sortConfig={sortConfig} requestSort={requestSort} />
               <SortableHeader sortKey="dueDate" label="納期" sortConfig={sortConfig} requestSort={requestSort} />
+              <SortableHeader sortKey="price" label="金額" sortConfig={sortConfig} requestSort={requestSort} />
+              <SortableHeader sortKey="status" label="ステータス" sortConfig={sortConfig} requestSort={requestSort} />
             </tr>
           </thead>
           <tbody>
-            {sortedJobs.map((job) => {
-              const margin = job.price - job.variableCost;
-              return (
+            {sortedJobs.map((job) => (
                 <tr key={job.id} onClick={() => onSelectJob(job)} className="bg-white dark:bg-slate-800 border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer odd:bg-slate-50 dark:odd:bg-slate-800/50">
                   <td className="px-6 py-5 font-mono text-sm text-slate-600 dark:text-slate-400 whitespace-nowrap">
-                    {job.id}
+                    {job.jobNumber}
                   </td>
                   <td className="px-6 py-5">
                     <div className="font-medium text-base text-slate-800 dark:text-slate-200">{job.clientName}</div>
                     <div className="text-slate-500 dark:text-slate-400">{job.title}</div>
                   </td>
-                  <td className="px-6 py-5 whitespace-nowrap">{formatJPY(job.price)}</td>
-                  <td className="px-6 py-5 whitespace-nowrap">{formatJPY(job.variableCost)}</td>
-                  <td className="px-6 py-5 font-bold text-blue-600 dark:text-blue-400 whitespace-nowrap">{formatJPY(margin)}</td>
+                  <td className="px-6 py-5 whitespace-nowrap">{job.paperType}</td>
+                  <td className="px-6 py-5 whitespace-nowrap">{job.quantity.toLocaleString()}</td>
+                  <td className="px-6 py-5 whitespace-nowrap">{formatDate(job.dueDate)}</td>
+                  <td className="px-6 py-5 whitespace-nowrap font-semibold">{formatJPY(job.price)}</td>
                   <td className="px-6 py-5">
                     <JobStatusBadge status={job.status} />
                   </td>
-                  <td className="px-6 py-5 whitespace-nowrap">{formatDate(job.dueDate)}</td>
                 </tr>
-              );
-            })}
+              )
+            )}
              {sortedJobs.length === 0 && (
                 <tr>
                     <td colSpan={7}>

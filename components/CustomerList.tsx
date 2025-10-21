@@ -1,25 +1,57 @@
 import React, { useState, useMemo } from 'react';
-import { Customer, SortConfig, Toast, User } from '../types';
-import { Pencil, Eye, Mail, Lightbulb, Users, PlusCircle, Loader } from './Icons';
+import { Customer, SortConfig, Toast, EmployeeUser } from '../types';
+import { Pencil, Eye, Mail, Lightbulb, Users, PlusCircle, Loader, Save, X } from './Icons';
 import EmptyState from './ui/EmptyState';
 import SortableHeader from './ui/SortableHeader';
 import { generateSalesEmail } from '../services/geminiService';
-import { DropdownMenu, DropdownMenuItem } from './ui/DropdownMenu';
+import { createSignature } from '../utils';
 
 interface CustomerListProps {
   customers: Customer[];
   searchTerm: string;
   onSelectCustomer: (customer: Customer) => void;
-  onEditCustomer: (customer: Customer) => void;
+  onUpdateCustomer: (customerId: string, customerData: Partial<Customer>) => Promise<void>;
   onAnalyzeCustomer: (customer: Customer) => void;
   addToast: (message: string, type: Toast['type']) => void;
-  currentUser: User | null;
+  currentUser: EmployeeUser | null;
   onNewCustomer: () => void;
 }
 
-const CustomerList: React.FC<CustomerListProps> = ({ customers, searchTerm, onSelectCustomer, onEditCustomer, onAnalyzeCustomer, addToast, currentUser, onNewCustomer }) => {
+const CustomerList: React.FC<CustomerListProps> = ({ customers, searchTerm, onSelectCustomer, onUpdateCustomer, onAnalyzeCustomer, addToast, currentUser, onNewCustomer }) => {
   const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'customerName', direction: 'ascending' });
   const [isGeneratingEmail, setIsGeneratingEmail] = useState<string | null>(null);
+  const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  const [editedData, setEditedData] = useState<Partial<Customer>>({});
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleEditClick = (e: React.MouseEvent, customer: Customer) => {
+    e.stopPropagation();
+    setEditingRowId(customer.id);
+    setEditedData(customer);
+  };
+
+  const handleCancelEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingRowId(null);
+    setEditedData({});
+  };
+
+  const handleSaveEdit = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!editingRowId) return;
+    setIsSaving(true);
+    try {
+        await onUpdateCustomer(editingRowId, editedData);
+    } finally {
+        setIsSaving(false);
+        setEditingRowId(null);
+    }
+  };
+
+  const handleFieldChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setEditedData(prev => ({ ...prev, [name]: value }));
+  };
 
   const handleGenerateProposal = async (e: React.MouseEvent, customer: Customer) => {
     e.stopPropagation();
@@ -30,7 +62,9 @@ const CustomerList: React.FC<CustomerListProps> = ({ customers, searchTerm, onSe
     setIsGeneratingEmail(customer.id);
     try {
       const { subject, body } = await generateSalesEmail(customer, currentUser.name);
-      const mailto = `mailto:${customer.customerContactInfo || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      const signature = createSignature();
+      const finalBody = `${body}${signature}`;
+      const mailto = `mailto:${customer.customerContactInfo || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(finalBody)}`;
       window.open(mailto, '_blank');
       addToast(`「${customer.customerName}」向けのメール下書きを作成しました。`, 'success');
     } catch (error) {
@@ -45,7 +79,6 @@ const CustomerList: React.FC<CustomerListProps> = ({ customers, searchTerm, onSe
     const lowercasedTerm = searchTerm.toLowerCase();
     return customers.filter(customer => 
       customer.customerName.toLowerCase().includes(lowercasedTerm) ||
-      (customer.representative && customer.representative.toLowerCase().includes(lowercasedTerm)) ||
       (customer.phoneNumber && customer.phoneNumber.includes(lowercasedTerm))
     );
   }, [customers, searchTerm]);
@@ -84,55 +117,77 @@ const CustomerList: React.FC<CustomerListProps> = ({ customers, searchTerm, onSe
       return <EmptyState icon={Users} title="顧客が登録されていません" message="最初の顧客を登録して、取引を開始しましょう。" action={{ label: "新規顧客登録", onClick: onNewCustomer, icon: PlusCircle }} />;
   }
 
+  const InlineEditInput: React.FC<{name: keyof Customer, value: any, onChange: (e:React.ChangeEvent<HTMLInputElement>) => void}> = ({ name, value, onChange}) => (
+    <input
+      type="text"
+      name={name}
+      value={value || ''}
+      onChange={onChange}
+      onClick={e => e.stopPropagation()}
+      className="w-full bg-blue-50 dark:bg-slate-700 p-1 rounded-md border border-blue-300 dark:border-blue-600 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+    />
+  );
+
   return (
     <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-base text-left text-slate-500 dark:text-slate-400">
           <thead className="text-sm text-slate-700 uppercase bg-slate-50 dark:bg-slate-700 dark:text-slate-300">
             <tr>
-              <SortableHeader sortKey="customerCode" label="顧客コード" sortConfig={sortConfig} requestSort={requestSort} />
               <SortableHeader sortKey="customerName" label="顧客名" sortConfig={sortConfig} requestSort={requestSort}/>
-              <th scope="col" className="px-6 py-3 font-medium">代表者</th>
-              <th scope="col" className="px-6 py-3 font-medium">電話番号</th>
-              <th scope="col" className="px-6 py-3 font-medium">住所</th>
+              <SortableHeader sortKey="phoneNumber" label="電話番号" sortConfig={sortConfig} requestSort={requestSort} />
+              <SortableHeader sortKey="address1" label="住所" sortConfig={sortConfig} requestSort={requestSort} />
+              <SortableHeader sortKey="websiteUrl" label="Webサイト" sortConfig={sortConfig} requestSort={requestSort} />
               <th scope="col" className="px-6 py-3 font-medium text-center">操作</th>
             </tr>
           </thead>
           <tbody>
-            {sortedCustomers.map((customer) => (
+            {sortedCustomers.map((customer) => {
+              const isEditing = editingRowId === customer.id;
+              return (
               <tr key={customer.id} onClick={() => onSelectCustomer(customer)} className="group bg-white dark:bg-slate-800 border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 odd:bg-slate-50 dark:odd:bg-slate-800/50 cursor-pointer">
-                <td className="px-6 py-4 font-mono text-sm text-slate-600 dark:text-slate-400">{customer.customerCode || '-'}</td>
-                <td className="px-6 py-4">
-                  <div className="font-medium text-slate-800 dark:text-slate-200">{customer.customerName}</div>
-                  <div className="text-slate-500 text-sm">{customer.customerNameKana}</div>
+                <td className="px-6 py-4 font-medium text-slate-800 dark:text-slate-200">
+                  {isEditing ? <InlineEditInput name="customerName" value={editedData.customerName} onChange={handleFieldChange} /> : customer.customerName}
                 </td>
-                <td className="px-6 py-4">{customer.representative || '-'}</td>
-                <td className="px-6 py-4">{customer.phoneNumber || '-'}</td>
-                <td className="px-6 py-4 truncate max-w-sm">{customer.address1 || '-'}</td>
-                <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity focus-within:opacity-100">
-                        <DropdownMenu>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onSelectCustomer(customer); }}>
-                                <Eye className="w-4 h-4" /> 詳細表示
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEditCustomer(customer); }}>
-                                <Pencil className="w-4 h-4" /> 編集
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onAnalyzeCustomer(customer); }}>
-                                <Lightbulb className="w-4 h-4" /> AI企業分析
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => handleGenerateProposal(e, customer)} disabled={isGeneratingEmail === customer.id}>
-                                {isGeneratingEmail === customer.id ? <Loader className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
-                                提案メール作成
-                            </DropdownMenuItem>
-                        </DropdownMenu>
+                <td className="px-6 py-4">
+                    {isEditing ? <InlineEditInput name="phoneNumber" value={editedData.phoneNumber} onChange={handleFieldChange} /> : customer.phoneNumber || '-'}
+                </td>
+                <td className="px-6 py-4 truncate max-w-sm">
+                    {isEditing ? <InlineEditInput name="address1" value={editedData.address1} onChange={handleFieldChange} /> : customer.address1 || '-'}
+                </td>
+                <td className="px-6 py-4 truncate max-w-xs">
+                    {isEditing ? <InlineEditInput name="websiteUrl" value={editedData.websiteUrl} onChange={handleFieldChange} /> : (
+                      customer.websiteUrl ? <a href={customer.websiteUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-blue-600 hover:underline">{customer.websiteUrl}</a> : '-'
+                    )}
+                </td>
+                <td className="px-6 py-4 text-center">
+                    <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        {isEditing ? (
+                            <>
+                                <button onClick={handleSaveEdit} disabled={isSaving} className="p-2 rounded-full text-slate-500 hover:bg-green-100 hover:text-green-600 dark:hover:bg-green-900/50" title="保存">
+                                    {isSaving ? <Loader className="w-5 h-5 animate-spin"/> : <Save className="w-5 h-5"/>}
+                                </button>
+                                <button onClick={handleCancelEdit} className="p-2 rounded-full text-slate-500 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/50" title="キャンセル">
+                                    <X className="w-5 h-5"/>
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <button onClick={() => onSelectCustomer(customer)} className="p-2 rounded-full text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700" title="詳細表示"><Eye className="w-5 h-5"/></button>
+                                <button onClick={(e) => handleEditClick(e, customer)} className="p-2 rounded-full text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700" title="インライン編集"><Pencil className="w-5 h-5"/></button>
+                                <button onClick={(e) => {e.stopPropagation(); onAnalyzeCustomer(customer)}} className="p-2 rounded-full text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700" title="AI企業分析"><Lightbulb className="w-5 h-5"/></button>
+                                <button onClick={(e) => handleGenerateProposal(e, customer)} disabled={isGeneratingEmail === customer.id} className="p-2 rounded-full text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700" title="提案メール作成">
+                                  {isGeneratingEmail === customer.id ? <Loader className="w-5 h-5 animate-spin" /> : <Mail className="w-5 h-5" />}
+                                </button>
+                            </>
+                        )}
                     </div>
                 </td>
               </tr>
-            ))}
+            )})}
              {sortedCustomers.length === 0 && (
               <tr>
-                <td colSpan={6}>
+                <td colSpan={5}>
                     <EmptyState 
                         icon={Users}
                         title="検索結果がありません"

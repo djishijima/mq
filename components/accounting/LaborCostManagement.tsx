@@ -48,7 +48,8 @@ const LaborCostManagement: React.FC<LaborCostManagementProps> = ({ employees }) 
                                     <td className="px-6 py-4 font-mono text-sm">{emp.id}</td>
                                     <td className="px-6 py-4 font-medium text-slate-800 dark:text-slate-200">{emp.name}</td>
                                     <td className="px-6 py-4">{emp.department}</td>
-                                    <td className="px-6 py-4">{emp.position}</td>
+                                    {/* FIX: Property 'position' does not exist on type 'Employee'. Use 'title' instead. */}
+                                    <td className="px-6 py-4">{emp.title}</td>
                                     <td className="px-6 py-4 text-right">¥{emp.salary.toLocaleString()}</td>
                                     <td className="px-6 py-4 text-right font-semibold">¥{(emp.salary * 12).toLocaleString()}</td>
                                 </tr>

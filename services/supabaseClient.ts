@@ -1,23 +1,16 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { SUPABASE_URL, SUPABASE_KEY } from '../supabaseCredentials';
 
 let supabase: SupabaseClient | null = null;
 
-// アプリケーション起動時にローカルストレージから接続情報を読み込もうと試みる
-try {
-    const url = localStorage.getItem('supabaseUrl');
-    const key = localStorage.getItem('supabaseKey');
-    if (url && key) {
-        supabase = createClient(url, key);
-    }
-} catch (e) {
-    console.error("Error initializing Supabase from localStorage", e);
-}
-
-// 新しい接続情報でSupabaseクライアントを初期化し、ローカルストレージに保存する関数
+// 新しい接続情報でSupabaseクライアントを初期化する関数
 export const initializeSupabase = (url: string, key: string): SupabaseClient | null => {
     try {
-        localStorage.setItem('supabaseUrl', url);
-        localStorage.setItem('supabaseKey', key);
+        if (!url || !key) {
+            console.warn("Supabase URL or Key is missing in credentials file.");
+            supabase = null;
+            return null;
+        }
         supabase = createClient(url, key);
         return supabase;
     } catch (e) {
@@ -29,29 +22,18 @@ export const initializeSupabase = (url: string, key: string): SupabaseClient | n
 
 // 現在のSupabaseクライアントインスタンスを取得する関数
 export const getSupabase = (): SupabaseClient => {
+    // Initialize if not already done.
+    if (!supabase) {
+        initializeSupabase(SUPABASE_URL, SUPABASE_KEY);
+    }
     if (!supabase) {
         // ここでエラーが投げられた場合、UI側で設定モーダルを表示する
-        throw new Error("Supabase client is not initialized. Please configure credentials.");
+        throw new Error("Supabase client is not initialized. Please configure credentials in supabaseCredentials.ts");
     }
     return supabase;
 };
 
-// 保存されている接続情報をクリアする関数
-export const clearSupabaseCredentials = () => {
-    try {
-        localStorage.removeItem('supabaseUrl');
-        localStorage.removeItem('supabaseKey');
-        supabase = null;
-    } catch (e) {
-        console.error("Error clearing Supabase credentials", e);
-    }
-}
-
 // 接続情報が設定されているか確認する関数
 export const hasSupabaseCredentials = (): boolean => {
-    try {
-        return !!(localStorage.getItem('supabaseUrl') && localStorage.getItem('supabaseKey'));
-    } catch (e) {
-        return false;
-    }
+    return !!(SUPABASE_URL && SUPABASE_KEY);
 };

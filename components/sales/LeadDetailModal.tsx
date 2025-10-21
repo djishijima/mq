@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Lead, LeadStatus, Toast, ConfirmationDialogProps, User, LeadScore } from '../../types';
+import { Lead, LeadStatus, Toast, ConfirmationDialogProps, EmployeeUser, LeadScore } from '../../types';
 import { X, Save, Loader, Pencil, Trash2, Mail, CheckCircle } from '../Icons';
 import LeadStatusBadge from './LeadStatusBadge';
-import { generateLeadReplyEmail } from '../../services/geminiService';
 import { INQUIRY_TYPES } from '../../constants';
 import LeadScoreBadge from '../ui/LeadScoreBadge';
 
@@ -14,8 +13,9 @@ interface LeadDetailModalProps {
     onDelete: (leadId: string) => Promise<void>;
     addToast: (message: string, type: Toast['type']) => void;
     requestConfirmation: (dialog: Omit<ConfirmationDialogProps, 'isOpen' | 'onClose'>) => void;
-    currentUser: User | null;
+    currentUser: EmployeeUser | null;
     scoreData?: LeadScore;
+    onGenerateReply: (lead: Lead) => void;
 }
 
 const DetailSection: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
@@ -41,13 +41,13 @@ const Field: React.FC<{
     
     return (
         <div className={className}>
-            <label htmlFor={name} className="text-sm font-medium text-slate-500 dark:text-slate-400">{label}</label>
+            <label htmlFor={String(name)} className="text-sm font-medium text-slate-500 dark:text-slate-400">{label}</label>
             <div className="mt-1">
                 {isEditing ? (
                     <>
-                        {type === 'textarea' && <textarea id={name} name={name} value={(value as string) || ''} onChange={onChange} className={inputClass} rows={5} />}
-                        {type === 'select' && <select id={name} name={name} value={(value as string) || ''} onChange={onChange} className={inputClass}>{options.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>}
-                        {type !== 'textarea' && type !== 'select' && <input type={type} id={name} name={name} value={(value as string) || ''} onChange={onChange} className={inputClass} />}
+                        {type === 'textarea' && <textarea id={String(name)} name={String(name)} value={(value as string) || ''} onChange={onChange} className={inputClass} rows={5} />}
+                        {type === 'select' && <select id={String(name)} name={String(name)} value={(value as string) || ''} onChange={onChange} className={inputClass}>{options.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>}
+                        {type !== 'textarea' && type !== 'select' && <input type={type} id={String(name)} name={String(name)} value={(value as string) || ''} onChange={onChange} className={inputClass} />}
                     </>
                 ) : (
                     <p className="text-base text-slate-900 dark:text-white min-h-[44px] flex items-center whitespace-pre-wrap break-words">
@@ -90,13 +90,11 @@ const InquiryTypesField: React.FC<{ isEditing: boolean; value: string[]; onChang
     );
 };
 
-
-const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead, onSave, onDelete, addToast, requestConfirmation, currentUser, scoreData }) => {
+const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead, onSave, onDelete, addToast, requestConfirmation, currentUser, onGenerateReply, scoreData }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [formData, setFormData] = useState<Partial<Lead>>({});
     const [isSaving, setIsSaving] = useState(false);
-    const [isAiEmailLoading, setIsAiEmailLoading] = useState(false);
-
+    
     useEffect(() => {
         if (lead) {
             setFormData({ ...lead, inquiry_types: lead.inquiry_types || [] });
@@ -152,34 +150,9 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
         });
     };
 
-    const handleGenerateReply = async () => {
-        if (!lead.email) {
-            addToast('返信先のメールアドレスが登録されていません。', 'error');
-            return;
-        }
-        if (!currentUser) {
-            addToast('ログインユーザー情報が見つかりません。', 'error');
-            return;
-        }
-        setIsAiEmailLoading(true);
-        try {
-            const { subject, body } = await generateLeadReplyEmail(lead, currentUser.name);
-            const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${lead.email}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-            window.open(gmailUrl, '_blank');
-            
-            const timestamp = new Date().toLocaleString('ja-JP');
-            const logMessage = `[${timestamp}] AI返信メールを作成しました。`;
-            const updatedInfo = `${logMessage}\n${formData.infoSalesActivity || ''}`.trim();
-            
-            const updatedData = { infoSalesActivity: updatedInfo, status: LeadStatus.Contacted, updated_at: new Date().toISOString() };
-            await onSave(lead.id, updatedData);
-            setFormData(prev => ({ ...prev, ...updatedData }));
-            addToast('Gmailの下書きを作成しました。', 'success');
-        } catch (error) {
-            addToast(error instanceof Error ? error.message : 'AIによるメール作成に失敗しました。', 'error');
-        } finally {
-            setIsAiEmailLoading(false);
-        }
+    const handleGenerateReplyClick = () => {
+        if (!lead) return;
+        onGenerateReply(lead);
     };
 
     const handleMarkContacted = async () => {
@@ -233,20 +206,6 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                         <Field label="ソース" name="source" value={formData.source} isEditing={isEditing} onChange={handleChange} />
                     </div>
                     
-                    {scoreData && (
-                        <DetailSection title="AI リードスコア">
-                            <div className="flex items-start gap-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg">
-                                <LeadScoreBadge score={scoreData.score} />
-                                <div className="flex-1">
-                                    <h4 className="font-semibold text-slate-800 dark:text-white">スコアリング理由</h4>
-                                    <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap mt-1">
-                                        {scoreData.rationale}
-                                    </p>
-                                </div>
-                            </div>
-                        </DetailSection>
-                    )}
-
                     <DetailSection title="問い合わせ内容">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                             <InquiryTypesField isEditing={isEditing} value={formData.inquiry_types || []} onChange={handleInquiryTypeChange} />
@@ -274,8 +233,8 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
                             </button>
                         ) : (
                             <div className="flex gap-2">
-                                <button onClick={handleGenerateReply} disabled={isAiEmailLoading || isSaving} className="flex items-center gap-2 bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 font-semibold py-2 px-4 rounded-lg hover:bg-purple-200 dark:hover:bg-purple-800/50 disabled:opacity-50">
-                                    {isAiEmailLoading ? <Loader className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                                <button onClick={handleGenerateReplyClick} disabled={isSaving} className="flex items-center gap-2 bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 font-semibold py-2 px-4 rounded-lg hover:bg-purple-200 dark:hover:bg-purple-800/50 disabled:opacity-50">
+                                    <Mail className="w-4 h-4" />
                                     AI返信作成
                                 </button>
                                 {formData.status === LeadStatus.Untouched && (
@@ -313,5 +272,4 @@ const LeadDetailModal: React.FC<LeadDetailModalProps> = ({ isOpen, onClose, lead
         </div>
     );
 };
-
 export default LeadDetailModal;

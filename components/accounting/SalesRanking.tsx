@@ -1,5 +1,3 @@
-
-
 import React, { useMemo } from 'react';
 import { Job, JobStatus } from '../../types';
 import { Trophy, DollarSign, TrendingUp, Briefcase } from '../Icons';
@@ -19,7 +17,8 @@ interface CustomerSalesData {
 
 const SalesRanking: React.FC<SalesRankingProps> = ({ jobs }) => {
     const customerData = useMemo(() => {
-        const data = jobs.reduce((acc, job) => {
+        // FIX: Provide a typed accumulator to the reduce function to avoid 'unknown' type errors.
+        const data = jobs.reduce((acc: Record<string, CustomerSalesData>, job) => {
             if (job.status === JobStatus.Completed || job.status === JobStatus.InProgress) {
                 if (!acc[job.clientName]) {
                     acc[job.clientName] = { clientName: job.clientName, jobCount: 0, totalSales: 0, totalMargin: 0 };
@@ -29,13 +28,15 @@ const SalesRanking: React.FC<SalesRankingProps> = ({ jobs }) => {
                 acc[job.clientName].totalMargin += (job.price - job.variableCost);
             }
             return acc;
-        }, {} as Record<string, CustomerSalesData>);
+        }, {});
 
+        // FIX: Add explicit types for sort function parameters.
         return Object.values(data).sort((a: CustomerSalesData, b: CustomerSalesData) => b.totalSales - a.totalSales);
     }, [jobs]);
 
     const { totalRankedSales, totalRankedMargin } = useMemo(() => {
         return customerData.reduce(
+            // FIX: Provide a correctly typed initial value for the reduce function.
             (acc, customer) => {
                 acc.totalRankedSales += customer.totalSales;
                 acc.totalRankedMargin += customer.totalMargin;

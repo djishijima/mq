@@ -1,17 +1,20 @@
 import React, { useMemo } from 'react';
-import { Job, JobStatus } from '../../types';
+import { Job, ManufacturingStatus } from '../../types';
 
-interface SalesPipelinePageProps {
+interface ManufacturingPipelinePageProps {
   jobs: Job[];
   onUpdateJob: (jobId: string, updatedData: Partial<Job>) => Promise<void>;
   onCardClick: (job: Job) => void;
 }
 
-const COLUMNS_ORDER: JobStatus[] = [
-    JobStatus.Pending,
-    JobStatus.InProgress,
-    JobStatus.Completed,
-    JobStatus.Cancelled,
+const COLUMNS_ORDER: ManufacturingStatus[] = [
+  ManufacturingStatus.OrderReceived,
+  ManufacturingStatus.DataCheck,
+  ManufacturingStatus.Prepress,
+  ManufacturingStatus.Printing,
+  ManufacturingStatus.Finishing,
+  ManufacturingStatus.AwaitingShipment,
+  ManufacturingStatus.Delivered,
 ];
 
 const JobCard: React.FC<{ job: Job; onClick: () => void; }> = ({ job, onClick }) => {
@@ -44,15 +47,16 @@ const JobCard: React.FC<{ job: Job; onClick: () => void; }> = ({ job, onClick })
     );
 };
 
-const SalesPipelinePage: React.FC<SalesPipelinePageProps> = ({ jobs, onUpdateJob, onCardClick }) => {
+
+const ManufacturingPipelinePage: React.FC<ManufacturingPipelinePageProps> = ({ jobs, onUpdateJob, onCardClick }) => {
     
-    const handleDropOnColumn = (e: React.DragEvent<HTMLDivElement>, newStatus: JobStatus) => {
+    const handleDropOnColumn = (e: React.DragEvent<HTMLDivElement>, newStatus: ManufacturingStatus) => {
         e.preventDefault();
         const jobId = e.dataTransfer.getData('jobId');
         const droppedJob = jobs.find(j => j.id === jobId);
         
-        if (droppedJob && droppedJob.status !== newStatus) {
-            onUpdateJob(jobId, { status: newStatus });
+        if (droppedJob && droppedJob.manufacturingStatus !== newStatus) {
+            onUpdateJob(jobId, { manufacturingStatus: newStatus });
         }
         e.currentTarget.classList.remove('bg-blue-100', 'dark:bg-blue-900/50');
     };
@@ -66,17 +70,22 @@ const SalesPipelinePage: React.FC<SalesPipelinePageProps> = ({ jobs, onUpdateJob
         e.currentTarget.classList.remove('bg-blue-100', 'dark:bg-blue-900/50');
     };
 
-    const jobsByStatus = React.useMemo(() => {
+    const jobsByStatus = useMemo(() => {
         return COLUMNS_ORDER.reduce((acc, status) => {
-            acc[status] = jobs.filter(j => j.status === status);
+            if (status === ManufacturingStatus.OrderReceived) {
+                // 「受注」カラムには、ステータスが「受注」のものと、ステータスが未設定のものを両方含める
+                acc[status] = jobs.filter(j => !j.manufacturingStatus || j.manufacturingStatus === status);
+            } else {
+                acc[status] = jobs.filter(j => j.manufacturingStatus === status);
+            }
             return acc;
-        }, {} as Record<JobStatus, Job[]>);
+        }, {} as Record<ManufacturingStatus, Job[]>);
     }, [jobs]);
 
     return (
         <div className="flex gap-4 overflow-x-auto pb-4 -mx-8 px-8 h-full">
             {COLUMNS_ORDER.map(status => {
-                const jobsInColumn = jobsByStatus[status];
+                const jobsInColumn = jobsByStatus[status] || [];
                 const totalP = jobsInColumn.reduce((sum, job) => sum + job.price, 0);
                 const totalM = jobsInColumn.reduce((sum, job) => sum + (job.price - job.variableCost), 0);
                 const totalQ = jobsInColumn.reduce((sum, job) => sum + job.quantity, 0);
@@ -93,7 +102,7 @@ const SalesPipelinePage: React.FC<SalesPipelinePageProps> = ({ jobs, onUpdateJob
                             <h3 className="font-semibold text-slate-700 dark:text-slate-200">{status}</h3>
                             <span className="text-sm font-bold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-full">{jobsInColumn.length}</span>
                         </div>
-                        
+
                         <div className="flex-shrink-0 mb-3 p-3 bg-white dark:bg-slate-800 rounded-lg shadow-sm text-xs">
                             <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
                                 <div className="font-semibold text-slate-500">案件数:</div>
@@ -122,4 +131,4 @@ const SalesPipelinePage: React.FC<SalesPipelinePageProps> = ({ jobs, onUpdateJob
     );
 };
 
-export default SalesPipelinePage;
+export default ManufacturingPipelinePage;

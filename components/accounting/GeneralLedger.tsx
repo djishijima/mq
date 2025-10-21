@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { JournalEntry, AccountItem, SortConfig } from '../../types';
 import { ArrowUpDown, ChevronDown } from '../Icons';
@@ -14,8 +13,10 @@ const GeneralLedger: React.FC<GeneralLedgerProps> = ({ entries, accountItems }) 
 
     const sortedAccountItems = useMemo(() => {
         return [...accountItems].sort((a, b) => {
-            if (a.sortOrder !== b.sortOrder) {
-                return a.sortOrder - b.sortOrder;
+            // FIX: Correct property access from sortOrder to sort_order.
+            if (a.sort_order !== b.sort_order) {
+                // FIX: Correct property access from sortOrder to sort_order.
+                return a.sort_order - b.sort_order;
             }
             return a.code.localeCompare(b.code);
         });

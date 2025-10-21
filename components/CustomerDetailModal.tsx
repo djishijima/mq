@@ -111,15 +111,16 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ customer, mod
 
         return (
             <div className={options.className || ''}>
-                <label htmlFor={key} className="block text-sm font-medium leading-6 text-slate-900 dark:text-white">{label}</label>
+                <label htmlFor={String(key)} className="block text-sm font-medium leading-6 text-slate-900 dark:text-white">{label}</label>
                 <div className="mt-1">
                     {isEditing ? (
                         type === 'textarea' ? (
                             <textarea
-                                name={key}
-                                id={key}
+                                name={String(key)}
+                                id={String(key)}
                                 rows={options.rows || 3}
-                                value={formData[key] as string || ''}
+                                // FIX: Explicitly convert value to string for textarea
+                                value={String(formData[key] || '')}
                                 onChange={handleChange}
                                 className={inputClass}
                                 disabled={isSubmitting}
@@ -127,9 +128,10 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ customer, mod
                         ) : (
                             <input
                                 type={type}
-                                name={key}
-                                id={key}
-                                value={formData[key] as string || ''}
+                                name={String(key)}
+                                id={String(key)}
+                                // FIX: Explicitly convert value to string for input
+                                value={String(formData[key] || '')}
                                 onChange={handleChange}
                                 className={inputClass}
                                 disabled={isSubmitting}
@@ -163,6 +165,7 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ customer, mod
                     {renderField('代表者', customer?.representative, 'representative')}
                     {renderField('電話番号', customer?.phoneNumber, 'phoneNumber')}
                     {renderField('FAX', customer?.fax, 'fax')}
+                    {renderField('Webサイト', customer?.websiteUrl, 'websiteUrl')}
                     <div className="md:col-span-2">
                         <label className="block text-sm font-medium leading-6 text-slate-900 dark:text-white">住所</label>
                         <div className="mt-1">

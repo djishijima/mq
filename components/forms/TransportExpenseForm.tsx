@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { submitApplication } from '../../services/dataService';
 import { extractInvoiceDetails } from '../../services/geminiService';
 import ApprovalRouteSelector from './ApprovalRouteSelector';
@@ -33,16 +33,19 @@ const readFileAsBase64 = (file: File): Promise<string> => {
 };
 
 const TransportExpenseForm: React.FC<TransportExpenseFormProps> = ({ onSuccess, applicationCodeId, currentUser }) => {
-    const [details, setDetails] = useState<TransportDetail[]>([]);
+    const [details, setDetails] = useState<TransportDetail[]>(() => [{
+        id: `row_${Date.now()}`,
+        travelDate: new Date().toISOString().split('T')[0],
+        departure: '',
+        arrival: '',
+        transportMode: TRANSPORT_MODES[0],
+        amount: 0,
+    }]);
     const [notes, setNotes] = useState('');
     const [approvalRouteId, setApprovalRouteId] = useState<string>('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isOcrLoading, setIsOcrLoading] = useState(false);
     const [error, setError] = useState('');
-    
-    useEffect(() => {
-        if (details.length === 0) addNewRow();
-    }, []);
 
     const totalAmount = useMemo(() => details.reduce((sum, item) => sum + (Number(item.amount) || 0), 0), [details]);
 

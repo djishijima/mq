@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Job, JobStatus, InvoiceStatus, ConfirmationDialogProps } from '../types';
+import { Job, JobStatus, InvoiceStatus, ConfirmationDialogProps, Page, Toast, ManufacturingStatus } from '../types';
 import { PAPER_TYPES, FINISHING_OPTIONS } from '../constants';
-import { X, Pencil, Save, Loader, Trash2 } from './Icons';
+import { X, Pencil, Save, Loader, Trash2, HardHat } from './Icons';
 import JobStatusBadge from './JobStatusBadge';
 
 interface JobDetailModalProps {
@@ -11,9 +11,11 @@ interface JobDetailModalProps {
   onUpdateJob: (jobId: string, updatedData: Partial<Job>) => Promise<void>;
   onDeleteJob: (jobId: string) => Promise<void>;
   requestConfirmation: (dialog: Omit<ConfirmationDialogProps, 'isOpen' | 'onClose'>) => void;
+  onNavigate: (page: Page) => void;
+  addToast: (message: string, type: Toast['type']) => void;
 }
 
-const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, isOpen, onClose, onUpdateJob, onDeleteJob, requestConfirmation }) => {
+const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, isOpen, onClose, onUpdateJob, onDeleteJob, requestConfirmation, onNavigate, addToast }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<Partial<Job>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -34,7 +36,12 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, isOpen, onClose, o
 
   const handleSave = async () => {
     setIsSaving(true);
-    await onUpdateJob(job.id, formData);
+    const updatedData = { ...formData };
+    if (job.status !== JobStatus.Completed && updatedData.status === JobStatus.Completed) {
+        updatedData.readyToInvoice = true;
+        addToast('案件が完了しました。請求管理ページから請求書を作成できます。', 'info');
+    }
+    await onUpdateJob(job.id, updatedData);
     setIsSaving(false);
     setIsEditing(false);
   };
@@ -77,14 +84,14 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, isOpen, onClose, o
         <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-700">
           <div>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{isEditing ? '案件編集' : '案件詳細'}</h2>
-            <p className="text-sm text-slate-500">{job.title}</p>
+            <p className="text-sm text-slate-500">{job.title} (案件番号: {job.jobNumber})</p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-6 h-6" /></button>
         </div>
 
         <div className="p-6 overflow-y-auto space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {renderField('クライアント名', job.clientName, 'clientName', 'text')}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="md:col-span-2">{renderField('クライアント名', job.clientName, 'clientName', 'text')}</div>
             <div>
                 <label className="text-sm font-medium text-slate-500 dark:text-slate-400">ステータス</label>
                 <div className="mt-1">
@@ -95,8 +102,26 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, isOpen, onClose, o
                     ) : <div className="min-h-[44px] flex items-center"><JobStatusBadge status={job.status} /></div>}
                 </div>
             </div>
-            {renderField('納期', job.dueDate, 'dueDate', 'date')}
+            <div>
+                <label className="text-sm font-medium text-slate-500 dark:text-slate-400">製造ステータス</label>
+                <div className="mt-1">
+                    {isEditing ? (
+                        <select name="manufacturingStatus" value={formData.manufacturingStatus} onChange={handleChange} className={inputClass}>
+                            {Object.values(ManufacturingStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                    ) : <div className="min-h-[44px] flex items-center">
+                            <span className={`px-2.5 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300`}>
+                                {job.manufacturingStatus || '未設定'}
+                            </span>
+                        </div>
+                    }
+                </div>
+            </div>
           </div>
+           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="md:col-span-2"></div>
+             {renderField('納期', job.dueDate, 'dueDate', 'date')}
+           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg">
             {renderField('売上高 (P)', job.price, 'price', 'number')}
             {renderField('変動費 (V)', job.variableCost, 'variableCost', 'number')}
@@ -115,9 +140,14 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, isOpen, onClose, o
 
         <div className="flex justify-between items-center gap-4 p-6 border-t border-slate-200 dark:border-slate-700">
           <div>
-            {isEditing && (
+            {isEditing ? (
                 <button onClick={handleDelete} className="flex items-center gap-2 text-red-600 font-semibold py-2 px-4 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/50">
                     <Trash2 className="w-4 h-4" /> 削除
+                </button>
+            ) : (
+                <button onClick={() => onNavigate('manufacturing_orders')} className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600">
+                    <HardHat className="w-5 h-5" />
+                    製造指示書作成
                 </button>
             )}
           </div>
