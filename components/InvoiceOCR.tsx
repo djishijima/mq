@@ -1,6 +1,9 @@
-import React, { useState, useCallback, useEffect } from 'react';
+
+
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { extractInvoiceDetails } from '../services/geminiService';
-import { getInboxItems, addInboxItem, updateInboxItem, deleteInboxItem, uploadToInbox } from '../services/dataService';
+// FIX: The member 'uploadToInbox' is not exported from '../services/dataService'. Use 'uploadFile' instead.
+import { getInboxItems, addInboxItem, updateInboxItem, deleteInboxItem, uploadFile } from '../services/dataService';
 import { InboxItem, InvoiceData, InboxItemStatus, Toast, ConfirmationDialogProps } from '../types';
 import { Upload, Loader, X, CheckCircle, Save, Trash2, AlertTriangle, RefreshCw } from './Icons';
 
@@ -8,6 +11,7 @@ interface InvoiceOCRProps {
     onSaveExpenses: (data: InvoiceData) => void;
     addToast: (message: string, type: Toast['type']) => void;
     requestConfirmation: (dialog: Omit<ConfirmationDialogProps, 'isOpen' | 'onClose'>) => void;
+    isAIOff: boolean;
 }
 
 const readFileAsBase64 = (file: File): Promise<string> => {
@@ -68,7 +72,6 @@ const InboxItemCard: React.FC<{
         setIsSaving(false);
     };
     
-    // FIX: Use requestConfirmation prop instead of window.confirm for consistent UI.
     const handleDelete = async () => {
         requestConfirmation({
             title: 'ファイルを削除',
@@ -161,21 +164,29 @@ const InboxItemCard: React.FC<{
     );
 };
 
-const InvoiceOCR: React.FC<InvoiceOCRProps> = ({ onSaveExpenses, addToast, requestConfirmation }) => {
+const InvoiceOCR: React.FC<InvoiceOCRProps> = ({ onSaveExpenses, addToast, requestConfirmation, isAIOff }) => {
     const [items, setItems] = useState<InboxItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isUploading, setIsUploading] = useState(false);
     const [error, setError] = useState('');
+    const mounted = useRef(true);
+
+    useEffect(() => {
+        mounted.current = true;
+        return () => {
+            mounted.current = false;
+        };
+    }, []);
     
     const loadItems = useCallback(async () => {
         try {
-            setIsLoading(true);
+            if (mounted.current) setIsLoading(true);
             const data = await getInboxItems();
-            setItems(data);
+            if (mounted.current) setItems(data);
         } catch (err: any) {
-            setError(err.message || 'データの読み込みに失敗しました。');
+            if (mounted.current) setError(err.message || 'データの読み込みに失敗しました。');
         } finally {
-            setIsLoading(false);
+            if (mounted.current) setIsLoading(false);
         }
     }, []);
 
@@ -183,70 +194,97 @@ const InvoiceOCR: React.FC<InvoiceOCRProps> = ({ onSaveExpenses, addToast, reque
         loadItems();
     }, [loadItems]);
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = e.target.files;
-        if (!files || files.length === 0) return;
-        
-        setIsUploading(true);
-        const processingPromises = Array.from(files).map(processFile);
-        await Promise.all(processingPromises);
-        await loadItems();
-        setIsUploading(false);
-    };
-
+    // Added a separate function to handle file processing (upload, OCR, add to inbox)
     const processFile = async (file: File) => {
         let tempItem: Omit<InboxItem, 'id' | 'createdAt' | 'fileUrl'> = {
             fileName: file.name,
             filePath: '',
             mimeType: file.type,
-            // FIX: Use enum member instead of string literal.
             status: InboxItemStatus.Processing,
             extractedData: null,
             errorMessage: null,
         };
         
         const tempId = `temp_${Date.now()}`;
-        setItems(prev => [{ ...tempItem, id: tempId, createdAt: new Date().toISOString(), fileUrl: URL.createObjectURL(file) }, ...prev]);
+        if (mounted.current) {
+            setItems(prev => [{ ...tempItem, id: tempId, createdAt: new Date().toISOString(), fileUrl: URL.createObjectURL(file) }, ...prev]);
+        }
 
         try {
-            const { path } = await uploadToInbox(file);
+            // FIX: 'uploadToInbox' is not defined. Use 'uploadFile' with the correct bucket name 'inbox'.
+            const { path } = await uploadFile(file, 'inbox');
             tempItem.filePath = path;
 
             const base64String = await readFileAsBase64(file);
             const data = await extractInvoiceDetails(base64String, file.type);
-            tempItem.extractedData = data;
-            // FIX: Use enum member instead of string literal.
-            tempItem.status = InboxItemStatus.PendingReview;
+            
+            if (mounted.current) {
+                tempItem.extractedData = data;
+                tempItem.status = InboxItemStatus.PendingReview;
+            }
 
         } catch (err: any) {
-            // FIX: Use enum member instead of string literal.
-            tempItem.status = InboxItemStatus.Error;
-            tempItem.errorMessage = err.message || '不明なエラーが発生しました。';
-        } finally {
-             setItems(prev => prev.filter(i => i.id !== tempId));
-            if (tempItem.filePath) {
-                await addInboxItem(tempItem);
+            if (mounted.current) {
+                tempItem.status = InboxItemStatus.Error;
+                tempItem.errorMessage = err.message || '不明なエラーが発生しました。';
             }
+        } finally {
+             if (mounted.current) {
+                setItems(prev => prev.filter(i => i.id !== tempId)); // Remove temp item
+             }
+            if (tempItem.filePath) {
+                await addInboxItem(tempItem); // Add final item if path exists
+            }
+        }
+    };
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (isAIOff) {
+            addToast('AI機能は現在無効です。ファイルからの読み取りはできません。', 'error');
+            return;
+        }
+
+        setIsUploading(true);
+        setError('');
+        try {
+            // Call the existing processFile function that handles upload and OCR for inbox items
+            await processFile(file);
+        } catch (err: any) {
+            if (mounted.current) {
+                setError(err.message || 'ファイル処理中にエラーが発生しました。');
+            }
+        } finally {
+            if (mounted.current) {
+                setIsUploading(false); // Reset uploading status
+            }
+            e.target.value = ''; // Clear file input
         }
     };
 
     const handleUpdateItem = async (id: string, data: Partial<InboxItem>) => {
         try {
             const updatedItem = await updateInboxItem(id, data);
-            setItems(prev => prev.map(item => item.id === id ? updatedItem : item));
-            addToast('更新しました。', 'success');
+            if (mounted.current) {
+                setItems(prev => prev.map(item => item.id === id ? updatedItem : item));
+                addToast('更新しました。', 'success');
+            }
         } catch (err: any) {
-            addToast(`更新に失敗しました: ${err.message}`, 'error');
+            if (mounted.current) addToast(`更新に失敗しました: ${err.message}`, 'error');
         }
     };
     
     const handleDeleteItem = async (itemToDelete: InboxItem) => {
         try {
             await deleteInboxItem(itemToDelete);
-            setItems(prev => prev.filter(item => item.id !== itemToDelete.id));
-            addToast('削除しました。', 'success');
+            if (mounted.current) {
+                setItems(prev => prev.filter(item => item.id !== itemToDelete.id));
+                addToast('削除しました。', 'success');
+            }
         } catch (err: any) {
-            addToast(`削除に失敗しました: ${err.message}`, 'error');
+            if (mounted.current) addToast(`削除に失敗しました: ${err.message}`, 'error');
         }
     };
     
@@ -254,10 +292,9 @@ const InvoiceOCR: React.FC<InvoiceOCRProps> = ({ onSaveExpenses, addToast, reque
         if (!itemToApprove.extractedData) return;
         try {
             onSaveExpenses(itemToApprove.extractedData);
-            // FIX: Use enum member instead of string literal.
             await handleUpdateItem(itemToApprove.id, { status: InboxItemStatus.Approved });
         } catch (err: any) {
-            addToast(`承認処理に失敗しました: ${err.message}`, 'error');
+            if (mounted.current) addToast(`承認処理に失敗しました: ${err.message}`, 'error');
         }
     };
 
@@ -266,17 +303,14 @@ const InvoiceOCR: React.FC<InvoiceOCRProps> = ({ onSaveExpenses, addToast, reque
         <div className="space-y-6">
             <div>
                 <div className="flex justify-between items-center">
-                    <label htmlFor="file-upload" className={`relative inline-flex items-center justify-center gap-2 bg-blue-600 text-white font-semibold py-2.5 px-5 rounded-lg shadow-md hover:bg-blue-700 transition-colors ${isUploading ? 'bg-slate-400 cursor-not-allowed' : ''}`}>
+                    <label htmlFor="file-upload" className={`relative inline-flex items-center justify-center gap-2 bg-blue-600 text-white font-semibold py-2.5 px-5 rounded-lg shadow-md hover:bg-blue-700 transition-colors ${isUploading || isAIOff ? 'bg-slate-400 cursor-not-allowed' : ''}`}>
                         <Upload className="w-5 h-5" />
                         <span>請求書・領収書を追加</span>
-                        <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} accept="image/png, image/jpeg, image/webp" multiple disabled={isUploading} />
+                        <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} accept="image/png, image/jpeg, image/webp" multiple disabled={isUploading || isAIOff} />
                     </label>
-                    <button onClick={loadItems} disabled={isLoading} className="flex items-center gap-2 text-slate-500 hover:text-blue-600 disabled:opacity-50">
-                        <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`}/>
-                        <span>更新</span>
-                    </button>
+                    {isAIOff && <p className="text-sm text-red-500 dark:text-red-400 ml-4">AI機能無効のため、OCR機能は利用できません。</p>}
                 </div>
-                 {isUploading && <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">アップロードと解析を実行中です...</p>}
+                 {isUploading && !isAIOff && <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">アップロードと解析を実行中です...</p>}
             </div>
 
             {error && (

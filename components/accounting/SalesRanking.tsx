@@ -17,9 +17,8 @@ interface CustomerSalesData {
 
 const SalesRanking: React.FC<SalesRankingProps> = ({ jobs }) => {
     const customerData = useMemo(() => {
-        // FIX: Provide a typed accumulator to the reduce function to avoid 'unknown' type errors.
         const data = jobs.reduce((acc: Record<string, CustomerSalesData>, job) => {
-            if (job.status === JobStatus.Completed || job.status === JobStatus.InProgress) {
+            if (job.status !== JobStatus.Cancelled) {
                 if (!acc[job.clientName]) {
                     acc[job.clientName] = { clientName: job.clientName, jobCount: 0, totalSales: 0, totalMargin: 0 };
                 }
@@ -30,13 +29,11 @@ const SalesRanking: React.FC<SalesRankingProps> = ({ jobs }) => {
             return acc;
         }, {});
 
-        // FIX: Add explicit types for sort function parameters.
         return Object.values(data).sort((a: CustomerSalesData, b: CustomerSalesData) => b.totalSales - a.totalSales);
     }, [jobs]);
 
     const { totalRankedSales, totalRankedMargin } = useMemo(() => {
         return customerData.reduce(
-            // FIX: Provide a correctly typed initial value for the reduce function.
             (acc, customer) => {
                 acc.totalRankedSales += customer.totalSales;
                 acc.totalRankedMargin += customer.totalMargin;
@@ -64,7 +61,10 @@ const SalesRanking: React.FC<SalesRankingProps> = ({ jobs }) => {
 
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
                 <div className="p-6">
-                    <h2 className="text-xl font-semibold text-slate-800 dark:text-white">顧客別 売上ランキング</h2>
+                    <h2 className="text-xl font-semibold text-slate-800 dark:text-white">顧客別 売上ランキング (累計)</h2>
+                    <p className="mt-1 text-base text-slate-500 dark:text-slate-400">
+                        キャンセルを除く全ての案件を集計しています。
+                    </p>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-base text-left text-slate-500 dark:text-slate-400">

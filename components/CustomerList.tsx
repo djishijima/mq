@@ -1,9 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Customer, SortConfig, Toast, EmployeeUser } from '../types';
-import { Pencil, Eye, Mail, Lightbulb, Users, PlusCircle, Loader, Save, X } from './Icons';
+import { Pencil, Eye, Mail, Lightbulb, Users, PlusCircle, Loader, Save, X, Search } from './Icons';
 import EmptyState from './ui/EmptyState';
 import SortableHeader from './ui/SortableHeader';
-import { generateSalesEmail } from '../services/geminiService';
+import { generateSalesEmail, enrichCustomerData } from '../services/geminiService';
 import { createSignature } from '../utils';
 
 interface CustomerListProps {
@@ -15,14 +15,24 @@ interface CustomerListProps {
   addToast: (message: string, type: Toast['type']) => void;
   currentUser: EmployeeUser | null;
   onNewCustomer: () => void;
+  isAIOff: boolean;
 }
 
-const CustomerList: React.FC<CustomerListProps> = ({ customers, searchTerm, onSelectCustomer, onUpdateCustomer, onAnalyzeCustomer, addToast, currentUser, onNewCustomer }) => {
+const CustomerList: React.FC<CustomerListProps> = ({ customers, searchTerm, onSelectCustomer, onUpdateCustomer, onAnalyzeCustomer, addToast, currentUser, onNewCustomer, isAIOff }) => {
   const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'customerName', direction: 'ascending' });
   const [isGeneratingEmail, setIsGeneratingEmail] = useState<string | null>(null);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editedData, setEditedData] = useState<Partial<Customer>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [enrichingId, setEnrichingId] = useState<string | null>(null);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+        mounted.current = false;
+    };
+  }, []);
 
   const handleEditClick = (e: React.MouseEvent, customer: Customer) => {
     e.stopPropagation();
@@ -43,8 +53,10 @@ const CustomerList: React.FC<CustomerListProps> = ({ customers, searchTerm, onSe
     try {
         await onUpdateCustomer(editingRowId, editedData);
     } finally {
-        setIsSaving(false);
-        setEditingRowId(null);
+        if (mounted.current) {
+            setIsSaving(false);
+            setEditingRowId(null);
+        }
     }
   };
 
@@ -55,6 +67,10 @@ const CustomerList: React.FC<CustomerListProps> = ({ customers, searchTerm, onSe
 
   const handleGenerateProposal = async (e: React.MouseEvent, customer: Customer) => {
     e.stopPropagation();
+    if (isAIOff) {
+        addToast('AI機能は現在無効です。', 'error');
+        return;
+    }
     if (!currentUser) {
       addToast('ログインユーザー情報が見つかりません。', 'error');
       return;
@@ -66,11 +82,37 @@ const CustomerList: React.FC<CustomerListProps> = ({ customers, searchTerm, onSe
       const finalBody = `${body}${signature}`;
       const mailto = `mailto:${customer.customerContactInfo || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(finalBody)}`;
       window.open(mailto, '_blank');
-      addToast(`「${customer.customerName}」向けのメール下書きを作成しました。`, 'success');
+      if (mounted.current) {
+          addToast(`「${customer.customerName}」向けのメール下書きを作成しました。`, 'success');
+      }
     } catch (error) {
-      addToast(error instanceof Error ? error.message : 'メール作成に失敗しました', 'error');
+      if (mounted.current) {
+          addToast(error instanceof Error ? error.message : 'メール作成に失敗しました', 'error');
+      }
     } finally {
-      setIsGeneratingEmail(null);
+      if (mounted.current) {
+          setIsGeneratingEmail(null);
+      }
+    }
+  };
+  
+  const handleEnrich = async (e: React.MouseEvent, customer: Customer) => {
+    e.stopPropagation();
+    if (isAIOff) {
+        addToast('AI機能は現在無効です。', 'error');
+        return;
+    }
+    setEnrichingId(customer.id);
+    try {
+        const enrichedData = await enrichCustomerData(customer.customerName);
+        await onUpdateCustomer(customer.id, enrichedData);
+        addToast(`「${customer.customerName}」の情報をAIで更新しました。`, 'success');
+    } catch (error) {
+        addToast(error instanceof Error ? `情報補完エラー: ${error.message}` : '企業情報の補完に失敗しました。', 'error');
+    } finally {
+        if (mounted.current) {
+            setEnrichingId(null);
+        }
     }
   };
 
@@ -175,8 +217,11 @@ const CustomerList: React.FC<CustomerListProps> = ({ customers, searchTerm, onSe
                             <>
                                 <button onClick={() => onSelectCustomer(customer)} className="p-2 rounded-full text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700" title="詳細表示"><Eye className="w-5 h-5"/></button>
                                 <button onClick={(e) => handleEditClick(e, customer)} className="p-2 rounded-full text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700" title="インライン編集"><Pencil className="w-5 h-5"/></button>
-                                <button onClick={(e) => {e.stopPropagation(); onAnalyzeCustomer(customer)}} className="p-2 rounded-full text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700" title="AI企業分析"><Lightbulb className="w-5 h-5"/></button>
-                                <button onClick={(e) => handleGenerateProposal(e, customer)} disabled={isGeneratingEmail === customer.id} className="p-2 rounded-full text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700" title="提案メール作成">
+                                {!isAIOff && <button onClick={(e) => handleEnrich(e, customer)} disabled={enrichingId === customer.id} className="p-2 rounded-full text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700" title="AIで企業情報補完">
+                                    {enrichingId === customer.id ? <Loader className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
+                                </button>}
+                                <button onClick={(e) => {e.stopPropagation(); onAnalyzeCustomer(customer)}} disabled={isAIOff} className="p-2 rounded-full text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50" title="AI企業分析"><Lightbulb className="w-5 h-5"/></button>
+                                <button onClick={(e) => handleGenerateProposal(e, customer)} disabled={isGeneratingEmail === customer.id || isAIOff} className="p-2 rounded-full text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50" title="提案メール作成">
                                   {isGeneratingEmail === customer.id ? <Loader className="w-5 h-5 animate-spin" /> : <Mail className="w-5 h-5" />}
                                 </button>
                             </>

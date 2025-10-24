@@ -1,8 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Lead, LeadStatus, SortConfig, Toast, ConfirmationDialogProps, EmployeeUser } from '../../types';
-import { Loader, Pencil, Trash2, Mail, Eye, CheckCircle, Lightbulb, List, KanbanSquare } from './Icons';
-// FIX: Correcting the import path assuming this file is in the root, or there's an issue with relative path resolution.
-import LeadDetailModal from './components/sales/LeadDetailModal';
+import { Lead, LeadStatus, SortConfig, Toast, ConfirmationDialogProps, EmployeeUser } from './types';
+import { Loader, Pencil, Trash2, Mail, Eye, CheckCircle, Lightbulb, List, KanbanSquare } from './components/Icons';
+import { LeadDetailModal } from './components/sales/LeadDetailModal';
 import LeadStatusBadge from './components/sales/LeadStatusBadge';
 import LeadKanbanView from './components/sales/LeadKanbanView';
 import { generateLeadReplyEmail } from './services/geminiService';
@@ -19,12 +18,12 @@ interface LeadManagementPageProps {
   onDeleteLead: (leadId: string) => Promise<void>;
   addToast: (message: string, type: Toast['type']) => void;
   requestConfirmation: (dialog: Omit<ConfirmationDialogProps, 'isOpen' | 'onClose'>) => void;
-  // FIX: Change currentUser prop type from User to EmployeeUser to match LeadDetailModal's expectation.
   currentUser: EmployeeUser | null;
+  isAIOff: boolean;
 }
 
-const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTerm, onRefresh, onUpdateLead, onDeleteLead, addToast, requestConfirmation, currentUser }) => {
-    const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'updated_at', direction: 'descending' });
+const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTerm, onRefresh, onUpdateLead, onDeleteLead, addToast, requestConfirmation, currentUser, isAIOff }) => {
+    const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'updatedAt', direction: 'descending' });
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
     const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
@@ -63,20 +62,17 @@ const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTe
         });
     };
     
-    // FIX: Refactored function to remove MouseEvent parameter for easier use in modal.
     const handleGenerateReply = async (lead: Lead) => {
         if (!lead.email) {
             addToast('返信先のメールアドレスが登録されていません。', 'error');
             return;
         }
-// FIX: Add check for currentUser before using it.
         if (!currentUser) {
             addToast('ログインユーザー情報が見つかりません。', 'error');
             return;
         }
         setIsReplyingTo(lead.id);
         try {
-// FIX: Pass the user's name as the second argument to generateLeadReplyEmail.
             const { subject, body } = await generateLeadReplyEmail(lead, currentUser.name);
             const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${lead.email}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
             window.open(gmailUrl, '_blank');
@@ -88,7 +84,7 @@ const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTe
             await onUpdateLead(lead.id, { 
                 infoSalesActivity: updatedInfo, 
                 status: LeadStatus.Contacted,
-                updated_at: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
             });
             addToast('Gmailの下書きを作成しました。', 'success');
         } catch (error) {
@@ -109,7 +105,7 @@ const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTe
             await onUpdateLead(lead.id, {
                 status: LeadStatus.Contacted,
                 infoSalesActivity: updatedInfo,
-                updated_at: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
             });
             addToast('ステータスを「コンタクト済」に更新しました。', 'success');
         } catch (error) {
@@ -137,14 +133,14 @@ const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTe
                 let aVal: any = a[sortConfig.key as keyof Lead];
                 let bVal: any = b[sortConfig.key as keyof Lead];
 
-                if (sortConfig.key === 'inquiry_types') {
-                    aVal = a.inquiry_types ? a.inquiry_types.join(', ') : (a.inquiry_type || '');
-                    bVal = b.inquiry_types ? b.inquiry_types.join(', ') : (b.inquiry_type || '');
+                if (sortConfig.key === 'inquiryTypes') {
+                    aVal = a.inquiryTypes ? a.inquiryTypes.join(', ') : (a.inquiryType || '');
+                    bVal = b.inquiryTypes ? b.inquiryTypes.join(', ') : (b.inquiryType || '');
                 }
                 
-                if (sortConfig.key === 'updated_at') {
-                    aVal = a.updated_at || a.created_at;
-                    bVal = b.updated_at || b.created_at;
+                if (sortConfig.key === 'updatedAt') {
+                    aVal = a.updatedAt || a.createdAt;
+                    bVal = b.updatedAt || b.createdAt;
                 }
 
                 if (aVal === null || aVal === undefined) return 1;
@@ -185,10 +181,10 @@ const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTe
                         <table className="w-full text-base text-left text-slate-500 dark:text-slate-400">
                             <thead className="text-sm text-slate-700 uppercase bg-slate-50 dark:bg-slate-700 dark:text-slate-300">
                                 <tr>
-                                    <SortableHeader sortKey="updated_at" label="最終更新日時" sortConfig={sortConfig} requestSort={requestSort} />
+                                    <SortableHeader sortKey="updatedAt" label="最終更新日時" sortConfig={sortConfig} requestSort={requestSort} />
                                     <SortableHeader sortKey="company" label="会社名 / 担当者" sortConfig={sortConfig} requestSort={requestSort} />
                                     <SortableHeader sortKey="status" label="ステータス" sortConfig={sortConfig} requestSort={requestSort} />
-                                    <SortableHeader sortKey="inquiry_types" label="問い合わせ種別" sortConfig={sortConfig} requestSort={requestSort} />
+                                    <SortableHeader sortKey="inquiryTypes" label="問い合わせ種別" sortConfig={sortConfig} requestSort={requestSort} />
                                     <SortableHeader sortKey="email" label="メール" sortConfig={sortConfig} requestSort={requestSort} />
                                     <th scope="col" className="px-6 py-3 font-medium text-center">操作</th>
                                 </tr>
@@ -200,7 +196,7 @@ const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTe
                                       className="group bg-white dark:bg-slate-800 border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 cursor-pointer odd:bg-slate-50 dark:odd:bg-slate-800/50"
                                       onClick={() => handleRowClick(lead)}
                                     >
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm">{formatDate(lead.updated_at || lead.created_at)}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm">{formatDate(lead.updatedAt || lead.createdAt)}</td>
                                         <td className="px-6 py-4">
                                             <div className="font-semibold text-slate-800 dark:text-slate-200">
                                                 {lead.company} <span className="font-normal text-slate-500">/ {lead.name}</span>
@@ -212,7 +208,7 @@ const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTe
                                                     value={lead.status}
                                                     onChange={(e) => {
                                                         const newStatus = e.target.value as LeadStatus;
-                                                        onUpdateLead(lead.id, { status: newStatus, updated_at: new Date().toISOString() });
+                                                        onUpdateLead(lead.id, { status: newStatus, updatedAt: new Date().toISOString() });
                                                         setEditingStatusLeadId(null);
                                                     }}
                                                     onBlur={() => setEditingStatusLeadId(null)}
@@ -233,9 +229,9 @@ const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTe
                                             )}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            {lead.inquiry_types && lead.inquiry_types.length > 0
-                                                ? <div className="flex flex-wrap gap-1">{lead.inquiry_types.slice(0, 2).map(type => <span key={type} className="px-2 py-0.5 text-xs rounded-full bg-slate-200 dark:bg-slate-600">{type}</span>)}</div>
-                                                : (lead.inquiry_type || '-')
+                                            {lead.inquiryTypes && lead.inquiryTypes.length > 0
+                                                ? <div className="flex flex-wrap gap-1">{lead.inquiryTypes.slice(0, 2).map(type => <span key={type} className="px-2 py-0.5 text-xs rounded-full bg-slate-200 dark:bg-slate-600">{type}</span>)}</div>
+                                                : (lead.inquiryType || '-')
                                             }
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm">{lead.email || '-'}</td>
@@ -250,8 +246,7 @@ const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTe
                                                             {isMarkingContacted === lead.id ? <Loader className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} コンタクト済にする
                                                         </DropdownMenuItem>
                                                      )}
-                                                    {/* FIX: Update onClick handler to stop propagation and call the refactored function. */}
-                                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleGenerateReply(lead); }}>
+                                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleGenerateReply(lead); }} disabled={isAIOff}>
                                                         {isReplyingTo === lead.id ? <Loader className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />} AIで返信作成
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem onClick={(e) => handleDeleteClick(e, lead)} className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50">
@@ -289,8 +284,8 @@ const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTe
                 addToast={addToast}
                 requestConfirmation={requestConfirmation}
                 currentUser={currentUser}
-                // FIX: Add missing 'onGenerateReply' prop.
                 onGenerateReply={handleGenerateReply}
+                isAIOff={isAIOff}
             />
         </>
     );

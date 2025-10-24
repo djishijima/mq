@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Loader, CheckCircle, AlertTriangle, FileText, ArrowRight } from '../Icons';
 import { Toast, ClosingChecklistItem, Job, ApplicationWithDetails, Page, JournalEntry } from '../../types';
 import { generateClosingSummary } from '../../services/geminiService';
@@ -17,6 +17,14 @@ const PeriodClosingPage: React.FC<PeriodClosingPageProps> = ({ addToast, jobs, a
   const [checklist, setChecklist] = useState<ClosingChecklistItem[]>([]);
   const [isChecklistLoading, setIsChecklistLoading] = useState(true);
   const [closingSummary, setClosingSummary] = useState<string | null>(null);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     // AIにチェックリストを生成させる代わりに、クライアントサイドでロジックを組む
@@ -99,16 +107,23 @@ const PeriodClosingPage: React.FC<PeriodClosingPageProps> = ({ addToast, jobs, a
         });
         
         const summary = await generateClosingSummary('月次', currentMonthJobs, prevMonthJobs, currentMonthJournal, prevMonthJournal);
-        setClosingSummary(summary);
         
-        const nextDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 2, 0);
-        setLastMonthlyClose(nextDate.toISOString().split('T')[0]);
-        addToast('月次締処理が完了し、AIによる決算サマリーが生成されました。', 'success');
+        if (mounted.current) {
+            setClosingSummary(summary);
+            
+            const nextDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 2, 0);
+            setLastMonthlyClose(nextDate.toISOString().split('T')[0]);
+            addToast('月次締処理が完了し、AIによる決算サマリーが生成されました。', 'success');
+        }
 
     } catch (e) {
-        addToast(e instanceof Error ? e.message : 'AIサマリーの生成に失敗しました。', 'error');
+        if (mounted.current) {
+            addToast(e instanceof Error ? e.message : 'AIサマリーの生成に失敗しました。', 'error');
+        }
     } finally {
-        setIsMonthlyClosing(false);
+        if (mounted.current) {
+            setIsMonthlyClosing(false);
+        }
     }
   };
   

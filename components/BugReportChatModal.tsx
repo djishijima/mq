@@ -8,6 +8,7 @@ interface BugReportChatModalProps {
     isOpen: boolean;
     onClose: () => void;
     onReportSubmit: (report: Omit<BugReport, 'id' | 'created_at' | 'status' | 'reporter_name'>) => Promise<void>;
+    isAIOff: boolean;
 }
 
 interface Message {
@@ -16,7 +17,7 @@ interface Message {
     content: string;
 }
 
-const BugReportChatModal: React.FC<BugReportChatModalProps> = ({ isOpen, onClose, onReportSubmit }) => {
+const BugReportChatModal: React.FC<BugReportChatModalProps> = ({ isOpen, onClose, onReportSubmit, isAIOff }) => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -34,6 +35,14 @@ const BugReportChatModal: React.FC<BugReportChatModalProps> = ({ isOpen, onClose
 
     useEffect(() => {
         if (isOpen) {
+            if (isAIOff) {
+                setMessages([{ 
+                    id: 'init', 
+                    role: 'model', 
+                    content: 'AI機能は現在無効です。' 
+                }]);
+                return;
+            }
             chatRef.current = startBugReportChat();
             setMessages([{ 
                 id: 'init', 
@@ -42,11 +51,11 @@ const BugReportChatModal: React.FC<BugReportChatModalProps> = ({ isOpen, onClose
             }]);
             setError('');
         }
-    }, [isOpen]);
+    }, [isOpen, isAIOff]);
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!input.trim() || isLoading || !chatRef.current) return;
+        if (!input.trim() || isLoading || !chatRef.current || isAIOff) return;
 
         const newUserMessage: Message = { id: `user-${Date.now()}`, role: 'user', content: input };
         setMessages(prev => [...prev, newUserMessage]);
@@ -141,13 +150,13 @@ const BugReportChatModal: React.FC<BugReportChatModalProps> = ({ isOpen, onClose
                             type="text"
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
-                            placeholder={isLoading ? "AIが応答中です..." : "問題点や改善案を入力してください..."}
-                            disabled={isLoading}
+                            placeholder={isLoading ? "AIが応答中です..." : (isAIOff ? "AI機能は無効です" : "問題点や改善案を入力してください...")}
+                            disabled={isLoading || isAIOff}
                             className="w-full bg-slate-100 dark:bg-slate-700 border border-transparent text-slate-900 dark:text-white rounded-lg p-3 focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
                         />
                         <button
                             type="submit"
-                            disabled={isLoading || !input.trim()}
+                            disabled={isLoading || !input.trim() || isAIOff}
                             className="bg-purple-600 text-white p-3 rounded-lg shadow-sm hover:bg-purple-700 disabled:bg-slate-400 disabled:cursor-not-allowed flex-shrink-0"
                             aria-label="Send message"
                         >

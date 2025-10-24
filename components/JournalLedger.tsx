@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { JournalEntry, SortConfig } from '../types';
 import { PlusCircle, Sparkles, Loader, BookOpen } from './Icons';
@@ -8,9 +9,10 @@ import SortableHeader from './ui/SortableHeader';
 interface JournalLedgerProps {
   entries: JournalEntry[];
   onAddEntry: (entry: Omit<JournalEntry, 'id' | 'date'>) => void;
+  isAIOff: boolean;
 }
 
-const JournalLedger: React.FC<JournalLedgerProps> = ({ entries, onAddEntry }) => {
+const JournalLedger: React.FC<JournalLedgerProps> = ({ entries, onAddEntry, isAIOff }) => {
   const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'date', direction: 'descending' });
   const [showForm, setShowForm] = useState(false);
   const [newEntry, setNewEntry] = useState({
@@ -60,6 +62,10 @@ const JournalLedger: React.FC<JournalLedgerProps> = ({ entries, onAddEntry }) =>
   };
 
   const handleAiGenerate = async () => {
+    if (isAIOff) {
+        setError("AI機能は現在無効です。");
+        return;
+    }
     if (!aiPrompt) {
         setError("AIへの依頼内容を入力してください。");
         return;
@@ -74,7 +80,8 @@ const JournalLedger: React.FC<JournalLedgerProps> = ({ entries, onAddEntry }) =>
             debit: suggestion.debit,
             credit: suggestion.credit
         });
-    } catch (e) {
+    } catch (e: any) {
+        if (e.name === 'AbortError') return; // Request was aborted, do nothing
         if (e instanceof Error) {
             setError(e.message);
         } else {
@@ -141,13 +148,14 @@ const JournalLedger: React.FC<JournalLedgerProps> = ({ entries, onAddEntry }) =>
                       onChange={(e) => setAiPrompt(e.target.value)}
                       placeholder="例: カフェでミーティング、コーヒー代1000円"
                       className={`${inputClass} flex-grow`}
-                      disabled={isAiLoading}
+                      disabled={isAiLoading || isAIOff}
                   />
-                  <button type="button" onClick={handleAiGenerate} disabled={isAiLoading || !aiPrompt} className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-blue-700 disabled:bg-slate-400 flex items-center gap-2 transition-colors">
+                  <button type="button" onClick={handleAiGenerate} disabled={isAiLoading || !aiPrompt || isAIOff} className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-blue-700 disabled:bg-slate-400 flex items-center gap-2 transition-colors">
                       {isAiLoading ? <Loader className="w-5 h-5 animate-spin"/> : <Sparkles className="w-5 h-5" />}
                       <span>{isAiLoading ? '生成中...' : 'AIで生成'}</span>
                   </button>
               </div>
+              {isAIOff && <p className="text-sm text-red-500 mt-2">AI機能無効のため、AIアシスタントは利用できません。</p>}
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

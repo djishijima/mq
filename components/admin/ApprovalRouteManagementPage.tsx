@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ApprovalRoute, User, Toast, ConfirmationDialogProps } from '../../types';
+import { ApprovalRoute, EmployeeUser, Toast, ConfirmationDialogProps } from '../../types';
 import { getApprovalRoutes, addApprovalRoute, updateApprovalRoute, deleteApprovalRoute, getUsers } from '../../services/dataService';
 import { Loader, PlusCircle, X, Save, Trash2, Pencil, Send } from '../Icons';
 import EmptyState from '../ui/EmptyState';
 
 interface ApprovalRouteModalProps {
     route: ApprovalRoute | null;
-    allUsers: User[];
+    allUsers: EmployeeUser[];
     onClose: () => void;
     onSave: (route: Partial<ApprovalRoute>) => Promise<void>;
     addToast: (message: string, type: Toast['type']) => void;
@@ -14,16 +14,16 @@ interface ApprovalRouteModalProps {
 
 const ApprovalRouteModal: React.FC<ApprovalRouteModalProps> = ({ route, allUsers, onClose, onSave, addToast }) => {
     const [name, setName] = useState(route?.name || '');
-    const [steps, setSteps] = useState<{ approver_id: string }[]>(route?.route_data.steps || [{ approver_id: '' }]);
+    const [steps, setSteps] = useState<{ approverId: string }[]>(route?.routeData.steps || [{ approverId: '' }]);
     const [isSaving, setIsSaving] = useState(false);
 
     const handleStepChange = (index: number, approverId: string) => {
         const newSteps = [...steps];
-        newSteps[index] = { approver_id: approverId };
+        newSteps[index] = { approverId: approverId };
         setSteps(newSteps);
     };
 
-    const addStep = () => setSteps([...steps, { approver_id: '' }]);
+    const addStep = () => setSteps([...steps, { approverId: '' }]);
     const removeStep = (index: number) => {
         if (steps.length > 1) {
             setSteps(steps.filter((_, i) => i !== index));
@@ -32,13 +32,13 @@ const ApprovalRouteModal: React.FC<ApprovalRouteModalProps> = ({ route, allUsers
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!name || steps.some(s => !s.approver_id)) {
+        if (!name || steps.some(s => !s.approverId)) {
             addToast('ルート名とすべてのステップの承認者は必須です。', 'error');
             return;
         }
         setIsSaving(true);
         try {
-            await onSave({ ...route, name, route_data: { steps } });
+            await onSave({ ...route, name, routeData: { steps } });
         } finally {
             setIsSaving(false);
         }
@@ -62,7 +62,7 @@ const ApprovalRouteModal: React.FC<ApprovalRouteModalProps> = ({ route, allUsers
                             {steps.map((step, index) => (
                                 <div key={index} className="flex items-center gap-2">
                                     <span className="font-semibold">{index + 1}.</span>
-                                    <select value={step.approver_id} onChange={e => handleStepChange(index, e.target.value)} className="flex-grow bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg p-2.5">
+                                    <select value={step.approverId} onChange={e => handleStepChange(index, e.target.value)} className="flex-grow bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg p-2.5">
                                         <option value="">承認者を選択...</option>
                                         {allUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                                     </select>
@@ -94,7 +94,7 @@ interface ApprovalRouteManagementPageProps {
 
 const ApprovalRouteManagementPage: React.FC<ApprovalRouteManagementPageProps> = ({ addToast, requestConfirmation }) => {
     const [routes, setRoutes] = useState<ApprovalRoute[]>([]);
-    const [allUsers, setAllUsers] = useState<User[]>([]);
+    const [allUsers, setAllUsers] = useState<EmployeeUser[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -134,10 +134,10 @@ const ApprovalRouteManagementPage: React.FC<ApprovalRouteManagementPageProps> = 
     const handleSaveRoute = async (routeData: Partial<ApprovalRoute>) => {
         try {
             if (routeData.id) {
-                await updateApprovalRoute(routeData.id, { name: routeData.name, route_data: routeData.route_data });
+                await updateApprovalRoute(routeData.id, { name: routeData.name, routeData: routeData.routeData });
                 addToast('承認ルートが更新されました。', 'success');
             } else {
-                await addApprovalRoute({ name: routeData.name || '', route_data: routeData.route_data || { steps: [] } });
+                await addApprovalRoute({ name: routeData.name || '', routeData: routeData.routeData || { steps: [] } });
                 addToast('新しい承認ルートが作成されました。', 'success');
             }
             await loadData();
@@ -201,10 +201,10 @@ const ApprovalRouteManagementPage: React.FC<ApprovalRouteManagementPageProps> = 
                                 <td className="px-6 py-4 font-medium">{route.name}</td>
                                 <td className="px-6 py-4">
                                     <div className="flex items-center gap-2">
-                                        {route.route_data.steps.map((step, i) => (
+                                        {route.routeData.steps.map((step, i) => (
                                             <React.Fragment key={i}>
-                                                <span className="px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded-md text-sm">{usersById.get(step.approver_id) || '不明'}</span>
-                                                {i < route.route_data.steps.length - 1 && <span className="text-slate-400">&rarr;</span>}
+                                                <span className="px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded-md text-sm">{usersById.get(step.approverId) || '不明'}</span>
+                                                {i < route.routeData.steps.length - 1 && <span className="text-slate-400">&rarr;</span>}
                                             </React.Fragment>
                                         ))}
                                     </div>

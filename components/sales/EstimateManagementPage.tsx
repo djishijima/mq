@@ -2,9 +2,10 @@ import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { Estimate, SortConfig, EmployeeUser, Customer, Job, JobStatus, InvoiceStatus, Page, Toast, EstimateItem, EstimateStatus } from '../../types';
 import SortableHeader from '../ui/SortableHeader';
 import EmptyState from '../ui/EmptyState';
-import { FileText, PlusCircle, Loader, Sparkles, Trash2, Send, X, Save, Eye } from '../Icons';
+import { FileText, PlusCircle, Loader, Sparkles, Trash2, Send, X, Save, Eye, Pencil } from '../Icons';
 import { formatJPY, formatDate } from '../../utils';
 import { draftEstimate } from '../../services/geminiService';
+import EstimateDetailModal from './EstimateDetailModal';
 
 declare const jspdf: any;
 declare const html2canvas: any;
@@ -18,9 +19,10 @@ interface EstimateModalProps {
     addToast: (message: string, type: Toast['type']) => void;
     estimateToEdit?: Estimate | null;
     currentUser: EmployeeUser | null;
+    isAIOff: boolean;
 }
 
-const EstimateModal: React.FC<EstimateModalProps> = ({ isOpen, onClose, onSave, customers, addToast, estimateToEdit, currentUser }) => {
+const EstimateModal: React.FC<EstimateModalProps> = ({ isOpen, onClose, onSave, customers, addToast, estimateToEdit, currentUser, isAIOff }) => {
     const [estimate, setEstimate] = useState<Partial<Estimate>>({});
     const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
     const [aiPrompt, setAiPrompt] = useState('');
@@ -58,6 +60,10 @@ const EstimateModal: React.FC<EstimateModalProps> = ({ isOpen, onClose, onSave, 
     };
 
     const handleAiDraft = async () => {
+        if (isAIOff) {
+            addToast('AI機能は現在無効です。', 'error');
+            return;
+        }
         if (!aiPrompt) return;
         setIsAiLoading(true);
         setError('');
@@ -68,6 +74,9 @@ const EstimateModal: React.FC<EstimateModalProps> = ({ isOpen, onClose, onSave, 
                 title: draft.title,
                 items: draft.items,
                 notes: draft.notes,
+                deliveryDate: draft.deliveryDate,
+                paymentTerms: draft.paymentTerms,
+                deliveryMethod: draft.deliveryMethod,
             }));
         } catch (e) {
             setError(e instanceof Error ? e.message : 'AIによる下書き作成に失敗しました。');
@@ -122,7 +131,6 @@ const EstimateModal: React.FC<EstimateModalProps> = ({ isOpen, onClose, onSave, 
         setIsSubmitting(true);
         setError('');
         try {
-            // FIX: Property 'user_id' does not exist on type 'EmployeeUser'. Use 'id' instead.
             const saveData = { ...estimate, total: total, userId: currentUser.id };
             delete saveData.id;
             delete saveData.createdAt;
@@ -154,7 +162,7 @@ const EstimateModal: React.FC<EstimateModalProps> = ({ isOpen, onClose, onSave, 
                     <div className="bg-blue-50 dark:bg-slate-700/50 p-4 rounded-lg border border-blue-200 dark:border-slate-700">
                       <div className="flex gap-2">
                         <input type="text" value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} placeholder="例：A4チラシ、コート90kg、両面カラー、1000枚" className={inputClass} />
-                        <button onClick={handleAiDraft} disabled={isAiLoading} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg flex items-center gap-2">
+                        <button onClick={handleAiDraft} disabled={isAiLoading || isAIOff} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg flex items-center gap-2 disabled:opacity-50">
                             {isAiLoading ? <Loader className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />} AIで下書き
                         </button>
                       </div>
@@ -203,12 +211,14 @@ interface EstimateManagementPageProps {
   addToast: (message: string, type: Toast['type']) => void;
   currentUser: EmployeeUser | null;
   searchTerm: string;
+  isAIOff: boolean;
 }
 
-const EstimateManagementPage: React.FC<EstimateManagementPageProps> = ({ estimates, customers, allUsers, onAddEstimate, addToast, currentUser, searchTerm }) => {
+const EstimateManagementPage: React.FC<EstimateManagementPageProps> = ({ estimates, customers, allUsers, onAddEstimate, addToast, currentUser, searchTerm, isAIOff }) => {
     const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'estimateNumber', direction: 'descending' });
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [estimateToEdit, setEstimateToEdit] = useState<Estimate | null>(null);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [selectedEstimate, setSelectedEstimate] = useState<Estimate | null>(null);
 
     const filteredEstimates = useMemo(() => {
         if (!searchTerm) return estimates;
@@ -234,17 +244,22 @@ const EstimateManagementPage: React.FC<EstimateManagementPageProps> = ({ estimat
         const direction = sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending' ? 'descending' : 'ascending';
         setSortConfig({ key, direction });
     };
+    
+    const handleOpenDetail = (estimate: Estimate) => {
+        setSelectedEstimate(estimate);
+        setIsDetailModalOpen(true);
+    };
 
-    const handleOpenModal = (estimate: Estimate | null = null) => {
-        setEstimateToEdit(estimate);
-        setIsModalOpen(true);
+    const handleOpenEdit = (estimate: Estimate | null = null) => {
+        setSelectedEstimate(estimate);
+        setIsEditModalOpen(true);
     };
 
     const handleSaveEstimate = async (estimateData: Omit<Estimate, 'id' | 'createdAt' | 'updatedAt' | 'estimateNumber'>) => {
         // Here you would call update or add
         await onAddEstimate(estimateData);
         addToast('見積を保存しました。', 'success');
-        setIsModalOpen(false);
+        setIsEditModalOpen(false);
     };
 
     return (
@@ -252,10 +267,12 @@ const EstimateManagementPage: React.FC<EstimateManagementPageProps> = ({ estimat
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
                 <div className="p-6 flex justify-between items-center">
                     <h2 className="text-xl font-semibold">見積一覧</h2>
-                    <button onClick={() => handleOpenModal()} className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg">
-                        <PlusCircle className="w-5 h-5" />
-                        新規見積作成
-                    </button>
+                    <div className="flex items-center gap-4">
+                        <button onClick={() => handleOpenEdit(null)} className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg">
+                            <PlusCircle className="w-5 h-5" />
+                            新規見積作成
+                        </button>
+                    </div>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-base text-left">
@@ -280,7 +297,8 @@ const EstimateManagementPage: React.FC<EstimateManagementPageProps> = ({ estimat
                                     <td className="px-6 py-4">{formatDate(est.createdAt)}</td>
                                     <td className="px-6 py-4">{est.status}</td>
                                     <td className="px-6 py-4 text-center">
-                                        <button onClick={() => handleOpenModal(est)} className="p-2 text-slate-500 hover:text-blue-600"><Eye className="w-5 h-5"/></button>
+                                        <button onClick={() => handleOpenDetail(est)} className="p-2 text-slate-500 hover:text-blue-600"><Eye className="w-5 h-5"/></button>
+                                        <button onClick={() => handleOpenEdit(est)} className="p-2 text-slate-500 hover:text-green-600"><Pencil className="w-5 h-5"/></button>
                                     </td>
                                 </tr>
                             ))}
@@ -289,15 +307,26 @@ const EstimateManagementPage: React.FC<EstimateManagementPageProps> = ({ estimat
                      {sortedEstimates.length === 0 && <EmptyState icon={FileText} title="見積がありません" message="最初の見積を作成しましょう。" />}
                 </div>
             </div>
-            <EstimateModal 
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+            {isEditModalOpen && <EstimateModal 
+                isOpen={isEditModalOpen}
+                onClose={() => setIsEditModalOpen(false)}
                 onSave={handleSaveEstimate}
                 customers={customers}
                 addToast={addToast}
-                estimateToEdit={estimateToEdit}
+                estimateToEdit={selectedEstimate}
                 currentUser={currentUser}
-            />
+                isAIOff={isAIOff}
+            />}
+             {isDetailModalOpen && <EstimateDetailModal 
+                isOpen={isDetailModalOpen}
+                onClose={() => setIsDetailModalOpen(false)}
+                estimate={selectedEstimate}
+                addToast={addToast}
+                onEdit={() => {
+                    setIsDetailModalOpen(false);
+                    handleOpenEdit(selectedEstimate);
+                }}
+            />}
         </>
     );
 };

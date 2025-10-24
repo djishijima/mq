@@ -1,4 +1,6 @@
-import React, { useState, useCallback } from 'react';
+
+
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { INQUIRY_TYPES } from '../../constants';
 import { Lead, LeadStatus } from '../../types';
 import { Loader, X, Save } from '../Icons';
@@ -6,7 +8,7 @@ import { Loader, X, Save } from '../Icons';
 interface CreateLeadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddLead: (lead: Partial<Omit<Lead, 'id' | 'created_at' | 'updated_at'>>) => Promise<void>;
+  onAddLead: (lead: Partial<Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>>) => Promise<void>;
 }
 
 const CreateLeadModal: React.FC<CreateLeadModalProps> = ({ isOpen, onClose, onAddLead }) => {
@@ -18,12 +20,40 @@ const CreateLeadModal: React.FC<CreateLeadModalProps> = ({ isOpen, onClose, onAd
     status: LeadStatus.Untouched as LeadStatus,
     source: '',
     message: '',
-    inquiry_types: [] as string[],
+    inquiryTypes: [] as string[],
   });
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
 
-  if (!isOpen) return null;
+  const mounted = useRef(false);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  
+  const resetForm = useCallback(() => {
+    setFormData({
+      company: '',
+      name: '',
+      email: '',
+      phone: '',
+      status: LeadStatus.Untouched,
+      source: '',
+      message: '',
+      inquiryTypes: [],
+    });
+    setIsSaving(false);
+    setError('');
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      resetForm();
+    }
+  }, [isOpen, resetForm]);
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -35,74 +65,59 @@ const CreateLeadModal: React.FC<CreateLeadModalProps> = ({ isOpen, onClose, onAd
 
   const handleInquiryToggle = useCallback((type: string) => {
     setFormData(prev => {
-      const exists = prev.inquiry_types.includes(type);
+      const exists = prev.inquiryTypes.includes(type);
       return {
         ...prev,
-        inquiry_types: exists
-          ? prev.inquiry_types.filter(t => t !== type)
-          : [...prev.inquiry_types, type],
+        inquiryTypes: exists
+          ? prev.inquiryTypes.filter(t => t !== type)
+          : [...prev.inquiryTypes, type],
       };
     });
   }, []);
 
-  const resetAndClose = useCallback(() => {
-    setFormData({
-      company: '',
-      name: '',
-      email: '',
-      phone: '',
-      status: LeadStatus.Untouched,
-      source: '',
-      message: '',
-      inquiry_types: [],
-    });
-    setIsSaving(false);
+  if (!isOpen) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError('');
-    onClose();
-  }, [onClose]);
 
-  const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      setError('');
+    if (!formData.company.trim() || !formData.name.trim()) {
+      setError('会社名と担当者名は必須です。');
+      return;
+    }
 
-      // 簡易バリデーション
-      if (!formData.company.trim()) return setError('会社名は必須です。');
-      if (!formData.name.trim()) return setError('担当者名は必須です。');
-      if (!formData.email.trim() && !formData.phone.trim())
-        return setError('メールまたは電話のいずれかは必須です。');
-
-      setIsSaving(true);
-      try {
-        const payload: Partial<Omit<Lead, 'id' | 'created_at' | 'updated_at'>> = {
-          company: formData.company.trim(),
-          name: formData.name.trim(),
-          email: formData.email.trim() || undefined,
-          phone: formData.phone.trim() || undefined,
-          status: formData.status,
-          source: formData.source.trim() || undefined,
-          message: formData.message.trim() || undefined,
-          inquiry_types: formData.inquiry_types,
-        };
-        await onAddLead(payload);
-        resetAndClose();
-      } catch (err) {
+    setIsSaving(true);
+    try {
+      await onAddLead({
+        company: formData.company.trim(),
+        name: formData.name.trim(),
+        email: formData.email.trim() || undefined,
+        phone: formData.phone.trim() || undefined,
+        status: formData.status,
+        source: formData.source.trim() || undefined,
+        message: formData.message.trim() || undefined,
+        inquiryTypes: formData.inquiryTypes,
+      });
+    } catch (err) {
+      if (mounted.current) {
         setError(err instanceof Error ? err.message : '保存に失敗しました。');
+      }
+    } finally {
+      if (mounted.current) {
         setIsSaving(false);
       }
-    },
-    [formData, onAddLead, resetAndClose]
-  );
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={resetAndClose} />
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-900">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">新規リード</h2>
           <button
             type="button"
-            onClick={resetAndClose}
+            onClick={onClose}
             className="inline-flex items-center gap-2 rounded-lg px-2 py-1 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
           >
             <X className="h-5 w-5" />
@@ -127,6 +142,7 @@ const CreateLeadModal: React.FC<CreateLeadModalProps> = ({ isOpen, onClose, onAd
                 onChange={handleChange}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                 placeholder="株式会社サンプル"
+                autoComplete="organization"
               />
             </div>
 
@@ -140,6 +156,7 @@ const CreateLeadModal: React.FC<CreateLeadModalProps> = ({ isOpen, onClose, onAd
                 onChange={handleChange}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                 placeholder="山田 太郎"
+                autoComplete="name"
               />
             </div>
 
@@ -154,6 +171,7 @@ const CreateLeadModal: React.FC<CreateLeadModalProps> = ({ isOpen, onClose, onAd
                 onChange={handleChange}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                 placeholder="taro@example.com"
+                autoComplete="email"
               />
             </div>
 
@@ -167,6 +185,7 @@ const CreateLeadModal: React.FC<CreateLeadModalProps> = ({ isOpen, onClose, onAd
                 onChange={handleChange}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                 placeholder="03-1234-5678"
+                autoComplete="tel"
               />
             </div>
 
@@ -180,11 +199,7 @@ const CreateLeadModal: React.FC<CreateLeadModalProps> = ({ isOpen, onClose, onAd
                 onChange={handleChange}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
               >
-                <option value={LeadStatus.Untouched}>未接触</option>
-                <option value={LeadStatus.Contacted}>接触済み</option>
-                <option value={LeadStatus.Qualified}>有望</option>
-                <option value={LeadStatus.Disqualified}>失注</option>
-                <option value={LeadStatus.Converted}>商談化</option>
+                {Object.values(LeadStatus).map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
 
@@ -198,6 +213,7 @@ const CreateLeadModal: React.FC<CreateLeadModalProps> = ({ isOpen, onClose, onAd
                 onChange={handleChange}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                 placeholder="Web, 口コミ, 展示会 など"
+                autoComplete="on"
               />
             </div>
           </div>
@@ -214,7 +230,7 @@ const CreateLeadModal: React.FC<CreateLeadModalProps> = ({ isOpen, onClose, onAd
                 >
                   <input
                     type="checkbox"
-                    checked={formData.inquiry_types.includes(t)}
+                    checked={formData.inquiryTypes.includes(t)}
                     onChange={() => handleInquiryToggle(t)}
                     className="h-4 w-4"
                   />
@@ -235,13 +251,14 @@ const CreateLeadModal: React.FC<CreateLeadModalProps> = ({ isOpen, onClose, onAd
               rows={4}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
               placeholder="案件の背景や希望納期など"
+              autoComplete="on"
             />
           </div>
 
           <div className="mt-6 flex items-center justify-end gap-3">
             <button
               type="button"
-              onClick={resetAndClose}
+              onClick={onClose}
               disabled={isSaving}
               className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-slate-700 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
             >

@@ -20,7 +20,7 @@ const ReportDetailModal: React.FC<{ report: BugReport; onClose: () => void }> = 
             <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-700">
                 <div>
                     <h2 className="text-xl font-bold">{report.summary}</h2>
-                    <p className="text-sm text-slate-500">報告者: {report.reporter_name} | {formatDate(report.created_at)}</p>
+                    <p className="text-sm text-slate-500">報告者: {report.reporterName} | {formatDate(report.createdAt)}</p>
                 </div>
                 <button onClick={onClose}><X className="w-6 h-6"/></button>
             </div>
@@ -42,16 +42,16 @@ interface BugReportListProps {
 }
 
 const BugReportList: React.FC<BugReportListProps> = ({ reports, onUpdateReport, searchTerm }) => {
-    const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'created_at', direction: 'descending' });
+    const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'createdAt', direction: 'descending' });
     const [selectedReport, setSelectedReport] = useState<BugReport | null>(null);
 
     const filteredReports = useMemo(() => {
         if (!searchTerm) return reports;
         const lower = searchTerm.toLowerCase();
         return reports.filter(r =>
-            r.reporter_name.toLowerCase().includes(lower) ||
+            r.reporterName.toLowerCase().includes(lower) ||
             r.summary.toLowerCase().includes(lower) ||
-            r.report_type.toLowerCase().includes(lower)
+            r.reportType.toLowerCase().includes(lower)
         );
     }, [reports, searchTerm]);
 
@@ -85,9 +85,9 @@ const BugReportList: React.FC<BugReportListProps> = ({ reports, onUpdateReport, 
                     <table className="w-full text-base text-left">
                         <thead className="text-sm uppercase bg-slate-50 dark:bg-slate-700">
                             <tr>
-                                <SortableHeader sortKey="created_at" label="報告日時" sortConfig={sortConfig} requestSort={requestSort} />
-                                <SortableHeader sortKey="reporter_name" label="報告者" sortConfig={sortConfig} requestSort={requestSort} />
-                                <SortableHeader sortKey="report_type" label="種別" sortConfig={sortConfig} requestSort={requestSort} />
+                                <SortableHeader sortKey="createdAt" label="報告日時" sortConfig={sortConfig} requestSort={requestSort} />
+                                <SortableHeader sortKey="reporterName" label="報告者" sortConfig={sortConfig} requestSort={requestSort} />
+                                <SortableHeader sortKey="reportType" label="種別" sortConfig={sortConfig} requestSort={requestSort} />
                                 <th scope="col" className="px-6 py-3 font-medium">概要</th>
                                 <SortableHeader sortKey="status" label="ステータス" sortConfig={sortConfig} requestSort={requestSort} />
                                 <th scope="col" className="px-6 py-3 font-medium text-center">詳細</th>
@@ -96,11 +96,11 @@ const BugReportList: React.FC<BugReportListProps> = ({ reports, onUpdateReport, 
                         <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                             {sortedReports.map(report => (
                                 <tr key={report.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-                                    <td className="px-6 py-4 whitespace-nowrap">{formatDate(report.created_at)}</td>
-                                    <td className="px-6 py-4 font-medium">{report.reporter_name}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap">{formatDate(report.createdAt)}</td>
+                                    <td className="px-6 py-4 font-medium">{report.reporterName}</td>
                                     <td className="px-6 py-4">
-                                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${report.report_type === 'bug' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
-                                            {report.report_type === 'bug' ? 'バグ報告' : '改善要望'}
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${report.reportType === 'bug' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                                            {report.reportType === 'bug' ? 'バグ報告' : '改善要望'}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 max-w-sm truncate">{report.summary}</td>

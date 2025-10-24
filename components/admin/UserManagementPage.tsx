@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { User, Toast, ConfirmationDialogProps } from '../../types';
+import { User, Toast, ConfirmationDialogProps, EmployeeUser } from '../../types';
 import { getUsers, addUser, updateUser, deleteUser } from '../../services/dataService';
 import { Loader, PlusCircle, X, Save, Trash2, Pencil } from '../Icons';
 
 const UserModal: React.FC<{
-    user: User | null;
+    user: EmployeeUser | null;
     onClose: () => void;
-    onSave: (user: Partial<User>) => Promise<void>;
+    onSave: (user: Partial<EmployeeUser>) => Promise<void>;
 }> = ({ user, onClose, onSave }) => {
     const [name, setName] = useState(user?.name || '');
     const [email, setEmail] = useState(user?.email || '');
@@ -63,11 +63,11 @@ interface UserManagementPageProps {
 }
 
 const UserManagementPage: React.FC<UserManagementPageProps> = ({ addToast, requestConfirmation }) => {
-    const [users, setUsers] = useState<User[]>([]);
+    const [users, setUsers] = useState<EmployeeUser[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [selectedUser, setSelectedUser] = useState<User | null>(null);
+    const [selectedUser, setSelectedUser] = useState<EmployeeUser | null>(null);
 
     const loadUsers = useCallback(async () => {
         try {
@@ -85,7 +85,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ addToast, reque
         loadUsers();
     }, [loadUsers]);
 
-    const handleOpenModal = (user: User | null = null) => {
+    const handleOpenModal = (user: EmployeeUser | null = null) => {
         setSelectedUser(user);
         setIsModalOpen(true);
     };
@@ -95,7 +95,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ addToast, reque
         setSelectedUser(null);
     };
 
-    const handleSaveUser = async (userData: Partial<User>) => {
+    const handleSaveUser = async (userData: Partial<EmployeeUser>) => {
         try {
             if (userData.id) {
                 await updateUser(userData.id, userData);
@@ -111,7 +111,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ addToast, reque
         }
     };
 
-    const handleDeleteUser = (user: User) => {
+    const handleDeleteUser = (user: EmployeeUser) => {
         requestConfirmation({
             title: 'ユーザーを削除',
             message: `本当にユーザー「${user.name}」を削除しますか？この操作は元に戻せません。`,
@@ -164,7 +164,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ addToast, reque
                                         {user.role === 'admin' ? '管理者' : '一般ユーザー'}
                                     </span>
                                 </td>
-                                <td className="px-6 py-4">{new Date(user.created_at).toLocaleDateString()}</td>
+                                <td className="px-6 py-4">{new Date(user.createdAt).toLocaleDateString()}</td>
                                 <td className="px-6 py-4">
                                     <div className="flex justify-center items-center gap-2">
                                         <button onClick={() => handleOpenModal(user)} className="p-2 text-slate-500 hover:text-blue-600"><Pencil className="w-5 h-5" /></button>

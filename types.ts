@@ -8,8 +8,11 @@ export type Page =
   | 'approval_form_approval' | 'approval_form_daily' | 'approval_form_weekly'
   | 'accounting_journal' | 'accounting_general_ledger' | 'accounting_trial_balance'
   | 'accounting_tax_summary' | 'accounting_period_closing' | 'accounting_business_plan'
+  | 'business_support_proposal'
+  | 'ai_business_consultant'
+  | 'ai_market_research'
   | 'admin_audit_log' | 'admin_journal_queue' | 'admin_user_management' | 'admin_route_management'
-  | 'admin_bug_reports' | 'settings';
+  | 'admin_master_management' | 'admin_bug_reports' | 'settings';
 
 export enum JobStatus {
   Pending = '保留',
@@ -99,7 +102,7 @@ export interface User {
   name: string;
   email: string | null;
   role: 'admin' | 'user';
-  created_at: string;
+  createdAt: string;
 }
 
 export interface EmployeeUser {
@@ -109,7 +112,7 @@ export interface EmployeeUser {
   title: string | null;
   email: string;
   role: 'admin' | 'user';
-  created_at: string;
+  createdAt: string;
 }
 
 export interface Customer {
@@ -128,19 +131,17 @@ export interface Customer {
   infoRequirements?: string;
   infoHistory?: string;
   createdAt: string;
-  post_no?: string;
-  address_2?: string;
+  postNo?: string;
+  address2?: string;
   fax?: string;
   closingDay?: string;
-  monthly_plan?: string;
+  monthlyPlan?: string;
   payDay?: string;
   recoveryMethod?: string;
-  user_id?: string;
-  // from modal
+  userId?: string;
   name2?: string;
   websiteUrl?: string;
   zipCode?: string;
-  address2?: string;
   foundationDate?: string;
   capital?: string;
   customerRank?: string;
@@ -158,6 +159,7 @@ export interface Customer {
   salesGoal?: string;
   infoSalesIdeas?: string;
   customerContactInfo?: string; // for mailto
+  aiAnalysis?: CompanyAnalysis | null;
 }
 
 export interface SortConfig {
@@ -183,6 +185,15 @@ export interface CompanyAnalysis {
         subject: string;
         body: string;
     };
+    sources?: { uri: string; title: string; }[];
+}
+
+export interface CompanyInvestigation {
+    summary: string;
+    sources: {
+        uri: string;
+        title: string;
+    }[];
 }
 
 export interface InvoiceData {
@@ -208,11 +219,11 @@ export interface ApplicationCode {
     code: string;
     name: string;
     description: string;
-    created_at: string;
+    createdAt: string;
 }
 
 export interface EstimateItem {
-    division: 'paper' | 'print' | 'design' | 'finishing' | 'other' | 'その他';
+    division: '用紙代' | 'デザイン・DTP代' | '刷版代' | '印刷代' | '加工代' | 'その他' | '初期費用' | '月額費用';
     content: string;
     quantity: number;
     unit: string;
@@ -245,7 +256,7 @@ export interface Estimate {
 export interface Lead {
     id: string;
     status: LeadStatus;
-    created_at: string;
+    createdAt: string;
     name: string;
     email: string | null;
     phone: string | null;
@@ -253,62 +264,66 @@ export interface Lead {
     source: string | null;
     tags: string[] | null;
     message: string | null;
-    updated_at: string | null;
+    updatedAt: string | null;
     referrer: string | null;
-    referrer_url: string | null;
-    landing_page_url: string | null;
-    search_keywords: string | null;
-    utm_source: string | null;
-    utm_medium: string | null;
-    utm_campaign: string | null;
-    utm_term: string | null;
-    utm_content: string | null;
-    user_agent: string | null;
-    ip_address: string | null;
-    device_type: string | null;
-    browser_name: string | null;
-    os_name: string | null;
+    referrerUrl: string | null;
+    landingPageUrl: string | null;
+    searchKeywords: string | null;
+    utmSource: string | null;
+    utmMedium: string | null;
+    utmCampaign: string | null;
+    utmTerm: string | null;
+    utmContent: string | null;
+    userAgent: string | null;
+    ipAddress: string | null;
+    deviceType: string | null;
+    browserName: string | null;
+    osName: string | null;
     country: string | null;
     city: string | null;
     region: string | null;
     employees: string | null;
     budget: string | null;
     timeline: string | null;
-    inquiry_type: string | null;
-    inquiry_types: string[] | null;
+    inquiryType: string | null;
+    inquiryTypes: string[] | null;
     infoSalesActivity: string | null;
     score?: number;
+    aiAnalysisReport?: string;
+    aiDraftProposal?: string;
+    aiInvestigation?: CompanyInvestigation;
 }
 
 export interface ApprovalRoute {
     id: string;
     name: string;
-    route_data: {
-        steps: { approver_id: string }[];
+    routeData: {
+        steps: { approverId: string }[];
     };
-    created_at: string;
+    createdAt: string;
 }
 
 export interface Application {
     id: string;
-    applicant_id: string;
-    application_code_id: string;
-    form_data: any;
+    applicantId: string;
+    applicationCodeId: string;
+    formData: any;
     status: 'draft' | 'pending_approval' | 'approved' | 'rejected';
-    submitted_at: string | null;
-    approved_at: string | null;
-    rejected_at: string | null;
-    current_level: number;
-    approver_id: string | null;
-    rejection_reason: string | null;
-    approval_route_id: string;
-    created_at: string;
+    submittedAt: string | null;
+    approvedAt: string | null;
+    rejectedAt: string | null;
+    currentLevel: number;
+    approverId: string | null;
+    rejectionReason: string | null;
+    approvalRouteId: string;
+    createdAt: string;
+    updatedAt?: string | null;
 }
 
 export interface ApplicationWithDetails extends Application {
     applicant?: User;
-    application_codes?: ApplicationCode;
-    approval_routes?: ApprovalRoute;
+    applicationCode?: ApplicationCode;
+    approvalRoute?: ApprovalRoute;
 }
 
 export interface Employee {
@@ -316,9 +331,9 @@ export interface Employee {
     name: string;
     department: string;
     title: string;
-    hire_date: string;
+    hireDate: string;
     salary: number;
-    created_at: string;
+    createdAt: string;
 }
 
 export interface AccountItem {
@@ -327,9 +342,9 @@ export interface AccountItem {
     name: string;
     categoryCode: string;
     isActive: boolean;
-    sort_order: number;
-    created_at: string;
-    updated_at: string;
+    sortOrder: number;
+    createdAt: string;
+    updatedAt: string;
 }
 
 export interface PurchaseOrder {
@@ -386,12 +401,12 @@ export interface LeadScore {
 
 export interface BugReport {
   id: string;
-  reporter_name: string;
-  report_type: 'bug' | 'improvement';
+  reporterName: string;
+  reportType: 'bug' | 'improvement';
   summary: string;
   description: string;
   status: BugReportStatus;
-  created_at: string;
+  createdAt: string;
 }
 
 export interface ClosingChecklistItem {
@@ -404,28 +419,28 @@ export interface ClosingChecklistItem {
 
 export interface InvoiceItem {
     id: string;
-    invoice_id: string;
-    job_id?: string;
+    invoiceId: string;
+    jobId?: string;
     description: string;
     quantity: number;
     unit: string;
-    unit_price: number;
-    line_total: number;
-    sort_index: number;
+    unitPrice: number;
+    lineTotal: number;
+    sortIndex: number;
 }
 
 export interface Invoice {
     id: string;
-    invoice_no: string;
-    invoice_date: string;
-    due_date?: string;
-    customer_name: string;
-    subtotal_amount: number;
-    tax_amount: number;
-    total_amount: number;
+    invoiceNo: string;
+    invoiceDate: string;
+    dueDate?: string;
+    customerName: string;
+    subtotalAmount: number;
+    taxAmount: number;
+    totalAmount: number;
     status: 'draft' | 'issued' | 'paid' | 'void';
-    created_at: string;
-    paid_at?: string;
+    createdAt: string;
+    paidAt?: string;
     items?: InvoiceItem[];
 }
 
@@ -446,4 +461,62 @@ export interface InboxItem {
     extractedData: InvoiceData | null;
     errorMessage: string | null;
     createdAt: string;
+}
+
+export interface MasterAccountItem {
+  id: string;
+  code: string;
+  name: string;
+  categoryCode: string | null;
+}
+
+export interface PaymentRecipient {
+  id: string;
+  recipientCode: string;
+  companyName: string | null;
+  recipientName: string | null;
+}
+
+export interface Department {
+  id: string;
+  name: string;
+}
+
+export interface CustomProposalContent {
+  coverTitle: string;
+  businessUnderstanding: string;
+  challenges: string;
+  proposal: string;
+  conclusion: string;
+}
+
+export interface LeadProposalPackage {
+  isSalesLead: boolean;
+  reason: string;
+  proposal?: CustomProposalContent;
+  estimate?: EstimateItem[];
+}
+
+export interface AllocationDivision {
+  id: string;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface Title {
+  id: string;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface MarketResearchReport {
+  title: string;
+  summary: string;
+  trends: string[];
+  competitorAnalysis: string;
+  opportunities: string[];
+  threats: string[];
+  sources?: { uri: string; title: string; }[];
 }

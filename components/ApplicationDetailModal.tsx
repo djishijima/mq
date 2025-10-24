@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ApplicationWithDetails, User } from '../types';
 import { X, CheckCircle, Send, Loader } from './Icons';
 import ApplicationStatusBadge from './ApplicationStatusBadge';
@@ -30,9 +29,18 @@ const ApplicationDetailModal: React.FC<ApplicationDetailModalProps> = ({
     const [rejectionReason, setRejectionReason] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [allUsers, setAllUsers] = useState<User[]>([]);
+    const mounted = useRef(true);
 
     useEffect(() => {
-        getUsers().then(setAllUsers).catch(console.error);
+        mounted.current = true;
+        let isSubscribed = true;
+        getUsers().then(data => {
+            if (isSubscribed) setAllUsers(data as User[]);
+        }).catch(console.error);
+        return () => {
+            isSubscribed = false;
+            mounted.current = false;
+        };
     }, []);
 
     useEffect(() => {
@@ -45,7 +53,9 @@ const ApplicationDetailModal: React.FC<ApplicationDetailModalProps> = ({
         if (!application) return;
         setIsProcessing(true);
         await onApprove(application);
-        setIsProcessing(false);
+        if (mounted.current) {
+            setIsProcessing(false);
+        }
     };
 
     const handleReject = async () => {
@@ -55,24 +65,25 @@ const ApplicationDetailModal: React.FC<ApplicationDetailModalProps> = ({
         }
         setIsProcessing(true);
         await onReject(application, rejectionReason);
-        setIsProcessing(false);
+        if (mounted.current) {
+            setIsProcessing(false);
+        }
     };
 
     if (!application) {
         return null;
     }
 
-    const isCurrentUserApprover = currentUser?.id === application.approver_id && application.status === 'pending_approval';
+    const isCurrentUserApprover = currentUser?.id === application.approverId && application.status === 'pending_approval';
 
-    const { form_data: formData, application_codes, approval_routes } = application;
-    const code = application_codes?.code;
+    const { formData, applicationCode, approvalRoute } = application;
+    const code = applicationCode?.code;
     const amount = formData.amount ? `¥${Number(formData.amount).toLocaleString()}` : (formData.totalAmount ? `¥${Number(formData.totalAmount).toLocaleString()}`: null);
 
     const usersById = new Map(allUsers.map(u => [u.id, u.name]));
-    const approvers = approval_routes?.route_data.steps || [];
+    const approvers = approvalRoute?.routeData.steps || [];
 
     const renderDailyReportDetails = (data: any) => {
-        // Handle old format: { title: "...", details: "..." }
         if (typeof data.details === 'string') {
             return (
                 <>
@@ -82,7 +93,6 @@ const ApplicationDetailModal: React.FC<ApplicationDetailModalProps> = ({
             );
         }
         
-        // Handle new structured format
         if (data.activityContent !== undefined) {
              return (
                 <>
@@ -95,7 +105,6 @@ const ApplicationDetailModal: React.FC<ApplicationDetailModalProps> = ({
             );
         }
         
-        // Fallback for unexpected data structures to prevent crash
         return <DetailItem label="内容" className="md:col-span-2"><pre className="text-xs bg-slate-100 dark:bg-slate-900 p-2 rounded-md">{JSON.stringify(data, null, 2)}</pre></DetailItem>;
     };
 
@@ -111,9 +120,9 @@ const ApplicationDetailModal: React.FC<ApplicationDetailModalProps> = ({
 
                 <div className="p-6 overflow-y-auto space-y-6">
                     <dl className="grid grid-cols-2 gap-x-4 gap-y-4">
-                        <DetailItem label="申請種別">{application_codes?.name}</DetailItem>
-                        <DetailItem label="申請者">{application.applicant?.name}</DetailItem>
-                        <DetailItem label="申請日時">{application.submitted_at ? new Date(application.submitted_at).toLocaleString('ja-JP') : '-'}</DetailItem>
+                        <DetailItem label="申請種別">{applicationCode?.name}</DetailItem>
+                        <DetailItem label="申請者">{application.applicant?.name || '不明なユーザー'}</DetailItem>
+                        <DetailItem label="申請日時">{application.submittedAt ? new Date(application.submittedAt).toLocaleString('ja-JP') : '-'}</DetailItem>
                         <DetailItem label="ステータス"><ApplicationStatusBadge status={application.status} /></DetailItem>
                     </dl>
                     
@@ -124,7 +133,7 @@ const ApplicationDetailModal: React.FC<ApplicationDetailModalProps> = ({
                             {code === 'EXP' && <>
                                 <DetailItem label="内容" className="md:col-span-2">
                                     <div className="space-y-1">
-                                    {formData.details?.map((d: any, i: number) => 
+                                    {Array.isArray(formData.details) && formData.details.map((d: any, i: number) => 
                                         <div key={i} className="text-sm p-2 bg-slate-50 dark:bg-slate-700/50 rounded-md">{d.paymentDate}: {d.description} ({d.costType}) - ¥{d.amount?.toLocaleString()}</div>
                                     )}
                                     </div>
@@ -132,11 +141,16 @@ const ApplicationDetailModal: React.FC<ApplicationDetailModalProps> = ({
                                 <DetailItem label="備考">{formData.notes}</DetailItem>
                             </>}
                             {code === 'TRP' && <>
-                                <DetailItem label="利用日">{formData.travelDate}</DetailItem>
-                                <DetailItem label="出発地">{formData.departure}</DetailItem>
-                                <DetailItem label="目的地">{formData.arrival}</DetailItem>
-                                <DetailItem label="交通手段">{formData.transportMode}</DetailItem>
-                                <DetailItem label="目的">{formData.purpose}</DetailItem>
+                                <DetailItem label="内容" className="md:col-span-2">
+                                    <div className="space-y-1">
+                                    {Array.isArray(formData.details) && formData.details.map((d: any, i: number) => 
+                                        <div key={i} className="text-sm p-2 bg-slate-50 dark:bg-slate-700/50 rounded-md">
+                                            {d.travelDate}: {d.departure} → {d.arrival} ({d.transportMode}) - ¥{d.amount?.toLocaleString()}
+                                        </div>
+                                    )}
+                                    </div>
+                                </DetailItem>
+                                <DetailItem label="備考">{formData.notes}</DetailItem>
                             </>}
                             {(code === 'APL' || code === 'NOC' || code === 'WKR') && <>
                                 <DetailItem label="件名">{formData.title}</DetailItem>
@@ -161,13 +175,13 @@ const ApplicationDetailModal: React.FC<ApplicationDetailModalProps> = ({
                     )}
                     
                     <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
-                        <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">承認ルート: {approval_routes?.name}</h3>
+                        <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">承認ルート: {approvalRoute?.name}</h3>
                         <ol className="relative border-l border-slate-200 dark:border-slate-700 ml-2">
                             {approvers.map((step, index) => {
                                 const level = index + 1;
-                                const isCompleted = application.status === 'approved' || (application.status !== 'rejected' && level < application.current_level);
-                                const isCurrent = level === application.current_level && application.status === 'pending_approval';
-                                const isRejectedHere = application.status === 'rejected' && level === application.current_level;
+                                const isCompleted = application.status === 'approved' || (application.status !== 'rejected' && level < application.currentLevel);
+                                const isCurrent = level === application.currentLevel && application.status === 'pending_approval';
+                                const isRejectedHere = application.status === 'rejected' && level === application.currentLevel;
                                 
                                 let statusColor = 'bg-slate-300 dark:bg-slate-600';
                                 if (isCompleted) statusColor = 'bg-green-500';
@@ -179,7 +193,7 @@ const ApplicationDetailModal: React.FC<ApplicationDetailModalProps> = ({
                                         <span className={`absolute flex items-center justify-center w-6 h-6 rounded-full -left-3 ${statusColor}`}>
                                             {isCompleted && <CheckCircle className="w-4 h-4 text-white"/>}
                                         </span>
-                                        <h4 className="font-semibold text-slate-900 dark:text-white">{usersById.get(step.approver_id) || '不明なユーザー'}</h4>
+                                        <h4 className="font-semibold text-slate-900 dark:text-white">{usersById.get(step.approverId) || '不明なユーザー'}</h4>
                                         <p className="text-sm text-slate-500">ステップ {level}</p>
                                     </li>
                                 );
@@ -187,10 +201,10 @@ const ApplicationDetailModal: React.FC<ApplicationDetailModalProps> = ({
                         </ol>
                     </div>
 
-                    {application.status === 'rejected' && application.rejection_reason && (
+                    {application.status === 'rejected' && application.rejectionReason && (
                          <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
                             <h3 className="text-lg font-semibold text-red-700 dark:text-red-400 mb-4">差し戻し理由</h3>
-                            <p className="p-3 bg-red-50 dark:bg-red-900/30 rounded-md text-red-800 dark:text-red-200">{application.rejection_reason}</p>
+                            <p className="p-3 bg-red-50 dark:bg-red-900/30 rounded-md text-red-800 dark:text-red-200">{application.rejectionReason}</p>
                         </div>
                     )}
                 </div>

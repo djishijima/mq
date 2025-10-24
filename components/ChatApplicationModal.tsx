@@ -11,6 +11,7 @@ interface ChatApplicationModalProps {
     onSuccess: () => void;
     initialMessage?: string;
     currentUser: User | null;
+    isAIOff: boolean;
 }
 
 interface Message {
@@ -19,7 +20,7 @@ interface Message {
     content: string;
 }
 
-const ChatApplicationModal: React.FC<ChatApplicationModalProps> = ({ isOpen, onClose, onSuccess, initialMessage, currentUser }) => {
+const ChatApplicationModal: React.FC<ChatApplicationModalProps> = ({ isOpen, onClose, onSuccess, initialMessage, currentUser, isAIOff }) => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -50,6 +51,13 @@ const ChatApplicationModal: React.FC<ChatApplicationModalProps> = ({ isOpen, onC
             return;
         }
 
+        if (isAIOff) {
+            setMessages([{ id: 'init', role: 'model', content: 'AI機能は現在無効です。' }]);
+            setIsPreloading(false);
+            setIsLoading(false);
+            return;
+        }
+
         const preloadAndStart = async () => {
             setIsPreloading(true);
             setIsLoading(true);
@@ -76,7 +84,8 @@ const ChatApplicationModal: React.FC<ChatApplicationModalProps> = ({ isOpen, onC
                 } else {
                     setMessages([{ id: 'init', role: 'model', content: 'こんにちは。どのようなご用件でしょうか？申請したい内容を自由に入力してください。（例：「経費を申請したい」）' }]);
                 }
-            } catch (e) {
+            } catch (e: any) {
+                if (e.name === 'AbortError') return; // Request was aborted, do nothing
                  setError('アシスタントの初期化に失敗しました。ユーザー情報や申請種別の読み込みができませんでした。');
             } finally {
                 setIsPreloading(false);
@@ -85,11 +94,11 @@ const ChatApplicationModal: React.FC<ChatApplicationModalProps> = ({ isOpen, onC
         };
         
         preloadAndStart();
-    }, [isOpen, initialMessage]);
+    }, [isOpen, initialMessage, isAIOff]);
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!input.trim() || isLoading || isPreloading || !currentUser) return;
+        if (!input.trim() || isLoading || isPreloading || !currentUser || isAIOff) return;
 
         const newUserMessage: Message = { id: `user-${Date.now()}`, role: 'user', content: input };
         setMessages(prev => [...prev, newUserMessage]);
@@ -123,7 +132,8 @@ const ChatApplicationModal: React.FC<ChatApplicationModalProps> = ({ isOpen, onC
                 setMessages(prev => [...prev, newAiMessage]);
             }
 
-        } catch (err) {
+        } catch (err: any) {
+            if (err.name === 'AbortError') return; // Request was aborted, do nothing
             const errorMessage = err instanceof Error ? err.message : "不明なエラーが発生しました。";
             setError(`申請処理中にエラーが発生しました: ${errorMessage}`);
             const errorAiMessage: Message = { id: `model-err-${Date.now()}`, role: 'model', content: "申し訳ありません、エラーが発生しました。もう一度やり直してください。" };
@@ -175,13 +185,13 @@ const ChatApplicationModal: React.FC<ChatApplicationModalProps> = ({ isOpen, onC
                             type="text"
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
-                            placeholder={isPreloading ? "アシスタントを準備中..." : "メッセージを入力..."}
-                            disabled={isLoading || isPreloading}
+                            placeholder={isPreloading ? "アシスタントを準備中..." : (isAIOff ? "AI機能は現在無効です。" : "メッセージを入力...")}
+                            disabled={isLoading || isPreloading || isAIOff}
                             className="w-full bg-slate-100 dark:bg-slate-700 border border-transparent text-slate-900 dark:text-white rounded-lg p-3 focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                         />
                         <button
                             type="submit"
-                            disabled={isLoading || isPreloading || !input.trim()}
+                            disabled={isLoading || isPreloading || !input.trim() || isAIOff}
                             className="bg-blue-600 text-white p-3 rounded-lg shadow-sm hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed flex-shrink-0"
                         >
                             <Send className="w-6 h-6" />

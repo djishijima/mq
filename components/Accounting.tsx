@@ -1,3 +1,5 @@
+
+
 import React from 'react';
 import JournalLedger from './accounting/JournalLedger';
 import GeneralLedger from './accounting/GeneralLedger';
@@ -7,15 +9,20 @@ import PaymentManagement from './accounting/PaymentManagement';
 import LaborCostManagement from './accounting/LaborCostManagement';
 import PeriodClosingPage from './accounting/PeriodClosingPage';
 import PlaceholderPage from './PlaceholderPage';
+import BillingManagement from './accounting/BillingManagement';
+
 
 import { JournalEntry, InvoiceData, Page } from '../types';
 
 const AccountingPage: React.FC<any> = (props) => {
-    const { page, journalEntries, accountItems, onAddEntry, addToast, requestConfirmation, jobs, applications, onNavigate } = props;
+    const { page, journalEntries, accountItems, onAddEntry, addToast, requestConfirmation, jobs, applications, onNavigate, customers, employees, onRefreshData } = props;
 
     switch(page as Page) {
         case 'accounting_journal':
-            return <JournalLedger entries={journalEntries} onAddEntry={onAddEntry} />;
+            return <JournalLedger entries={journalEntries} onAddEntry={onAddEntry} isAIOff={props.isAIOff} />;
+
+        case 'sales_billing':
+            return <BillingManagement jobs={jobs} onRefreshData={onRefreshData} onMarkPaid={() => {}} />;
 
         case 'purchasing_invoices':
             const handleSaveExpenses = (data: InvoiceData) => {
@@ -36,7 +43,7 @@ const AccountingPage: React.FC<any> = (props) => {
                 onAddEntry(debitEntry);
                 addToast('買掛金と経費が計上されました。', 'success');
             };
-            return <InvoiceOCR onSaveExpenses={handleSaveExpenses} addToast={addToast} requestConfirmation={requestConfirmation} />;
+            return <InvoiceOCR onSaveExpenses={handleSaveExpenses} addToast={addToast} requestConfirmation={requestConfirmation} isAIOff={props.isAIOff} />;
 
         case 'purchasing_payments':
              const handleExecutePayment = async (supplier: string, amount: number) => {
@@ -59,7 +66,7 @@ const AccountingPage: React.FC<any> = (props) => {
             return <PaymentManagement journalEntries={journalEntries} onExecutePayment={handleExecutePayment} />;
         
         case 'hr_labor_cost':
-            return <LaborCostManagement employees={[]} />;
+            return <LaborCostManagement employees={employees || []} />;
 
         case 'accounting_general_ledger':
             return <GeneralLedger entries={journalEntries} accountItems={accountItems} />;

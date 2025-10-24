@@ -2,8 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import ApplicationList from '../ApplicationList';
 import ApplicationDetailModal from '../ApplicationDetailModal';
 import { getApplications, getApplicationCodes, approveApplication, rejectApplication } from '../../services/dataService';
-import { ApplicationWithDetails, ApplicationCode, EmployeeUser, Toast } from '../../types';
-import { Loader } from '../Icons';
+// FIX: Import AllocationDivision type.
+import { ApplicationWithDetails, ApplicationCode, EmployeeUser, Toast, Customer, AccountItem, Job, PurchaseOrder, Department, AllocationDivision } from '../../types';
+import { Loader, AlertTriangle } from '../Icons';
 
 // Form components
 import ExpenseReimbursementForm from '../forms/ExpenseReimbursementForm';
@@ -19,6 +20,14 @@ interface ApprovalWorkflowPageProps {
     formCode?: string;
     searchTerm?: string;
     addToast: (message: string, type: Toast['type']) => void;
+    customers?: Customer[];
+    accountItems?: AccountItem[];
+    jobs?: Job[];
+    purchaseOrders?: PurchaseOrder[];
+    departments?: Department[];
+    isAIOff?: boolean;
+    // FIX: Add missing 'allocationDivisions' property.
+    allocationDivisions?: AllocationDivision[];
 }
 
 const TABS_CONFIG = {
@@ -27,7 +36,7 @@ const TABS_CONFIG = {
     completed: { title: "完了済", description: "承認または却下されたすべての申請の履歴です。" },
 };
 
-const ApprovalWorkflowPage: React.FC<ApprovalWorkflowPageProps> = ({ currentUser, view, formCode, searchTerm, addToast }) => {
+const ApprovalWorkflowPage: React.FC<ApprovalWorkflowPageProps> = ({ currentUser, view, formCode, searchTerm, addToast, customers, accountItems, jobs, purchaseOrders, departments, isAIOff, allocationDivisions }) => {
     // State for list view
     const [applications, setApplications] = useState<ApplicationWithDetails[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -45,7 +54,7 @@ const ApprovalWorkflowPage: React.FC<ApprovalWorkflowPageProps> = ({ currentUser
         try {
             setIsLoading(true);
             setError('');
-            const apps = await getApplications(null); // Passing null for now
+            const apps = await getApplications(currentUser);
             setApplications(apps);
         } catch (err: any) {
             setError(err.message || '申請データの取得に失敗しました。');
@@ -55,22 +64,22 @@ const ApprovalWorkflowPage: React.FC<ApprovalWorkflowPageProps> = ({ currentUser
     };
 
     const fetchFormData = async () => {
+        setIsCodesLoading(true);
+        setError('');
         try {
-            setIsCodesLoading(true);
-            setError('');
             const codes = await getApplicationCodes();
             setApplicationCodes(codes);
         } catch (err: any) {
-             setError(err.message || '申請種別の読み込みに失敗しました。');
+             setError(err.message || '申請フォームの基本データの読み込みに失敗しました。');
         } finally {
             setIsCodesLoading(false);
         }
     };
 
     useEffect(() => {
-        if (view === 'list') {
+        if (view === 'list' && currentUser) {
             fetchListData();
-        } else {
+        } else if (view === 'form') {
             fetchFormData();
         }
     }, [view, currentUser]);
@@ -111,10 +120,8 @@ const ApprovalWorkflowPage: React.FC<ApprovalWorkflowPageProps> = ({ currentUser
     };
     
     const { displayedApplications, tabCounts } = useMemo(() => {
-        // FIX: Change currentUser.user_id to currentUser.id to match EmployeeUser type
-        const pendingApps = applications.filter(app => app.approver_id === currentUser?.id && app.status === 'pending_approval');
-        // FIX: Change currentUser.user_id to currentUser.id to match EmployeeUser type
-        const submittedApps = applications.filter(app => app.applicant_id === currentUser?.id);
+        const pendingApps = applications.filter(app => app.approverId === currentUser?.id && app.status === 'pending_approval');
+        const submittedApps = applications.filter(app => app.applicantId === currentUser?.id);
         const completedApps = applications.filter(app => app.status === 'approved' || app.status === 'rejected');
 
         const counts = {
@@ -142,7 +149,7 @@ const ApprovalWorkflowPage: React.FC<ApprovalWorkflowPageProps> = ({ currentUser
             const lowercasedTerm = searchTerm.toLowerCase();
             filteredByTab = filteredByTab.filter(app =>
                 app.applicant?.name?.toLowerCase().includes(lowercasedTerm) ||
-                app.application_codes?.name?.toLowerCase().includes(lowercasedTerm) ||
+                app.applicationCode?.name?.toLowerCase().includes(lowercasedTerm) ||
                 app.status.toLowerCase().includes(lowercasedTerm)
             );
         }
@@ -156,35 +163,43 @@ const ApprovalWorkflowPage: React.FC<ApprovalWorkflowPageProps> = ({ currentUser
     };
 
     const renderActiveForm = () => {
-        if (isCodesLoading) {
-            return <div className="text-center p-8"><Loader className="w-8 h-8 mx-auto animate-spin" /></div>;
-        }
+        const activeApplicationCode = applicationCodes.find(c => c.code === formCode);
 
-        const activeApplicationCode = applicationCodes.find(c =>
-            c.code === formCode ||
-            (formCode === 'APL' && c.code === 'NOC') ||
-            (formCode === 'DLY' && c.code === 'DRP')
-        );
-
-        if (!activeApplicationCode || !currentUser) {
-            return <div className="bg-red-100 text-red-700 p-4 rounded-md">エラー: 申請フォームを読み込めませんでした。</div>;
+        const formError = error || (!isCodesLoading && !activeApplicationCode) ? (error || `申請種別'${formCode}'の定義が見つかりません。`) : '';
+        
+        if (!currentUser) {
+            return (
+                <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md" role="alert">
+                    <p className="font-bold">致命的なエラー</p>
+                    <p>ユーザー情報が読み込めませんでした。再ログインしてください。</p>
+                </div>
+            );
         }
 
         const formProps = {
             onSuccess: handleFormSuccess,
-            applicationCodeId: activeApplicationCode.id,
+            applicationCodeId: activeApplicationCode?.id || '',
             currentUser: currentUser as any,
             addToast: addToast,
+            isAIOff: isAIOff,
+            isLoading: isCodesLoading,
+            error: formError,
         };
 
-        switch(activeApplicationCode.code) {
-            case 'EXP': return <ExpenseReimbursementForm {...formProps} />;
+        switch(formCode) {
+            case 'EXP': return <ExpenseReimbursementForm {...formProps} customers={customers || []} accountItems={accountItems || []} jobs={jobs || []} purchaseOrders={purchaseOrders || []} departments={departments || []} allocationDivisions={allocationDivisions || []} />;
             case 'TRP': return <TransportExpenseForm {...formProps} />;
             case 'LEV': return <LeaveApplicationForm {...formProps} />;
-            case 'APL': case 'NOC': return <ApprovalForm {...formProps} />;
-            case 'DLY': case 'DRP': return <DailyReportForm {...formProps} />;
+            case 'APL': return <ApprovalForm {...formProps} />;
+            case 'DLY': return <DailyReportForm {...formProps} />;
             case 'WKR': return <WeeklyReportForm {...formProps} />;
-            default: return <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-sm text-center">フォームが見つかりません。</div>;
+            default: return (
+                <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-sm text-center">
+                    <AlertTriangle className="w-12 h-12 text-red-500 mx-auto" />
+                    <h3 className="mt-4 text-lg font-bold">フォームが見つかりません</h3>
+                    <p className="mt-2 text-slate-600 dark:text-slate-400">申請フォーム '{formCode}' は存在しないか、正しく設定されていません。</p>
+                </div>
+            );
         }
     };
     
@@ -236,20 +251,31 @@ const ApprovalWorkflowPage: React.FC<ApprovalWorkflowPageProps> = ({ currentUser
 
                 <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl">
                     <h3 className="text-lg font-bold text-slate-800 dark:text-white">{TABS_CONFIG[activeTab].title}</h3>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">{TABS_CONFIG[activeTab].description}</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{TABS_CONFIG[activeTab].description}</p>
                 </div>
 
                 {isLoading ? (
-                    <div className="text-center py-10"><Loader className="w-8 h-8 mx-auto animate-spin text-blue-500" /><p className="mt-2 text-slate-500">申請データを読み込んでいます...</p></div>
+                    <div className="text-center p-16"><Loader className="w-8 h-8 mx-auto animate-spin"/></div>
                 ) : error ? (
-                    <div className="bg-red-100 dark:bg-red-900/50 p-4 rounded-lg text-red-700 dark:text-red-300"><strong>エラー:</strong> {error}</div>
+                    <div className="text-center p-16 text-red-500">{error}</div>
                 ) : displayedApplications.length > 0 ? (
-                    <ApplicationList applications={displayedApplications} onApplicationSelect={handleSelectApplication} selectedApplicationId={selectedApplication?.id || null} />
+                    <ApplicationList
+                        applications={displayedApplications}
+                        onApplicationSelect={handleSelectApplication}
+                        selectedApplicationId={selectedApplication?.id || null}
+                    />
                 ) : (
                     <EmptyState />
                 )}
+
                 {isDetailModalOpen && (
-                    <ApplicationDetailModal application={selectedApplication} currentUser={currentUser as any} onApprove={handleApprove} onReject={handleReject} onClose={handleModalClose} />
+                    <ApplicationDetailModal
+                        application={selectedApplication}
+                        currentUser={currentUser}
+                        onApprove={handleApprove}
+                        onReject={handleReject}
+                        onClose={handleModalClose}
+                    />
                 )}
             </div>
         );
@@ -257,12 +283,8 @@ const ApprovalWorkflowPage: React.FC<ApprovalWorkflowPageProps> = ({ currentUser
 
     if (view === 'form') {
         return (
-             <div className="space-y-4">
-                {error ? (
-                    <div className="bg-red-100 dark:bg-red-900/50 p-4 rounded-lg text-red-700 dark:text-red-300"><strong>エラー:</strong> {error}</div>
-                ) : (
-                    renderActiveForm()
-                )}
+            <div>
+                {renderActiveForm()}
             </div>
         );
     }

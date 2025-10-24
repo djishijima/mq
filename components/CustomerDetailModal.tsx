@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Customer } from '../types';
 import { X, Pencil, Loader, Lightbulb, AlertTriangle, Save } from './Icons';
 
@@ -9,6 +9,7 @@ interface CustomerDetailModalProps {
     onSave: (customerData: Partial<Customer>) => Promise<void>;
     onSetMode: (mode: 'view' | 'edit' | 'new') => void;
     onAnalyzeCustomer: (customer: Customer) => void;
+    isAIOff: boolean;
 }
 
 const TABS = [
@@ -18,20 +19,25 @@ const TABS = [
     { id: 'notes', label: '備考・履歴' },
 ];
 
-const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ customer, mode, onClose, onSave, onSetMode, onAnalyzeCustomer }) => {
+const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ customer, mode, onClose, onSave, onSetMode, onAnalyzeCustomer, isAIOff }) => {
     const [formData, setFormData] = useState<Partial<Customer>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [activeTab, setActiveTab] = useState(TABS[0].id);
+    const mounted = useRef(true);
 
     useEffect(() => {
+        mounted.current = true;
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
                 onClose();
             }
         };
         window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
+        return () => {
+            mounted.current = false;
+            window.removeEventListener('keydown', handleKeyDown);
+        };
     }, [onClose]);
 
     const formatDateForInput = (dateString: string | null | undefined) => {
@@ -76,9 +82,13 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ customer, mod
             await onSave(formData);
         } catch (err) {
             console.error(err);
-            setError('顧客情報の保存に失敗しました。入力内容とデータベース接続を確認してください。');
+            if (mounted.current) {
+                setError('顧客情報の保存に失敗しました。入力内容とデータベース接続を確認してください。');
+            }
         } finally {
-            setIsSubmitting(false);
+            if (mounted.current) {
+                setIsSubmitting(false);
+            }
         }
     };
 
@@ -97,7 +107,7 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ customer, mod
         return isNaN(num) ? '-' : `¥${num.toLocaleString()}`;
     };
 
-    const renderField = (label: string, value: any, key: keyof Customer, type = 'text', options: {rows?: number, className?: string} = {}) => {
+    const renderField = (label: string, value: any, key: keyof Customer, type = 'text', options: {rows?: number, className?: string, autoComplete?: string} = {}) => {
         let displayValue = value;
         if (type === 'date' && value) {
             try {
@@ -119,22 +129,22 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ customer, mod
                                 name={String(key)}
                                 id={String(key)}
                                 rows={options.rows || 3}
-                                // FIX: Explicitly convert value to string for textarea
-                                value={String(formData[key] || '')}
+                                value={String(formData[key] ?? '')}
                                 onChange={handleChange}
                                 className={inputClass}
                                 disabled={isSubmitting}
+                                autoComplete={options.autoComplete || 'on'}
                             />
                         ) : (
                             <input
                                 type={type}
                                 name={String(key)}
                                 id={String(key)}
-                                // FIX: Explicitly convert value to string for input
-                                value={String(formData[key] || '')}
+                                value={String(formData[key] ?? '')}
                                 onChange={handleChange}
                                 className={inputClass}
                                 disabled={isSubmitting}
+                                autoComplete={options.autoComplete || 'on'}
                             />
                         )
                     ) : (
@@ -155,25 +165,25 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ customer, mod
         switch (activeTab) {
             case 'basic': return (
                 <div className={gridClass}>
-                    {renderField('顧客名', customer?.customerName, 'customerName', 'text', { className: 'md:col-span-2' })}
-                    {renderField('顧客名 (カナ)', customer?.customerNameKana, 'customerNameKana', 'text', { className: 'md:col-span-2' })}
-                    {renderField('顧客コード', customer?.customerCode, 'customerCode')}
-                    {renderField('顧客名2', customer?.name2, 'name2')}
+                    {renderField('顧客名', customer?.customerName, 'customerName', 'text', { className: 'md:col-span-2', autoComplete: 'organization' })}
+                    {renderField('顧客名 (カナ)', customer?.customerNameKana, 'customerNameKana', 'text', { className: 'md:col-span-2', autoComplete: 'organization' })}
+                    {renderField('顧客コード', customer?.customerCode, 'customerCode', 'text', { autoComplete: 'off' })}
+                    {renderField('顧客名2', customer?.name2, 'name2', 'text', { autoComplete: 'organization-title' })}
                     
                     <Divider />
 
-                    {renderField('代表者', customer?.representative, 'representative')}
-                    {renderField('電話番号', customer?.phoneNumber, 'phoneNumber')}
-                    {renderField('FAX', customer?.fax, 'fax')}
-                    {renderField('Webサイト', customer?.websiteUrl, 'websiteUrl')}
+                    {renderField('代表者', customer?.representative, 'representative', 'text', { autoComplete: 'name' })}
+                    {renderField('電話番号', customer?.phoneNumber, 'phoneNumber', 'text', { autoComplete: 'tel' })}
+                    {renderField('FAX', customer?.fax, 'fax', 'text', { autoComplete: 'fax' })}
+                    {renderField('Webサイト', customer?.websiteUrl, 'websiteUrl', 'text', { autoComplete: 'url' })}
                     <div className="md:col-span-2">
                         <label className="block text-sm font-medium leading-6 text-slate-900 dark:text-white">住所</label>
                         <div className="mt-1">
                             {isEditing ? (
                                 <div className="space-y-2 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-md border border-slate-200 dark:border-slate-700">
-                                    <input type="text" name="zipCode" id="zipCode" placeholder="郵便番号" value={formData.zipCode || ''} onChange={handleChange} disabled={isSubmitting} className="block w-1/2 rounded-md border-0 py-1.5 px-2.5 text-slate-900 dark:text-white bg-white dark:bg-slate-700 shadow-sm ring-1 ring-inset ring-slate-300 dark:ring-slate-600 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-base disabled:opacity-50" />
-                                    <input type="text" name="address1" id="address1" placeholder="住所1" value={formData.address1 || ''} onChange={handleChange} disabled={isSubmitting} className="block w-full rounded-md border-0 py-1.5 px-2.5 text-slate-900 dark:text-white bg-white dark:bg-slate-700 shadow-sm ring-1 ring-inset ring-slate-300 dark:ring-slate-600 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-base disabled:opacity-50" />
-                                    <input type="text" name="address2" id="address2" placeholder="住所2" value={formData.address2 || ''} onChange={handleChange} disabled={isSubmitting} className="block w-full rounded-md border-0 py-1.5 px-2.5 text-slate-900 dark:text-white bg-white dark:bg-slate-700 shadow-sm ring-1 ring-inset ring-slate-300 dark:ring-slate-600 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-base disabled:opacity-50" />
+                                    <input type="text" name="zipCode" id="zipCode" placeholder="郵便番号" value={formData.zipCode || ''} onChange={handleChange} disabled={isSubmitting} className="block w-1/2 rounded-md border-0 py-1.5 px-2.5 text-slate-900 dark:text-white bg-white dark:bg-slate-700 shadow-sm ring-1 ring-inset ring-slate-300 dark:ring-slate-600 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-base disabled:opacity-50" autoComplete="postal-code" />
+                                    <input type="text" name="address1" id="address1" placeholder="住所1" value={formData.address1 || ''} onChange={handleChange} disabled={isSubmitting} className="block w-full rounded-md border-0 py-1.5 px-2.5 text-slate-900 dark:text-white bg-white dark:bg-slate-700 shadow-sm ring-1 ring-inset ring-slate-300 dark:ring-slate-600 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-base disabled:opacity-50" autoComplete="address-line1" />
+                                    <input type="text" name="address2" id="address2" placeholder="住所2" value={formData.address2 || ''} onChange={handleChange} disabled={isSubmitting} className="block w-full rounded-md border-0 py-1.5 px-2.5 text-slate-900 dark:text-white bg-white dark:bg-slate-700 shadow-sm ring-1 ring-inset ring-slate-300 dark:ring-slate-600 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-base disabled:opacity-50" autoComplete="address-line2" />
                                 </div>
                             ) : (
                                 <div className="text-base leading-6 text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-words min-h-[40px] flex items-center py-1.5">
@@ -290,7 +300,8 @@ const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({ customer, mod
                                 <button 
                                     type="button"
                                     onClick={handleAnalyzeClick}
-                                    className="flex items-center gap-2 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-semibold py-2 px-4 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800/50"
+                                    disabled={isAIOff}
+                                    className="flex items-center gap-2 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-semibold py-2 px-4 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800/50 disabled:opacity-50"
                                 >
                                     <Lightbulb className="w-4 h-4" />
                                     AI企業分析

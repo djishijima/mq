@@ -1,5 +1,8 @@
 import { User } from './types';
 
+declare const jspdf: any;
+declare const html2canvas: any;
+
 export const formatJPY = (amount: number | null | undefined): string => {
   if (amount === null || amount === undefined) return '-';
   return new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(Math.round(amount));
@@ -36,7 +39,39 @@ export const formatDateTime = (dateString: string | Date | null | undefined): st
 };
 
 export const createSignature = (): string => {
-  return `\n\n---------------------------------------
+    try {
+        const settingsStr = localStorage.getItem('signatureSettings');
+        const settings = settingsStr ? JSON.parse(settingsStr) : null;
+        
+        const companyName = settings?.companyName || '文唱堂印刷株式会社';
+        const address = '〒101-0025 東京都千代田区神田佐久間町3-37';
+        const phone = settings?.phone || 'TEL：03-3851-0111　FAX：03-3861-1979';
+        const department = settings?.department || 'システム管理・開発';
+        const name = settings?.yourName || '石嶋 洋平';
+        const email = settings?.email || 'sales.system@mqprint.co.jp';
+        const website = settings?.website;
+
+        let signature = `\n\n---------------------------------------
+${companyName}
+${address}
+${phone}
+${department}
+${name}
+E-mail：${email}`;
+        
+        if (website) {
+            signature += `\n${website}`;
+        }
+
+        signature += `
+---------------------------------------`;
+        
+        return signature;
+
+    } catch (error) {
+        console.error("Failed to create signature:", error);
+        // Fallback to a hardcoded default in case of any error
+        return `\n\n---------------------------------------
 文唱堂印刷株式会社
 〒101-0025 東京都千代田区神田佐久間町3-37
 TEL：03-3851-0111　FAX：03-3861-1979
@@ -44,4 +79,76 @@ TEL：03-3851-0111　FAX：03-3861-1979
 石嶋 洋平
 E-mail：sales.system@mqprint.co.jp
 ---------------------------------------`;
+    }
+};
+
+export const generateMultipagePdf = async (elementId: string, fileName: string) => {
+    const input = document.getElementById(elementId);
+    if (!input) {
+        throw new Error(`PDF生成用の要素(ID: "${elementId}")が見つかりませんでした。`);
+    }
+
+    const canvas = await html2canvas(input, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        width: input.scrollWidth,
+        height: input.scrollHeight,
+        windowWidth: input.scrollWidth,
+        windowHeight: input.scrollHeight,
+    });
+
+    const pdf = new jspdf.jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: 'a4',
+    });
+
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    
+    const canvasWidth = canvas.width;
+    const canvasHeight = canvas.height;
+    
+    // Calculate the height of the canvas content when fitted to the PDF width
+    const ratio = canvasWidth / pdfWidth;
+    const canvasRenderedHeight = canvasHeight / ratio;
+
+    let position = 0;
+    let pageCount = 1;
+    const totalPages = Math.ceil(canvasRenderedHeight / pdfHeight);
+
+    while (position < canvasRenderedHeight) {
+        if (pageCount > 1) {
+            pdf.addPage();
+        }
+        
+        pdf.addImage(canvas, 'PNG', 0, -position, pdfWidth, canvasRenderedHeight);
+
+        // Add header and footer to each page
+        pdf.setFontSize(8);
+        pdf.setTextColor(150);
+        
+        // Header
+        pdf.text('文唱堂印刷株式会社 | Confidential', 15, 10);
+        
+        // Footer
+        pdf.text(
+            `Page ${pageCount} of ${totalPages}`,
+            pdfWidth / 2,
+            pdfHeight - 10,
+            { align: 'center' }
+        );
+        pdf.text(
+            new Date().toLocaleDateString('ja-JP'),
+            pdfWidth - 15,
+            pdfHeight - 10,
+            { align: 'right' }
+        );
+
+        position += pdfHeight;
+        pageCount++;
+    }
+
+    pdf.save(fileName);
 };

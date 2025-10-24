@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { allBusinessPlans } from '../../data/businessPlanData';
-import { BusinessPlan } from '../../types';
+import { BusinessPlan, EmployeeUser } from '../../types';
 
 const JPY = (n: number | string) => {
     const num = typeof n === 'string' ? parseFloat(n) : n;
@@ -25,37 +25,68 @@ const GValue: React.FC<{ value: number | string }> = ({ value }) => {
     );
 };
 
-const BusinessPlanPage: React.FC = () => {
-    const [selectedPlanIndex, setSelectedPlanIndex] = useState(0);
+interface BusinessPlanPageProps {
+    allUsers: EmployeeUser[];
+}
+
+const BusinessPlanPage: React.FC<BusinessPlanPageProps> = ({ allUsers }) => {
+    const [selectedDepartment, setSelectedDepartment] = useState('');
+
+    const departments = useMemo(() => {
+        const departmentSet = new Set<string>();
+        // Add departments from hardcoded business plan data
+        allBusinessPlans.forEach(plan => {
+            if (plan.name && plan.name.endsWith('部')) {
+                departmentSet.add(plan.name);
+            }
+        });
+        // Add departments from user data
+        allUsers.forEach(user => {
+            if (user.department) {
+                departmentSet.add(user.department);
+            }
+        });
+        return Array.from(departmentSet).sort();
+    }, [allUsers]);
+
+    useEffect(() => {
+        if (departments.length > 0 && !departments.includes(selectedDepartment)) {
+            setSelectedDepartment(departments[0]);
+        }
+    }, [departments, selectedDepartment]);
 
     const handlePlanChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-        setSelectedPlanIndex(parseInt(event.target.value, 10));
+        setSelectedDepartment(event.target.value);
     };
 
-    const businessPlanData = allBusinessPlans[selectedPlanIndex];
-    if (!businessPlanData) {
-        return <div>データがありません。</div>;
-    }
-    const { name, headers, items } = businessPlanData;
+    const businessPlanData = allBusinessPlans.find(plan => plan.name === selectedDepartment);
+    
+    const name = businessPlanData?.name || selectedDepartment || "経営計画";
+    const headers = businessPlanData?.headers && businessPlanData.headers.length > 0 ? businessPlanData.headers : ['6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月', '4月', '5月'];
+    const items = businessPlanData?.items || [];
 
     return (
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
             <div className="p-6 flex justify-between items-center">
                 <div>
-                    <h2 className="text-xl font-semibold text-slate-800 dark:text-white">経営計画</h2>
+                    <h2 className="text-xl font-semibold text-slate-800 dark:text-white">経営計画: {name}</h2>
                     <p className="mt-1 text-base text-slate-500 dark:text-slate-400">
                         月次および累計の業績を目標・実績・前年比で確認します。(単位: 百万円)
                     </p>
                 </div>
                 <div>
                     <select
-                        value={selectedPlanIndex}
+                        value={selectedDepartment}
                         onChange={handlePlanChange}
                         className="w-full max-w-xs text-base bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white rounded-lg p-2.5 focus:ring-blue-500 focus:border-blue-500"
                     >
-                        {allBusinessPlans.map((plan, index) => (
-                            <option key={index} value={index}>{plan.name}</option>
-                        ))}
+                        {departments.length > 0 ? (
+                            departments.map((dept) => (
+                                <option key={dept} value={dept}>{dept}</option>
+                            ))
+                        ) : (
+                            <option>部門データなし</option>
+                        )}
                     </select>
                 </div>
             </div>

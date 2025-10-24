@@ -3,11 +3,11 @@ import {
   ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line,
 } from 'recharts';
 import { Job, JournalEntry, AccountItem, JobStatus } from '../types';
-import { MONTHLY_GOALS } from '../constants';
+import { MONTHLY_GOALS, FIXED_COSTS } from '../constants';
 import { formatJPY } from '../utils';
 import { Lightbulb, Loader, AlertTriangle } from './Icons';
 
-const AISuggestionCard: React.FC<{ suggestion: string; isLoading: boolean }> = ({ suggestion, isLoading }) => (
+const AISuggestionCard: React.FC<{ suggestion: string; isLoading: boolean; isAIOff: boolean }> = ({ suggestion, isLoading, isAIOff }) => (
     <div className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-800 dark:to-slate-900/70 p-6 rounded-2xl shadow-sm flex items-start gap-4 col-span-1 lg:col-span-2">
         <div className="bg-blue-200 dark:bg-blue-900/50 p-3 rounded-full flex-shrink-0">
             <Lightbulb className="w-6 h-6 text-blue-600 dark:text-blue-300" />
@@ -15,7 +15,9 @@ const AISuggestionCard: React.FC<{ suggestion: string; isLoading: boolean }> = (
         <div>
             <h3 className="text-lg font-semibold text-slate-800 dark:text-white">AIからの提案</h3>
             <div className="mt-2 text-slate-600 dark:text-slate-300 min-h-[48px]">
-                {isLoading ? (
+                {isAIOff ? (
+                    <p className="text-base">AI機能は現在無効です。</p>
+                ) : isLoading ? (
                     <div className="flex items-center gap-2">
                         <Loader className="w-5 h-5 animate-spin" />
                         <span>分析中...</span>
@@ -28,14 +30,18 @@ const AISuggestionCard: React.FC<{ suggestion: string; isLoading: boolean }> = (
     </div>
 );
 
-const ActionItemsCard: React.FC<{ jobs: Job[] }> = ({ jobs }) => {
+const ActionItemsCard: React.FC<{
+  jobs: Job[];
+  pendingApprovalCount: number;
+  onNavigateToApprovals: () => void;
+}> = ({ jobs, pendingApprovalCount, onNavigateToApprovals }) => {
     const actionItems = useMemo(() => {
         const overdue = jobs.filter(j => j.status !== JobStatus.Completed && new Date(j.dueDate) < new Date());
         const needsInvoicing = jobs.filter(j => j.status === JobStatus.Completed && !j.invoiceId);
         return { overdue, needsInvoicing };
     }, [jobs]);
 
-    if (actionItems.overdue.length === 0 && actionItems.needsInvoicing.length === 0) {
+    if (actionItems.overdue.length === 0 && actionItems.needsInvoicing.length === 0 && pendingApprovalCount === 0) {
         return null;
     }
 
@@ -47,6 +53,13 @@ const ActionItemsCard: React.FC<{ jobs: Job[] }> = ({ jobs }) => {
             <div>
                 <h3 className="text-lg font-semibold text-slate-800 dark:text-white">アクションアイテム</h3>
                 <ul className="mt-2 text-slate-600 dark:text-slate-300 list-disc pl-5 space-y-1">
+                    {pendingApprovalCount > 0 && (
+                        <li>
+                            <a href="#" onClick={(e) => { e.preventDefault(); onNavigateToApprovals(); }} className="hover:underline">
+                                <span className="font-semibold text-blue-600 dark:text-blue-400">{pendingApprovalCount}件</span>の申請があなたの承認を待っています。
+                            </a>
+                        </li>
+                    )}
                     {actionItems.overdue.length > 0 && (
                         <li>
                             <span className="font-semibold text-red-600 dark:text-red-400">{actionItems.overdue.length}件</span>の案件が期限切れです。
@@ -125,9 +138,12 @@ interface DashboardProps {
   accountItems: AccountItem[];
   suggestion: string;
   isSuggestionLoading: boolean;
+  pendingApprovalCount: number;
+  onNavigateToApprovals: () => void;
+  isAIOff: boolean;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ jobs, journalEntries, accountItems, suggestion, isSuggestionLoading }) => {
+const Dashboard: React.FC<DashboardProps> = ({ jobs, journalEntries, accountItems, suggestion, isSuggestionLoading, pendingApprovalCount, onNavigateToApprovals, isAIOff }) => {
     
     const mqData = useMemo(() => {
         const today = new Date();
@@ -149,6 +165,7 @@ const Dashboard: React.FC<DashboardProps> = ({ jobs, journalEntries, accountItem
         const vq = currentMonthJobs.reduce((sum, job) => sum + job.variableCost, 0);
         const mq = pq - vq;
 
+        // F (Fixed Cost) Breakdown from actual journal entries for this month
         const fBreakdown = { f1: 0, f2: 0, f3: 0, f4: 0, f5: 0 };
         const accountMap: Map<string, AccountItem> = new Map(accountItems.map(item => [item.name, item]));
 
@@ -164,7 +181,8 @@ const Dashboard: React.FC<DashboardProps> = ({ jobs, journalEntries, accountItem
             else fBreakdown.f2 += cost; // その他経費
         });
         
-        const f = fBreakdown.f1 + fBreakdown.f2 + fBreakdown.f3 + fBreakdown.f4 + fBreakdown.f5;
+        // CRITICAL FIX: Use budgeted fixed cost for F and G calculation.
+        const f = FIXED_COSTS.monthly.labor + FIXED_COSTS.monthly.other;
         const g = mq - f;
 
         // --- Monthly Trend Data (for last 12 months) ---
@@ -223,8 +241,8 @@ const Dashboard: React.FC<DashboardProps> = ({ jobs, journalEntries, accountItem
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <AISuggestionCard suggestion={suggestion} isLoading={isSuggestionLoading} />
-                <ActionItemsCard jobs={jobs} />
+                <AISuggestionCard suggestion={suggestion} isLoading={isSuggestionLoading} isAIOff={isAIOff} />
+                <ActionItemsCard jobs={jobs} pendingApprovalCount={pendingApprovalCount} onNavigateToApprovals={onNavigateToApprovals} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

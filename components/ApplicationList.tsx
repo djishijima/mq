@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { ApplicationWithDetails, SortConfig } from '../types';
 import ApplicationStatusBadge from './ApplicationStatusBadge';
 import { ArrowUpDown, ChevronDown, Eye } from './Icons';
+import { formatDateTime } from '../utils';
 
 interface ApplicationListProps {
   applications: ApplicationWithDetails[];
@@ -10,7 +11,7 @@ interface ApplicationListProps {
 }
 
 const ApplicationList: React.FC<ApplicationListProps> = ({ applications, onApplicationSelect, selectedApplicationId }) => {
-  const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'submitted_at', direction: 'descending' });
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'updatedAt', direction: 'descending' });
 
   const sortedApplications = useMemo(() => {
     let sortableItems = [...applications];
@@ -25,8 +26,12 @@ const ApplicationList: React.FC<ApplicationListProps> = ({ applications, onAppli
                 bValue = b.applicant?.name?.toLowerCase() || '';
                 break;
             case 'type':
-                aValue = a.application_codes?.name?.toLowerCase() || '';
-                bValue = b.application_codes?.name?.toLowerCase() || '';
+                aValue = a.applicationCode?.name?.toLowerCase() || '';
+                bValue = b.applicationCode?.name?.toLowerCase() || '';
+                break;
+            case 'updatedAt':
+                aValue = a.updatedAt || a.createdAt;
+                bValue = b.updatedAt || b.createdAt;
                 break;
             default:
                 aValue = a[sortConfig.key as keyof ApplicationWithDetails] || '';
@@ -81,7 +86,7 @@ const ApplicationList: React.FC<ApplicationListProps> = ({ applications, onAppli
             <tr>
               <SortableHeader sortKey="type" label="申請種別" />
               <SortableHeader sortKey="applicant" label="申請者" />
-              <SortableHeader sortKey="submitted_at" label="提出日時" />
+              <SortableHeader sortKey="updatedAt" label="更新日時" />
               <SortableHeader sortKey="status" label="ステータス" />
               <th scope="col" className="px-6 py-3 text-center">操作</th>
             </tr>
@@ -97,9 +102,9 @@ const ApplicationList: React.FC<ApplicationListProps> = ({ applications, onAppli
                 }`}
                 onClick={() => onApplicationSelect(app)}
               >
-                <td className="px-6 py-4 font-medium text-slate-600 dark:text-slate-300">{app.application_codes?.name || 'N/A'}</td>
+                <td className="px-6 py-4 font-medium text-slate-600 dark:text-slate-300">{app.applicationCode?.name || 'N/A'}</td>
                 <td className="px-6 py-4 font-medium text-slate-800 dark:text-slate-200">{app.applicant?.name || '不明なユーザー'}</td>
-                <td className="px-6 py-4">{app.submitted_at ? new Date(app.submitted_at).toLocaleString('ja-JP') : '-'}</td>
+                <td className="px-6 py-4">{formatDateTime(app.updatedAt || app.createdAt)}</td>
                 <td className="px-6 py-4"><ApplicationStatusBadge status={app.status} /></td>
                 <td className="px-6 py-4 text-center">
                   <button onClick={() => onApplicationSelect(app)} className="flex items-center justify-center gap-1.5 w-full text-blue-600 dark:text-blue-400 font-semibold hover:underline">

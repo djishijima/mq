@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Page, EmployeeUser } from '../types';
-import { LayoutDashboard, Users, Settings, Package, FileText, Briefcase, ChevronDown, DollarSign, TrendingUp, Inbox, PieChart, ShoppingCart, BookOpen, CreditCard, HardHat, CheckCircle, Archive, Bug } from './Icons';
+import { LayoutDashboard, Users, Settings, Package, FileText, Briefcase, ChevronDown, DollarSign, TrendingUp, Inbox, PieChart, ShoppingCart, BookOpen, CreditCard, HardHat, CheckCircle, Archive, Bug, Lightbulb } from './Icons';
 
 interface SidebarProps {
   currentPage: Page;
@@ -38,6 +38,7 @@ const ALL_NAV_CATEGORIES: NavCategoryType[] = [
             { page: 'sales_orders', name: '案件・受注管理' },
             { page: 'sales_billing', name: '売上請求 (AR)' },
             { page: 'analysis_ranking', name: '売上ランキング' },
+            { page: 'business_support_proposal', name: '提案書作成' },
         ]
     },
     {
@@ -103,6 +104,16 @@ const ALL_NAV_CATEGORIES: NavCategoryType[] = [
         ]
     },
     {
+        id: 'ai_consultant',
+        name: 'AI経営相談',
+        icon: Lightbulb,
+        adminOnly: true,
+        items: [
+            { page: 'ai_business_consultant', name: 'AI経営相談' },
+            { page: 'ai_market_research', name: 'AI市場調査' },
+        ]
+    },
+    {
         id: 'admin',
         name: 'ログ／監査',
         icon: Archive,
@@ -120,6 +131,7 @@ const ALL_NAV_CATEGORIES: NavCategoryType[] = [
         items: [
             { page: 'admin_user_management', name: 'ユーザー管理' },
             { page: 'admin_route_management', name: '承認ルート管理' },
+            { page: 'admin_master_management', name: 'マスタ管理' },
             { page: 'admin_bug_reports', name: '改善要望一覧' },
         ]
     }
@@ -192,7 +204,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onNavigate, currentUser,
     <aside className="w-64 flex-shrink-0 bg-slate-800 text-white flex flex-col p-4">
       <div className="flex items-center gap-2 px-3 py-4 border-b border-slate-700">
         <Package className="w-8 h-8 text-blue-400" />
-        <h1 className="text-2xl font-bold tracking-tight">MQ会計ERP</h1>
+        <h1 className="text-xl font-bold tracking-tight">MQ会計ドリブン</h1>
       </div>
       <nav className="flex-1 mt-6 space-y-2">
         <ul>
