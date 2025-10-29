@@ -15,7 +15,7 @@ import BillingManagement from './accounting/BillingManagement';
 import { JournalEntry, InvoiceData, Page } from '../types';
 
 const AccountingPage: React.FC<any> = (props) => {
-    const { page, journalEntries, accountItems, onAddEntry, addToast, requestConfirmation, jobs, applications, onNavigate, customers, employees, onRefreshData } = props;
+    const { page, journalEntries, accountItems, onAddEntry, addToast, requestConfirmation, jobs, applications, onNavigate, customers, employees, onRefreshData, allocationDivisions } = props;
 
     switch(page as Page) {
         case 'accounting_journal':
@@ -43,7 +43,8 @@ const AccountingPage: React.FC<any> = (props) => {
                 onAddEntry(debitEntry);
                 addToast('買掛金と経費が計上されました。', 'success');
             };
-            return <InvoiceOCR onSaveExpenses={handleSaveExpenses} addToast={addToast} requestConfirmation={requestConfirmation} isAIOff={props.isAIOff} />;
+            // FIX: Pass accountItems and allocationDivisions to InvoiceOCR
+            return <InvoiceOCR onSaveExpenses={handleSaveExpenses} addToast={addToast} requestConfirmation={requestConfirmation} isAIOff={props.isAIOff} accountItems={accountItems} allocationDivisions={allocationDivisions} />;
 
         case 'purchasing_payments':
              const handleExecutePayment = async (supplier: string, amount: number) => {

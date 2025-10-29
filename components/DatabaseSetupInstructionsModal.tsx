@@ -33,6 +33,10 @@ CREATE TABLE IF NOT EXISTS public.users (
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
+-- usersテーブルに権限カラムを追加 (存在しない場合のみ)
+-- デフォルトをtrueに変更し、既存ユーザーが機能を失わないようにする
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS can_use_anything_analysis BOOLEAN DEFAULT true;
+
 
 CREATE TABLE IF NOT EXISTS public.forms (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -97,6 +101,7 @@ SELECT
     e.title,
     u.email, -- auth.users から email を取得
     COALESCE(pu.role, 'user') AS role, -- public.users テーブルからロールを取得
+    COALESCE(pu.can_use_anything_analysis, true) AS can_use_anything_analysis, -- public.usersから権限を取得 (デフォルトをtrueに変更)
     e.created_at
 FROM
     public.employees e
@@ -293,6 +298,69 @@ CREATE TABLE IF NOT EXISTS public.employee_titles (
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
+-- estimates テーブル
+CREATE TABLE IF NOT EXISTS public.estimates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    estimate_number SERIAL NOT NULL,
+    customer_name TEXT NOT NULL,
+    title TEXT NOT NULL,
+    items JSONB NOT NULL,
+    subtotal NUMERIC NOT NULL,
+    tax_total NUMERIC NOT NULL,
+    grand_total NUMERIC NOT NULL,
+    delivery_date DATE,
+    payment_terms TEXT,
+    delivery_terms TEXT,
+    delivery_method TEXT,
+    notes TEXT,
+    status TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1,
+    user_id UUID REFERENCES public.users(id),
+    project_id UUID,
+    project_name TEXT,
+    tax_inclusive BOOLEAN DEFAULT false,
+    pdf_url TEXT,
+    tracking JSONB,
+    postal JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- projects テーブル (新規追加)
+CREATE TABLE IF NOT EXISTS public.projects (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_name TEXT NOT NULL,
+    customer_name TEXT NOT NULL,
+    customer_id UUID REFERENCES public.customers(id),
+    status TEXT NOT NULL,
+    overview TEXT,
+    extracted_details TEXT,
+    user_id UUID REFERENCES public.users(id),
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- project_attachments テーブル (新規追加)
+CREATE TABLE IF NOT EXISTS public.project_attachments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
+    file_name TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    mime_type TEXT NOT NULL,
+    category TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- analysis_history テーブル (新規追加)
+CREATE TABLE IF NOT EXISTS public.analysis_history (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES auth.users(id),
+    viewpoint TEXT NOT NULL,
+    data_sources JSONB,
+    result JSONB NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
 
 -- 2. 'applications'テーブルに'updated_at'カラムを追加し、自動更新トリガーを設定
 ALTER TABLE public.applications ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
@@ -310,6 +378,21 @@ CREATE TRIGGER on_applications_update
 BEFORE UPDATE ON public.applications
 FOR EACH ROW
 EXECUTE FUNCTION public.handle_updated_at();
+
+-- estimatesテーブルにもupdated_atトリガーを設定
+DROP TRIGGER IF EXISTS on_estimates_update ON public.estimates;
+CREATE TRIGGER on_estimates_update
+BEFORE UPDATE ON public.estimates
+FOR EACH ROW
+EXECUTE FUNCTION public.handle_updated_at();
+
+-- projectsテーブルにもupdated_atトリガーを設定
+DROP TRIGGER IF EXISTS on_projects_update ON public.projects;
+CREATE TRIGGER on_projects_update
+BEFORE UPDATE ON public.projects
+FOR EACH ROW
+EXECUTE FUNCTION public.handle_updated_at();
+
 
 -- 3. 'v_departments'ビューを作成 (departmentsテーブルも存在しない場合に作成)
 CREATE TABLE IF NOT EXISTS public.departments (
@@ -372,6 +455,10 @@ ALTER TABLE public.departments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.employees ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.allocation_divisions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.employee_titles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.estimates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.project_attachments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.analysis_history ENABLE ROW LEVEL SECURITY;
 
 
 -- 既存のポリシーを削除してクリーンな状態から開始
@@ -390,6 +477,10 @@ DROP POLICY IF EXISTS "Allow all access for authenticated users" ON public.depar
 DROP POLICY IF EXISTS "Allow all access for authenticated users" ON public.employees;
 DROP POLICY IF EXISTS "Allow all access for authenticated users" ON public.allocation_divisions;
 DROP POLICY IF EXISTS "Allow all access for authenticated users" ON public.employee_titles;
+DROP POLICY IF EXISTS "Allow all access for authenticated users" ON public.estimates;
+DROP POLICY IF EXISTS "Allow all access for authenticated users" ON public.projects;
+DROP POLICY IF EXISTS "Allow all access for authenticated users" ON public.project_attachments;
+DROP POLICY IF EXISTS "Allow all access for authenticated users" ON public.analysis_history;
 
 -- 権限付与
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
@@ -413,6 +504,10 @@ CREATE POLICY "Allow all access for authenticated users" ON public.payment_recip
 CREATE POLICY "Allow all access for authenticated users" ON public.departments FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all access for authenticated users" ON public.allocation_divisions FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all access for authenticated users" ON public.employee_titles FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all access for authenticated users" ON public.estimates FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Allow all access for authenticated users" ON public.projects FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Allow all access for authenticated users" ON public.project_attachments FOR ALL TO authenticated USING ((SELECT user_id FROM public.projects WHERE id = project_id) = auth.uid()) WITH CHECK ((SELECT user_id FROM public.projects WHERE id = project_id) = auth.uid());
+CREATE POLICY "Allow all access for authenticated users" ON public.analysis_history FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
 
 -- =================================================================

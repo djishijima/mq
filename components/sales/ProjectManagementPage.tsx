@@ -5,7 +5,7 @@ import EmptyState from '../ui/EmptyState';
 import { FileText, PlusCircle, Loader, Sparkles, Trash2, Send, X, Save, Eye, Pencil } from '../Icons';
 import { formatJPY, formatDate } from '../../utils';
 // Removed: import { createDraftEstimate } from '../../services/geminiService';
-import EstimateDetailModal from './EstimateDetailModal';
+import EstimateDetailModal from './EstimateDetailModal'; // Renamed from ProjectDetailModal to EstimateDetailModal
 
 declare const jspdf: any;
 declare const html2canvas: any;
@@ -84,7 +84,7 @@ const EstimateManagementPage: React.FC<EstimateManagementPageProps> = ({ estimat
                                 <th scope="col" className="px-6 py-3 font-medium">件名</th> {/* Changed label */}
                                 <SortableHeader sortKey="grandTotal" label="合計金額" sortConfig={sortConfig} requestSort={requestSort} /> {/* Changed sortKey and label */}
                                 <SortableHeader sortKey="createdAt" label="作成日" sortConfig={sortConfig} requestSort={requestSort} />
-                                <SortableHeader sortKey="status" label="ステータス" sortConfig={sortConfig} requestSort={requestSort} />
+                                <SortableHeader sortKey="status" label="ステータ스" sortConfig={sortConfig} requestSort={requestSort} />
                                 <th scope="col" className="px-6 py-3 font-medium text-center">操作</th>
                             </tr>
                         </thead>

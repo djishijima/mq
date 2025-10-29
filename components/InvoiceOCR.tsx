@@ -4,7 +4,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { extractInvoiceDetails } from '../services/geminiService';
 // FIX: The member 'uploadToInbox' is not exported from '../services/dataService'. Use 'uploadFile' instead.
 import { getInboxItems, addInboxItem, updateInboxItem, deleteInboxItem, uploadFile } from '../services/dataService';
-import { InboxItem, InvoiceData, InboxItemStatus, Toast, ConfirmationDialogProps } from '../types';
+import { InboxItem, InvoiceData, InboxItemStatus, Toast, ConfirmationDialogProps, AccountItem, AllocationDivision } from '../types';
 import { Upload, Loader, X, CheckCircle, Save, Trash2, AlertTriangle, RefreshCw } from './Icons';
 
 interface InvoiceOCRProps {
@@ -12,6 +12,9 @@ interface InvoiceOCRProps {
     addToast: (message: string, type: Toast['type']) => void;
     requestConfirmation: (dialog: Omit<ConfirmationDialogProps, 'isOpen' | 'onClose'>) => void;
     isAIOff: boolean;
+    // FIX: Add missing props
+    accountItems: AccountItem[];
+    allocationDivisions: AllocationDivision[];
 }
 
 const readFileAsBase64 = (file: File): Promise<string> => {
@@ -164,7 +167,7 @@ const InboxItemCard: React.FC<{
     );
 };
 
-const InvoiceOCR: React.FC<InvoiceOCRProps> = ({ onSaveExpenses, addToast, requestConfirmation, isAIOff }) => {
+const InvoiceOCR: React.FC<InvoiceOCRProps> = ({ onSaveExpenses, addToast, requestConfirmation, isAIOff, accountItems, allocationDivisions }) => {
     const [items, setItems] = useState<InboxItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isUploading, setIsUploading] = useState(false);
@@ -216,7 +219,8 @@ const InvoiceOCR: React.FC<InvoiceOCRProps> = ({ onSaveExpenses, addToast, reque
             tempItem.filePath = path;
 
             const base64String = await readFileAsBase64(file);
-            const data = await extractInvoiceDetails(base64String, file.type);
+            // FIX: Expected 4 arguments, but got 2. Pass accountItems and allocationDivisions.
+            const data = await extractInvoiceDetails(base64String, file.type, accountItems, allocationDivisions);
             
             if (mounted.current) {
                 tempItem.extractedData = data;
@@ -233,7 +237,8 @@ const InvoiceOCR: React.FC<InvoiceOCRProps> = ({ onSaveExpenses, addToast, reque
                 setItems(prev => prev.filter(i => i.id !== tempId)); // Remove temp item
              }
             if (tempItem.filePath) {
-                await addInboxItem(tempItem); // Add final item if path exists
+                await addInboxItem(tempItem);
+                loadItems(); // Reload all items to get the new one from DB
             }
         }
     };
@@ -306,7 +311,7 @@ const InvoiceOCR: React.FC<InvoiceOCRProps> = ({ onSaveExpenses, addToast, reque
                     <label htmlFor="file-upload" className={`relative inline-flex items-center justify-center gap-2 bg-blue-600 text-white font-semibold py-2.5 px-5 rounded-lg shadow-md hover:bg-blue-700 transition-colors ${isUploading || isAIOff ? 'bg-slate-400 cursor-not-allowed' : ''}`}>
                         <Upload className="w-5 h-5" />
                         <span>請求書・領収書を追加</span>
-                        <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} accept="image/png, image/jpeg, image/webp" multiple disabled={isUploading || isAIOff} />
+                        <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} accept="image/png, image/jpeg, image/webp,application/pdf" disabled={isUploading || isAIOff} />
                     </label>
                     {isAIOff && <p className="text-sm text-red-500 dark:text-red-400 ml-4">AI機能無効のため、OCR機能は利用できません。</p>}
                 </div>

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { JournalEntry, SortConfig } from '../types';
 import { PlusCircle, Sparkles, Loader, BookOpen } from './Icons';

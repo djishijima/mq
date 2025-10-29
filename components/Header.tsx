@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search } from './Icons';
+import { Search, Bug } from './Icons';
 
 interface HeaderProps {
   title: string;

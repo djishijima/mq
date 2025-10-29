@@ -1,3 +1,4 @@
+
 import {
   AccountItem,
   ApplicationCode,
@@ -28,6 +29,7 @@ import {
   PaymentRecipient,
   PurchaseOrder,
   PurchaseOrderStatus,
+  EstimateLineItem,
 } from '../types';
 
 export interface DemoDataState {
@@ -57,8 +59,6 @@ const clone = <T>(value: T): T => {
   }
   return JSON.parse(JSON.stringify(value));
 };
-
-const createEstimateItems = (items: EstimateItem[]): EstimateItem[] => items.map(item => ({ ...item }));
 
 export const createDemoDataState = (): DemoDataState => {
   const jobs: Job[] = [
@@ -537,46 +537,34 @@ export const createDemoDataState = (): DemoDataState => {
 
   const estimates: Estimate[] = [
     {
-      id: 'est-001',
+      id: 'est-001' as any,
       estimateNumber: 23045,
       customerName: '株式会社ネオプリント',
       title: '秋季キャンペーンチラシ制作',
-      items: createEstimateItems([
+      // FIX: Changed items to conform to EstimateLineItem[] type.
+      items: [
         {
-          division: 'デザイン・DTP代',
-          content: 'デザインディレクション費',
-          quantity: 1,
-          unit: '式',
-          unitPrice: 80000,
-          price: 80000,
-          cost: 30000,
-          costRate: 37.5,
-          subtotal: 80000,
+            name: 'デザインディレクション費',
+            qty: 1,
+            unit: '式',
+            unitPrice: 80000,
         },
         {
-          division: '印刷代',
-          content: 'チラシ印刷（A4 両面）',
-          quantity: 15000,
-          unit: '枚',
-          unitPrice: 20,
-          price: 300000,
-          cost: 180000,
-          costRate: 60,
-          subtotal: 300000,
+            name: 'チラシ印刷（A4 両面）',
+            qty: 15000,
+            unit: '枚',
+            unitPrice: 20,
         },
         {
-          division: '加工代',
-          content: 'PP加工（グロス）',
-          quantity: 15000,
-          unit: '枚',
-          unitPrice: 12,
-          price: 180000,
-          cost: 90000,
-          costRate: 50,
-          subtotal: 180000,
+            name: 'PP加工（グロス）',
+            qty: 15000,
+            unit: '枚',
+            unitPrice: 12,
         },
-      ]),
-      total: 560000,
+      ],
+      subtotal: 560000,
+      taxTotal: 56000, // 10% tax
+      grandTotal: 616000, // total + tax
       deliveryDate: '2025-11-05',
       paymentTerms: '月末締め翌月末払い',
       deliveryMethod: '指定倉庫へ納品',
@@ -589,35 +577,28 @@ export const createDemoDataState = (): DemoDataState => {
       updatedAt: '2025-10-04T03:30:00Z',
     },
     {
-      id: 'est-002',
+      id: 'est-002' as any,
       estimateNumber: 23046,
       customerName: '有限会社ブルースタジオ',
       title: '会社案内パンフレット',
-      items: createEstimateItems([
+      // FIX: Changed items to conform to EstimateLineItem[] type.
+      items: [
         {
-          division: 'デザイン・DTP代',
-          content: 'アートディレクション',
-          quantity: 1,
-          unit: '式',
-          unitPrice: 120000,
-          price: 120000,
-          cost: 50000,
-          costRate: 41.6,
-          subtotal: 120000,
+            name: 'アートディレクション',
+            qty: 1,
+            unit: '式',
+            unitPrice: 120000,
         },
         {
-          division: '印刷代',
-          content: 'パンフレット印刷（12P 中綴じ）',
-          quantity: 3000,
-          unit: '冊',
-          unitPrice: 120,
-          price: 360000,
-          cost: 210000,
-          costRate: 58.3,
-          subtotal: 360000,
+            name: 'パンフレット印刷（12P 中綴じ）',
+            qty: 3000,
+            unit: '冊',
+            unitPrice: 120,
         },
-      ]),
-      total: 560000,
+      ],
+      subtotal: 480000,
+      taxTotal: 48000, // 10% tax
+      grandTotal: 528000, // total + tax
       deliveryDate: '2025-10-30',
       paymentTerms: '納品月末締め翌月末払い',
       deliveryMethod: '本社受け渡し',

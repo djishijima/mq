@@ -16,9 +16,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
-      body {
-        font-family: 'Noto Sans JP', 'Inter', sans-serif;
-      }
       @keyframes fade-in-up {
         from {
           opacity: 0;
@@ -32,20 +29,35 @@
       .animate-fade-in-up {
         animation: fade-in-up 0.3s ease-out forwards;
       }
+      @keyframes shake {
+        10%, 90% { transform: translate3d(-1px, 0, 0); }
+        20%, 80% { transform: translate3d(2px, 0, 0); }
+        30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+        40%, 60% { transform: translate3d(4px, 0, 0); }
+      }
+      .shake {
+        animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
+      }
     </style>
     <script type="importmap">
-      {
-        "imports": {
-          "@google/genai": "https://aistudiocdn.com/@google/genai@^1.15.0",
-          "recharts": "https://aistudiocdn.com/recharts@^3.1.2",
-          "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
-          "react/": "https://aistudiocdn.com/react@^19.1.1/",
-          "react": "https://aistudiocdn.com/react@^19.1.1",
-          "react/jsx-runtime": "https://aistudiocdn.com/react@^19.1.1/jsx-runtime",
-          "@supabase/supabase-js": "https://aistudiocdn.com/@supabase/supabase-js@^2.44.4"
-        }
-      }
-    </script>
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.3.1",
+    "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
+    "react-dom": "https://esm.sh/react-dom@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "@google/genai": "https://esm.sh/@google/genai@0.14.0",
+    "recharts": "https://esm.sh/recharts@2.12.7",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.44.4",
+    "uuid": "https://esm.sh/uuid@9.0.1",
+    "jszip": "https://esm.sh/jszip@3.10.1",
+    "@playwright/test": "https://aistudiocdn.com/@playwright/test@^1.56.1",
+    "@axe-core/playwright": "https://aistudiocdn.com/@axe-core/playwright@^4.11.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/"
+  }
+}
+</script>
   </head>
   <body class="bg-slate-50 dark:bg-slate-900 text-base">
     <div id="root"></div>

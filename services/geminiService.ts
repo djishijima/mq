@@ -1,9 +1,9 @@
-
-
-import { GoogleGenAI, Type, GenerateContentResponse, Chat } from "@google/genai";
+// FIX: Import LiveServerMessage and Blob for Live Chat functionality.
+import { GoogleGenAI, Type, GenerateContentResponse, Chat, Modality, FunctionDeclaration, LiveServerMessage, Blob } from "@google/genai";
 // FIX: Import MarketResearchReport type.
-import { AISuggestions, Customer, CompanyAnalysis, InvoiceData, AIJournalSuggestion, User, ApplicationCode, Estimate, EstimateItem, Lead, ApprovalRoute, Job, LeadStatus, JournalEntry, LeadScore, Application, ApplicationWithDetails, CompanyInvestigation, CustomProposalContent, LeadProposalPackage, MarketResearchReport } from '../types';
-import { formatJPY } from "../utils";
+import { AISuggestions, Customer, CompanyAnalysis, InvoiceData, AIJournalSuggestion, User, ApplicationCode, Estimate, EstimateItem, Lead, ApprovalRoute, Job, LeadStatus, JournalEntry, LeadScore, Application, ApplicationWithDetails, CompanyInvestigation, CustomProposalContent, LeadProposalPackage, MarketResearchReport, EstimateDraft, ExtractedParty, GeneratedEmailContent, EstimateLineItem, UUID, Project, AllocationDivision, AccountItem } from '../types';
+import { formatJPY, createSignature } from "../utils";
+import { v4 as uuidv4 } from 'uuid';
 
 // AI機能をグローバルに制御する環境変数
 const NEXT_PUBLIC_AI_OFF = process.env.NEXT_PUBLIC_AI_OFF === '1';
@@ -16,7 +16,7 @@ if (!API_KEY && !NEXT_PUBLIC_AI_OFF) {
 
 const ai = new GoogleGenAI({ apiKey: API_KEY! });
 
-const model = "gemini-2.5-flash";
+const model = "gemini-2.5-flash-lite"; // Default model for low-latency
 
 const checkOnlineAndAIOff = () => {
     if (NEXT_PUBLIC_AI_OFF) {
@@ -76,7 +76,10 @@ export const suggestJobParameters = async (prompt: string, paperTypes: string[],
       contents: fullPrompt,
       config: { responseMimeType: "application/json", responseSchema: suggestJobSchema, signal },
     });
-    const jsonStr = response.text.trim();
+    let jsonStr = response.text.trim();
+    if (jsonStr.startsWith('```json')) {
+        jsonStr = jsonStr.substring(7, jsonStr.length - 3).trim();
+    }
     return JSON.parse(jsonStr);
   });
 };
@@ -104,11 +107,12 @@ JSONのフォーマットは以下のようにしてください:
 }
 `;
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
+            model: "gemini-2.5-pro", // Use pro model for complex analysis
             contents: prompt,
             config: {
                 tools: [{ googleSearch: {} }],
-                signal
+                signal,
+                thinkingConfig: { thinkingBudget: 32768 }, // Max thinking budget for complex queries
             },
         });
         
@@ -139,11 +143,10 @@ JSONのフォーマットは以下のようにしてください:
 
 export const investigateLeadCompany = async (companyName: string): Promise<CompanyInvestigation> => {
     checkOnlineAndAIOff();
-    const modelWithSearch = 'gemini-2.5-flash';
     return withRetry(async (signal) => {
         const prompt = `企業名「${companyName}」について、その事業内容、最近のニュース、市場での評判を調査し、簡潔にまとめてください。`;
         const response = await ai.models.generateContent({
-            model: modelWithSearch,
+            model,
             contents: prompt,
             config: {
                 tools: [{ googleSearch: {} }],
@@ -179,7 +182,7 @@ export const enrichCustomerData = async (customerName: string): Promise<Partial<
 - 代表電話番号 (phoneNumber)
 - 代表者名 (representative)`;
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
+            model,
             contents: prompt,
             config: {
                 tools: [{ googleSearch: {} }],
@@ -213,24 +216,30 @@ const extractInvoiceSchema = {
         totalAmount: { type: Type.NUMBER, description: "請求書の合計金額（税込）。" },
         description: { type: Type.STRING, description: "請求内容の簡潔な説明。" },
         costType: { type: Type.STRING, description: "この費用が変動費(V)か固定費(F)かを推測してください。", enum: ["V", "F"] },
-        account: { type: Type.STRING, description: "この請求内容に最も適した会計勘定科目を提案してください。例: 仕入高, 広告宣伝費, 事務用品費" },
+        account: { type: Type.STRING, description: "この請求内容に最も適した会計勘定科目を提案してください。" },
+        allocationDivision: { type: Type.STRING, description: "この費用に最も適した振分区分を提案してください。" },
         relatedCustomer: { type: Type.STRING, description: "この費用に関連する顧客名（もしあれば）。" },
         project: { type: Type.STRING, description: "この費用に関連する案件名やプロジェクト名（もしあれば）。" }
     },
     required: ["vendorName", "invoiceDate", "totalAmount", "description", "costType", "account"],
 };
 
-export const extractInvoiceDetails = async (imageBase64: string, mimeType: string): Promise<InvoiceData> => {
+export const extractInvoiceDetails = async (imageBase64: string, mimeType: string, accountItems: AccountItem[], allocationDivisions: AllocationDivision[]): Promise<InvoiceData> => {
     checkOnlineAndAIOff();
     return withRetry(async (signal) => {
         const imagePart = { inlineData: { data: imageBase64, mimeType } };
-        const textPart = { text: "この画像から請求書の詳細情報を抽出してください。" };
+        const textPart = { text: `この画像から請求書の詳細情報を抽出してください。
+勘定科目は次のリストから選択してください: ${accountItems.map(i => i.name).join(', ')}
+振分区分は次のリストから選択してください: ${allocationDivisions.map(d => d.name).join(', ')}` };
         const response = await ai.models.generateContent({
-            model,
+            model: 'gemini-2.5-flash',
             contents: { parts: [imagePart, textPart] },
             config: { responseMimeType: "application/json", responseSchema: extractInvoiceSchema, signal }
         });
-        const jsonStr = response.text.trim();
+        let jsonStr = response.text.trim();
+        if (jsonStr.startsWith('```json')) {
+            jsonStr = jsonStr.substring(7, jsonStr.length - 3).trim();
+        }
         return JSON.parse(jsonStr);
     });
 };
@@ -255,7 +264,10 @@ export const suggestJournalEntry = async (prompt: string): Promise<AIJournalSugg
       contents: fullPrompt,
       config: { responseMimeType: "application/json", responseSchema: suggestJournalEntrySchema, signal },
     });
-    const jsonStr = response.text.trim();
+    let jsonStr = response.text.trim();
+    if (jsonStr.startsWith('```json')) {
+        jsonStr = jsonStr.substring(7, jsonStr.length - 3).trim();
+    }
     return JSON.parse(jsonStr);
   });
 };
@@ -275,22 +287,38 @@ export const generateSalesEmail = async (customer: Customer, senderName: string)
     });
 };
 
-export const generateLeadReplyEmail = async (lead: Lead, senderName: string): Promise<{ subject: string; body: string }> => {
+export const generateLeadReplyEmail = async (lead: Lead): Promise<GeneratedEmailContent> => { // FIX: Changed return type to GeneratedEmailContent
     checkOnlineAndAIOff();
     return withRetry(async (signal) => {
         const prompt = `以下のリード情報に対して、初回の返信メールを作成してください。
 会社名: ${lead.company}
 担当者名: ${lead.name}様
 問い合わせ内容: ${lead.message || '記載なし'}
-送信者: ${senderName}`;
-        const response = await ai.models.generateContent({ model, contents: prompt, config: { signal } });
-        const text = response.text;
-        const subjectMatch = text.match(/件名:\s*(.*)/);
-        const bodyMatch = text.match(/本文:\s*([\s\S]*)/);
-        return {
-            subject: subjectMatch ? subjectMatch[1].trim() : 'お問い合わせありがとうございます',
-            body: bodyMatch ? bodyMatch[1].trim() : text,
-        };
+件名と本文を分離して生成してください。
+
+出力JSONフォーマット:
+{
+  "subject": "提案メールの件名",
+  "bodyText": "提案メールの本文。担当者名は[あなたの名前]としてください。"
+}`;
+        const response = await ai.models.generateContent({ 
+            model, 
+            contents: prompt, 
+            config: { 
+                signal,
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        subject: { type: Type.STRING },
+                        bodyText: { type: Type.STRING },
+                    },
+                    required: ["subject", "bodyText"],
+                },
+            },
+        });
+        const jsonStr = response.text.trim().replace(/^```json\n|\n```$/g, ''); // Clean JSON block
+        return JSON.parse(jsonStr); // FIX: Ensure proper JSON parsing
     });
 };
 
@@ -306,6 +334,90 @@ export const analyzeLeadData = async (leads: Lead[]): Promise<string> => {
         `;
         const response = await ai.models.generateContent({ model, contents: prompt, config: { signal } });
         return response.text;
+    });
+};
+
+// FIX: Add missing 'createLeadProposalPackage' function.
+const proposalPackageSchema = {
+    type: Type.OBJECT,
+    properties: {
+        isSalesLead: { type: Type.BOOLEAN, description: "提供された情報が営業メールや無関係な問い合わせではなく、実際のビジネスリードである可能性が高いかどうか。" },
+        reason: { type: Type.STRING, description: "isSalesLeadの判断理由を簡潔に説明してください。" },
+        proposal: {
+            type: Type.OBJECT,
+            description: "isSalesLeadがtrueの場合に生成される提案書コンテンツ。営業リードでない場合はnull。",
+            properties: {
+                coverTitle: { type: Type.STRING, description: "提案書のタイトル。例:「〇〇株式会社様向け Webサイト連携 DM施策のご提案」" },
+                businessUnderstanding: { type: Type.STRING, description: "顧客の事業内容や現状の理解をまとめたセクション。" },
+                challenges: { type: Type.STRING, description: "顧客が抱えているであろう課題やニーズを仮説立てて記述するセクション。" },
+                proposal: { type: Type.STRING, description: "具体的な提案内容。当社のサービスがどのように課題解決に貢献できるかを記述。" },
+                conclusion: { type: Type.STRING, description: "提案のまとめと次のステップを記述するセクション。" },
+            }
+        },
+        estimate: {
+            type: Type.ARRAY,
+            description: "isSalesLeadがtrueの場合に生成される見積項目案。営業リードでない場合はnull。",
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    division: { type: Type.STRING, enum: ['用紙代', 'デザイン・DTP代', '刷版代', '印刷代', '加工代', 'その他', '初期費用', '月額費用'] },
+                    content: { type: Type.STRING, description: "具体的な作業内容や品名。" },
+                    quantity: { type: Type.NUMBER },
+                    unit: { type: Type.STRING },
+                    unitPrice: { type: Type.NUMBER },
+                    price: { type: Type.NUMBER, description: "数量 x 単価" },
+                    cost: { type: Type.NUMBER, description: "原価" },
+                    costRate: { type: Type.NUMBER, description: "原価率 (cost/price)" },
+                    subtotal: { type: Type.NUMBER, description: "priceと同じ" }
+                },
+            }
+        },
+    },
+    required: ["isSalesLead", "reason"],
+};
+
+export const createLeadProposalPackage = async (lead: Lead): Promise<LeadProposalPackage> => {
+    checkOnlineAndAIOff();
+    return withRetry(async (signal) => {
+        const prompt = `以下のリード情報とWeb検索の結果を基に、提案パッケージを生成してください。
+まず、このリードが実際のビジネスチャンス（営業リード）であるか、それとも単なる営業メールや無関係な問い合わせであるかを判断してください。
+ビジネスチャンスであると判断した場合のみ、提案書コンテンツと見積項目案を生成してください。
+
+リード情報:
+- 会社名: ${lead.company}
+- 担当者名: ${lead.name}
+- 問い合わせ内容: ${lead.message || '具体的な内容は記載されていません。'}
+
+Web検索を活用して、企業の事業内容、最近の動向、および問い合わせ内容に関連する業界の課題を調査してください。
+その上で、当社の印刷・物流サービスがどのように役立つかを具体的に提案してください。
+必ず指定されたJSON形式で出力してください。`;
+
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-pro",
+            contents: prompt,
+            config: {
+                tools: [{ googleSearch: {} }],
+                signal,
+                responseMimeType: "application/json",
+                responseSchema: proposalPackageSchema,
+                thinkingConfig: { thinkingBudget: 32768 },
+            },
+        });
+
+        let jsonStr = response.text.trim();
+        if (jsonStr.startsWith('```json')) {
+            jsonStr = jsonStr.substring(7, jsonStr.length - 3).trim();
+        }
+        
+        try {
+            return JSON.parse(jsonStr);
+        } catch (e) {
+            console.error("Failed to parse JSON from Gemini for proposal package:", e, "Raw text:", jsonStr);
+            return {
+                isSalesLead: false,
+                reason: `AIからの応答を解析できませんでした。応答: ${jsonStr}`,
+            };
+        }
     });
 };
 
@@ -351,269 +463,531 @@ export const generateWeeklyReportSummary = async (keywords: string): Promise<str
     });
 };
 
-const draftEstimateSchema = {
+// FIX: Add missing 'parseLineItems' function.
+export const parseLineItems = async (prompt: string): Promise<EstimateLineItem[]> => {
+  checkOnlineAndAIOff();
+  const schema = {
+    type: Type.ARRAY,
+    items: {
+      type: Type.OBJECT,
+      properties: {
+        name: { type: Type.STRING, description: "具体的な作業内容や品名。用紙の種類や厚さ、加工の種類などを記載。" },
+        description: { type: Type.STRING, description: "品目の詳細説明（オプション）" },
+        qty: { type: Type.NUMBER, description: "数量。単位と対応させる。" },
+        unit: { type: Type.STRING, description: "単位（例：部, 枚, 式, 連, 月）" },
+        unitPrice: { type: Type.NUMBER, description: "単価" },
+        taxRate: { type: Type.NUMBER, description: "適用される税率。小数点形式（例: 0.1）。", default: 0.1 },
+      },
+      required: ["name", "qty", "unitPrice"]
+    }
+  };
+
+  const fullPrompt = `以下のテキストから見積の明細項目を抽出してください。印刷会社の標準的な項目で構成し、現実的な単価を設定してください。
+テキスト: "${prompt}"`;
+  
+  const response = await ai.models.generateContent({
+    model,
+    contents: fullPrompt,
+    config: { responseMimeType: "application/json", responseSchema: schema },
+  });
+
+  let jsonStr = response.text.trim();
+  if (jsonStr.startsWith('```json')) {
+      jsonStr = jsonStr.substring(7, jsonStr.length - 3).trim();
+  }
+  return JSON.parse(jsonStr);
+};
+
+
+const parseNumbersLikeJPY = (value: string): number | undefined => {
+  const v = value.replace(/[^\d.-]/g, '');
+  const n = Number(v);
+  return Number.isFinite(n) ? n : undefined;
+};
+
+const roughExtractLines = (text: string): EstimateLineItem[] => {
+  // 例: 「名刺100部 @¥2,500」「A4パンフ 1式 ¥120,000 税別10%」
+  const lines: EstimateLineItem[] = [];
+  text
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .forEach((line) => {
+      // 数量/単価/合計のいずれかが見える行を簡易抽出
+      const qtyMatch = line.match(/(\d+)\s*(部|枚|式|箱|冊|本|件)?/);
+      const priceMatch = line.match(/[@＠]?\s*[¥￥]?\s*([\d,]+)(?:\s*円)?/);
+      if (qtyMatch && priceMatch) {
+        const qty = Number(qtyMatch[1]);
+        const unit = qtyMatch[2] || '式';
+        const unitPrice = parseNumbersLikeJPY(priceMatch[1]) ?? 0;
+        lines.push({
+          name: line.replace(/\s*[@＠].*$/, ''),
+          qty,
+          unit,
+          unitPrice,
+          taxRate: 0.1,
+        });
+      }
+    });
+  if (lines.length === 0) {
+    // 最低1行用意
+    lines.push({ name: '一式', qty: 1, unit: '式', unitPrice: 0, taxRate: 0.1 });
+  }
+  return lines;
+};
+
+const roughExtractCustomer = (text: string): ExtractedParty[] => {
+  const email = text.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/)?.[0];
+  const company = text.match(/(株|株式会社|有限会社|合同会社)[^\s　]+/)?.[0];
+  const person = text.match(/(様|御中)/) ? text.split(/\r?\n/)[0].replace(/様|御中/g, '') : undefined;
+  return [
+    {
+      company,
+      person,
+      email,
+      confidence: 0.6,
+    },
+  ].filter(c => c.company || c.person || c.email);
+};
+
+export async function createDraftEstimate(inputText: string, files: { data: string; mimeType: string }[] = []): Promise<EstimateDraft> {
+    checkOnlineAndAIOff();
+
+    const contents: any[] = [];
+    const supportedMimeTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+    if (inputText) {
+        contents.push({ text: inputText });
+    }
+    files.forEach(file => {
+        if(supportedMimeTypes.includes(file.mimeType)) {
+            contents.push({ inlineData: { data: file.data, mimeType: file.mimeType } });
+        }
+    });
+
+    const fullPrompt = `あなたは日本の印刷会社で20年以上の経験を持つベテランの見積担当者です。
+以下の顧客からの要望テキストと添付ファイルに基づき、現実的で詳細な見積書の下書きを生成してください。
+顧客情報、件名候補、納期、支払条件、品目を正確に抽出し、原価計算も行い、適切な利益を乗せた単価と金額を設定してください。
+【最重要】顧客の要望が複雑な場合や、複数の作業項目を示唆している場合は、必ずそれらを分解して複数行の詳細な見積明細を作成してください。例えば「チラシと名刺」という依頼なら、チラシの行と名刺の行を分けてください。「準備作業と印刷」なら、それぞれ別の行にしてください。
+【重要】もし顧客の要望が倉庫管理、定期発送、サブスクリプション型のサービスを示唆している場合、必ず「初期費用」と「月額費用」の項目を立てて見積を作成してください。その際の単位は、初期費用なら「式」、月額費用なら「月」としてください。
+抽出されたデータは必ずJSON形式で出力してください。
+
+JSONスキーマ:
+${JSON.stringify({
     type: Type.OBJECT,
     properties: {
-        title: { type: Type.STRING, description: "見積の件名。顧客の依頼内容を反映し、具体的で分かりやすいものにする。例：「2025年度 会社案内パンフレット制作」" },
+        draftId: { type: Type.STRING, description: "ドラフトID (UUID)" },
+        sourceSummary: { type: Type.STRING, description: "解析元の簡易要約" },
+        customerCandidates: {
+            type: Type.ARRAY,
+            description: "検出された顧客の候補リスト。",
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    company: { type: Type.STRING },
+                    person: { type: Type.STRING },
+                    email: { type: Type.STRING },
+                    tel: { type: Type.STRING },
+                    address: { type: Type.STRING },
+                    confidence: { type: Type.NUMBER, description: "信頼度スコア (0-1)" },
+                },
+            },
+        },
+        subjectCandidates: {
+            type: Type.ARRAY,
+            description: "検出された件名候補リスト。",
+            items: { type: Type.STRING },
+        },
+        paymentTerms: { type: Type.STRING, description: "支払条件。例：「月末締め翌月末払い」。曖昧な表現は解決。" },
+        deliveryTerms: { type: Type.STRING, description: "納品条件。例：「指定倉庫へ一括納品」。" },
+        deliveryMethod: { type: Type.STRING, description: "納品方法。例：「宅配便」。" },
+        currency: { type: Type.STRING, description: "見積で使用される通貨。ISO 4217コード（例: JPY）。", default: "JPY" },
+        taxInclusive: { type: Type.BOOLEAN, description: "金額が税込みかどうかのフラグ。", default: false },
+        dueDate: { type: Type.STRING, description: "希望納期 (YYYY-MM-DD形式)。曖昧な表現は解決。" },
         items: {
             type: Type.ARRAY,
             description: "見積の明細項目。印刷会社の標準的な項目で構成する。",
             items: {
                 type: Type.OBJECT,
                 properties: {
-                    division: { 
-                        type: Type.STRING, 
-                        description: "項目区分",
-                        enum: ['用紙代', 'デザイン・DTP代', '刷版代', '印刷代', '加工代', 'その他', '初期費用', '月額費用']
-                    },
-                    content: { type: Type.STRING, description: "具体的な作業内容や品名。用紙の種類や厚さ、加工の種類などを記載。" },
-                    quantity: { type: Type.NUMBER, description: "数量。単位と対応させる。" },
+                    name: { type: Type.STRING, description: "具体的な作業内容や品名。用紙の種類や厚さ、加工の種類などを記載。" },
+                    description: { type: Type.STRING, description: "品目の詳細説明（オプション）" },
+                    qty: { type: Type.NUMBER, description: "数量。単位と対応させる。" },
                     unit: { type: Type.STRING, description: "単位（例：部, 枚, 式, 連, 月）" },
                     unitPrice: { type: Type.NUMBER, description: "単価" },
-                    price: { type: Type.NUMBER, description: "金額 (数量 * 単価)" },
-                    cost: { type: Type.NUMBER, description: "この項目にかかる原価" },
+                    taxRate: { type: Type.NUMBER, description: "適用される税率。小数点形式（例: 0.1）。", default: 0.1 },
                 },
-                required: ["division", "content", "quantity", "unit", "unitPrice", "price", "cost"]
+                required: ["name", "qty", "unitPrice"]
             }
         },
-        deliveryDate: { type: Type.STRING, description: "希望納期 (YYYY-MM-DD形式)" },
-        paymentTerms: { type: Type.STRING, description: "支払条件。例：「月末締め翌月末払い」" },
-        deliveryMethod: { type: Type.STRING, description: "納品方法。例：「指定倉庫へ一括納品」" },
-        notes: { type: Type.STRING, description: "補足事項や備考。見積の有効期限なども記載する。" }
+        notes: { type: Type.STRING, description: "見積書全体の補足事項や備考。見積の有効期限なども記載する。" },
     },
-    required: ["title", "items", "deliveryDate", "paymentTerms"]
-};
-
-export const draftEstimate = async (prompt: string): Promise<Partial<Estimate>> => {
-    checkOnlineAndAIOff();
-    return withRetry(async (signal) => {
-        const fullPrompt = `あなたは日本の印刷会社で20年以上の経験を持つベテランの見積担当者です。以下の顧客からの要望に基づき、現実的で詳細な見積の下書きをJSON形式で作成してください。原価計算も行い、適切な利益を乗せた単価と金額を設定してください。
-
-【重要】もし顧客の要望が倉庫管理、定期発送、サブスクリプション型のサービスを示唆している場合、必ず「初期費用」と「月額費用」の項目を立てて見積を作成してください。その際の単位は、初期費用なら「式」、月額費用なら「月」としてください。
-
-顧客の要望: "${prompt}"`;
-        const response = await ai.models.generateContent({
-            model,
-            contents: fullPrompt,
-            config: { responseMimeType: "application/json", responseSchema: draftEstimateSchema as any, signal },
-        });
-        const jsonStr = response.text.trim();
-        const parsed = JSON.parse(jsonStr);
-        // Ensure items array exists
-        if (!parsed.items) {
-            parsed.items = [];
-        }
-        return parsed;
+    required: ["customerCandidates", "subjectCandidates", "items", "currency"],
+}, null, 2)}
+`;
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-pro", // Use pro model for complex extraction
+        contents: [...contents, { text: fullPrompt }],
+        config: {
+            thinkingConfig: { thinkingBudget: 32768 },
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    draftId: { type: Type.STRING },
+                    sourceSummary: { type: Type.STRING },
+                    customerCandidates: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                company: { type: Type.STRING },
+                                person: { type: Type.STRING },
+                                email: { type: Type.STRING },
+                                tel: { type: Type.STRING },
+                                address: { type: Type.STRING },
+                                confidence: { type: Type.NUMBER },
+                            },
+                        },
+                    },
+                    subjectCandidates: {
+                        type: Type.ARRAY,
+                        items: { type: Type.STRING },
+                    },
+                    paymentTerms: { type: Type.STRING },
+                    deliveryTerms: { type: Type.STRING },
+                    deliveryMethod: { type: Type.STRING },
+                    currency: { type: Type.STRING },
+                    taxInclusive: { type: Type.BOOLEAN },
+                    dueDate: { type: Type.STRING },
+                    items: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                name: { type: Type.STRING },
+                                description: { type: Type.STRING },
+                                qty: { type: Type.NUMBER },
+                                unit: { type: Type.STRING },
+                                unitPrice: { type: Type.NUMBER },
+                                taxRate: { type: Type.NUMBER },
+                            },
+                        },
+                    },
+                    notes: { type: Type.STRING },
+                },
+                required: ["customerCandidates", "subjectCandidates", "items", "currency"],
+            },
+        },
     });
+
+    let jsonStr = response.text.trim();
+    if (jsonStr.startsWith('```json')) {
+        jsonStr = jsonStr.substring(7, jsonStr.length - 3).trim();
+    }
+    
+    // Parse the response
+    const parsed: EstimateDraft = JSON.parse(jsonStr);
+
+    // Ensure items and candidates arrays exist and have defaults if missing
+    if (!parsed.items) {
+        parsed.items = [{ name: '一式', qty: 1, unit: '式', unitPrice: 0, taxRate: 0.1 }];
+    }
+    if (!parsed.customerCandidates || parsed.customerCandidates.length === 0) {
+        parsed.customerCandidates = roughExtractCustomer(inputText);
+    }
+    if (!parsed.subjectCandidates || parsed.subjectCandidates.length === 0) {
+        const subjectGuess = inputText.match(/(件名|Subject)[:：]\s*(.+)$/m)?.[2]?.trim() || inputText.split(/\r?\n/).find((s) => s.length >= 5)?.slice(0, 40) || '御見積のご送付';
+        parsed.subjectCandidates = [subjectGuess];
+    }
+    
+    // Default values if not extracted
+    parsed.draftId = uuidv4() as UUID;
+    if (!parsed.deliveryTerms) parsed.deliveryTerms = '通常納期（要確認）';
+    if (!parsed.paymentTerms) parsed.paymentTerms = '当月末締め翌月末支払（銀行振込）';
+    if (!parsed.deliveryMethod) parsed.deliveryMethod = 'メール送付';
+    if (!parsed.notes) parsed.notes = 'AIによる自動生成見積下書きです。内容は担当者にご確認ください。';
+    if (!parsed.currency) parsed.currency = 'JPY';
+    if (parsed.taxInclusive === undefined) parsed.taxInclusive = false;
+    if (!parsed.sourceSummary) parsed.sourceSummary = inputText.slice(0, 240);
+
+
+    return parsed;
 };
 
-export const generateProposalSection = async (
-    sectionTitle: string,
-    customer: Customer,
-    job?: Job | null,
-    estimate?: Estimate | null,
-): Promise<string> => {
+// FIX: Add missing 'createProjectFromInputs' function.
+const projectCreationSchema = {
+    type: Type.OBJECT,
+    properties: {
+        projectName: { type: Type.STRING, description: "案件のタイトル。顧客からの要望を要約した、簡潔で分かりやすい名前。" },
+        customerName: { type: Type.STRING, description: "顧客の会社名。テキストやファイルから抽出する。" },
+        overview: { type: Type.STRING, description: "案件全体の概要。AIが生成したサマリー。" },
+        extracted_details: { type: Type.STRING, description: "案件の主要な要件や仕様。箇条書きでまとめる。" },
+        file_categorization: {
+            type: Type.ARRAY,
+            description: "添付された各ファイルの分類。",
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    fileName: { type: Type.STRING, description: "元のファイル名。" },
+                    category: { type: Type.STRING, description: "ファイルのカテゴリ（例: '仕様書', 'デザイン案', '参考資料', 'その他'）。" },
+                },
+                required: ["fileName", "category"]
+            }
+        },
+    },
+    required: ["projectName", "customerName", "overview", "extracted_details", "file_categorization"],
+};
+
+export const createProjectFromInputs = async (
+    inputText: string, 
+    files: { name: string; data: string; mimeType: string }[]
+): Promise<{
+    projectName: string;
+    customerName: string;
+    overview: string;
+    extracted_details: string;
+    file_categorization: { fileName: string; category: string }[];
+}> => {
+    checkOnlineAndAIOff();
+    
+    const contents: any[] = [];
+    const supportedMimeTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+    if (inputText) {
+        contents.push({ text: `顧客からの要望テキスト:\n${inputText}` });
+    }
+    files.forEach(file => {
+        if(supportedMimeTypes.includes(file.mimeType)) {
+            contents.push({ text: `添付ファイル名: ${file.name}` });
+            contents.push({ inlineData: { data: file.data, mimeType: file.mimeType } });
+        }
+    });
+
+    const fullPrompt = `あなたは日本の印刷会社で20年以上の経験を持つベテランのプロジェクトマネージャーです。
+以下の顧客からの要望テキストと添付ファイルの内容を総合的に分析し、新しい案件プロジェクトを作成してください。
+- 案件の全体像を理解し、要約した「概要」を生成してください。
+- 重要な仕様（サイズ、色、数量、納期など）を「抽出された情報」として箇条書きでまとめてください。
+- 添付された各ファイルを内容に基づいて分類してください。
+- 全ての情報から、案件にふさわしい「案件名」と「顧客名」を特定してください。
+抽出されたデータは必ずJSON形式で出力してください。`;
+    contents.push({ text: fullPrompt });
+
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-pro",
+        contents: contents,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: projectCreationSchema,
+            thinkingConfig: { thinkingBudget: 32768 },
+        },
+    });
+
+    let jsonStr = response.text.trim();
+    if (jsonStr.startsWith('```json')) {
+        jsonStr = jsonStr.substring(7, jsonStr.length - 3).trim();
+    }
+
+    try {
+        return JSON.parse(jsonStr);
+    } catch (e) {
+        console.error("Failed to parse JSON from Gemini for project creation:", e);
+        throw new Error(`AIからの応答を解析できませんでした: ${e instanceof Error ? e.message : String(e)}`);
+    }
+};
+
+// FIX: ADD generateProposalSection
+export const generateProposalSection = async (sectionTitle: string, customer: Customer, job: Job | null, estimate: Estimate | null): Promise<string> => {
     checkOnlineAndAIOff();
     return withRetry(async (signal) => {
-        let context = `
-顧客情報:
-- 顧客名: ${customer.customerName}
+        const prompt = `あなたは経験豊富な営業コンサルタントです。以下の顧客情報、案件情報、見積情報に基づいて、提案書の「${sectionTitle}」セクションを作成してください。プロフェッショナルで説得力のある文章を生成してください。
+
+### 顧客情報
+- 会社名: ${customer.customerName}
 - 事業内容: ${customer.companyContent || 'N/A'}
-- 既知の要求事項: ${customer.infoRequirements || 'N/A'}
-- これまでの営業活動: ${customer.infoSalesActivity || 'N/A'}
-- Webサイト: ${customer.websiteUrl || 'N/A'}
-`;
 
-        if (job) {
-            context += `
-関連案件情報:
-- 案件名: ${job.title}
-- 案件詳細: ${job.details}
-- 金額: ${formatJPY(job.price)}
-`;
-        }
+### 関連案件情報
+${job ? `- 案件名: ${job.title}\n- 数量: ${job.quantity}\n- 仕様: ${job.details}` : '- なし'}
 
-        if (estimate) {
-            context += `
-関連見積情報:
-- 見積件名: ${estimate.title}
-- 見積合計: ${formatJPY(estimate.total)}
-- 見積項目: ${estimate.items.map(i => `${i.content} (${formatJPY(i.price)})`).join(', ')}
-`;
-        }
+### 関連見積情報
+${estimate ? `- 件名: ${estimate.title}\n- 合計金額: ${formatJPY(estimate.grandTotal)}` : '- なし'}
 
-        const prompt = `
-あなたはプロのビジネスコンサルタントです。以下のコンテキスト情報と、必要に応じてWeb検索の結果を活用して、提案書の「${sectionTitle}」セクションの文章を作成してください。プロフェッショナルで、説得力があり、顧客の利益に焦点を当てた文章を生成してください。
+セクション「${sectionTitle}」の本文のみを生成してください。見出しは不要です。`;
 
-${context}
-
-「${sectionTitle}」セクションの下書きを生成してください。
-`;
-        const response = await ai.models.generateContent({ 
-            model, 
-            contents: prompt, 
-            config: { 
-                tools: [{ googleSearch: {} }],
-                signal 
-            } 
-        });
+        const response = await ai.models.generateContent({ model: "gemini-2.5-pro", contents: prompt, config: { signal } });
         return response.text;
     });
 };
 
-const scoreLeadSchema = {
+// FIX: ADD parseApprovalDocument
+const parseApprovalDocumentSchema = {
     type: Type.OBJECT,
     properties: {
-        score: { type: Type.INTEGER, description: "このリードの有望度を0から100のスコアで評価してください。" },
-        rationale: { type: Type.STRING, description: "スコアの根拠を簡潔に説明してください。" }
+        title: { type: Type.STRING, description: "稟議書の件名" },
+        details: { type: Type.STRING, description: "稟議書の目的・概要・詳細な内容" }
     },
-    required: ["score", "rationale"]
+    required: ["title", "details"]
 };
 
-export const scoreLead = async (lead: Lead): Promise<LeadScore> => {
+export const parseApprovalDocument = async (base64Data: string, mimeType: string): Promise<{ title: string; details: string }> => {
     checkOnlineAndAIOff();
     return withRetry(async (signal) => {
-        const prompt = `以下のリード情報を分析し、有望度をスコアリングしてください。
-会社名: ${lead.company}
-問い合わせ種別: ${lead.inquiryTypes?.join(', ') || lead.inquiryType}
-メッセージ: ${lead.message}`;
+        const imagePart = { inlineData: { data: base64Data, mimeType } };
+        const textPart = { text: "この画像またはPDFファイルから、稟議書の件名と詳細内容を抽出してください。" };
+
         const response = await ai.models.generateContent({
-            model,
-            contents: prompt,
-            config: { responseMimeType: "application/json", responseSchema: scoreLeadSchema, signal },
+            model: "gemini-2.5-pro",
+            contents: { parts: [imagePart, textPart] },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: parseApprovalDocumentSchema,
+                signal
+            }
         });
-        const jsonStr = response.text.trim();
+        const jsonStr = response.text.trim().replace(/^```json\n|\n```$/g, '');
         return JSON.parse(jsonStr);
     });
 };
 
-export const startBugReportChat = (): Chat => {
-    checkOnlineAndAIOff(); // Will throw if AI is off or offline
-    const systemInstruction = `あなたはバグ報告と改善要望を受け付けるアシスタントです。ユーザーからの報告内容をヒアリングし、以下のJSON形式で最終的に出力してください。
-    { "report_type": "bug" | "improvement", "summary": "簡潔な件名", "description": "詳細な内容" }
-    このJSONを出力するまでは、自然な会話でユーザーから情報を引き出してください。`;
-    return ai.chats.create({ model, config: { systemInstruction } });
-};
-
-export const processApplicationChat = async (history: { role: 'user' | 'model', content: string }[], appCodes: ApplicationCode[], users: User[], routes: ApprovalRoute[]): Promise<string> => {
-  checkOnlineAndAIOff();
-  return withRetry(async (signal) => {
-      const prompt = `あなたは申請アシスタントです。ユーザーとの会話履歴と以下のマスター情報に基づき、ユーザーの申請を手伝ってください。
-最終的に、ユーザーの申請内容を以下のJSON形式で出力してください。それまでは自然な会話を続けてください。
-{ "applicationCodeId": "...", "formData": { ... }, "approvalRouteId": "..." }
-
-会話履歴: ${JSON.stringify(history)}
-申請種別マスター: ${JSON.stringify(appCodes)}
-承認ルートマスター: ${JSON.stringify(routes)}
-`;
-      const response = await ai.models.generateContent({ model, contents: prompt, config: { signal } });
-      return response.text;
-  });
-};
-
-// --- From older chat models ---
-export const generateClosingSummary = async (type: '月次' | '年次', currentJobs: Job[], prevJobs: Job[], currentJournal: JournalEntry[], prevJournal: JournalEntry[]): Promise<string> => {
-  checkOnlineAndAIOff();
-  return withRetry(async (signal) => {
-    const prompt = `以下のデータに基づき、${type}決算のサマリーを生成してください。前月比や課題、改善提案を含めてください。`;
-    // In a real scenario, you'd pass the data, but for brevity we'll just send the prompt.
-    const response = await ai.models.generateContent({ model, contents: prompt, config: { signal } });
-    return response.text;
-  });
-};
-
+// FIX: ADD startBusinessConsultantChat
 export const startBusinessConsultantChat = (): Chat => {
-    checkOnlineAndAIOff(); // Will throw if AI is off or offline
-    const systemInstruction = `あなたは、中小企業の印刷会社を専門とする経験豊富な経営コンサルタントです。あなたの目的は、経営者がデータに基づいたより良い意思決定を行えるよう支援することです。提供されたデータコンテキストとユーザーからの質問に基づき、Web検索も活用して、具体的で実行可能なアドバイスを提供してください。専門的かつデータに基づいた、簡潔な回答を心がけてください。`;
-    return ai.chats.create({ 
-        model, 
-        config: { 
+    if (NEXT_PUBLIC_AI_OFF) {
+        throw new Error('AI機能は現在無効です。');
+    }
+    const systemInstruction = `あなたは経験豊富な経営コンサルタントです。ユーザーは印刷会社の従業員です。提供された社内データ（案件情報、顧客情報、会計情報など）のコンテキストを理解し、具体的で実践的なアドバイスを提供してください。必要に応じてWeb検索も活用し、市場のトレンドや競合の動向も踏まえた回答を心がけてください。`;
+    return ai.chats.create({
+        model: "gemini-2.5-pro",
+        config: {
             systemInstruction,
-            tools: [{ googleSearch: {} }] 
-        } 
+            tools: [{ googleSearch: {} }],
+        },
     });
 };
 
-export const generateLeadAnalysisAndProposal = async (lead: Lead): Promise<{ analysisReport: string; draftProposal: string; }> => {
+// FIX: ADD generateClosingSummary
+export const generateClosingSummary = async (
+    type: '月次' | '四半期' | '年次',
+    currentPeriodJobs: Job[],
+    previousPeriodJobs: Job[],
+    currentPeriodJournal: JournalEntry[],
+    previousPeriodJournal: JournalEntry[],
+): Promise<string> => {
     checkOnlineAndAIOff();
     return withRetry(async (signal) => {
-        const prompt = `以下のリード情報とWeb検索の結果を組み合わせて、企業分析レポートと提案書のドラフトを生成し、指定されたJSON形式で出力してください。
+        const prompt = `あなたは優秀な会計アナリストです。以下のデータに基づいて、${type}決算のサマリーを生成してください。
+- 主要なKPI（売上、利益など）の前期間比較
+- 特筆すべき点や業績の変動要因
+- 今後の経営に向けた簡潔なアドバイス
 
-リード情報:
-- 会社名: ${lead.company}
-- 担当者名: ${lead.name}
-- 問い合わせ内容: ${lead.message || '具体的な内容は記載されていません。'}
+### 今期間データ
+- 案件数: ${currentPeriodJobs.length}
+- 売上合計: ${formatJPY(currentPeriodJobs.reduce((sum, j) => sum + j.price, 0))}
+- 限界利益合計: ${formatJPY(currentPeriodJobs.reduce((sum, j) => sum + (j.price - j.variableCost), 0))}
+- 経費合計: ${formatJPY(currentPeriodJournal.reduce((sum, j) => sum + j.debit, 0))}
 
-Web検索を活用して、企業の事業内容、最近の動向、および問い合わせ内容に関連する業界の課題を調査してください。
-その上で、当社の印刷・物流サービスがどのように役立つかを具体的に提案してください。
+### 前期間データ
+- 案件数: ${previousPeriodJobs.length}
+- 売上合計: ${formatJPY(previousPeriodJobs.reduce((sum, j) => sum + j.price, 0))}
+- 限界利益合計: ${formatJPY(previousPeriodJobs.reduce((sum, j) => sum + (j.price - j.variableCost), 0))}
+- 経費合計: ${formatJPY(previousPeriodJournal.reduce((sum, j) => sum + j.debit, 0))}
 
-出力JSONフォーマット:
-{
-  "analysisReport": "リードの会社、問い合わせ内容、Webサイト(あれば)を基にした簡潔な分析レポート。企業の潜在的なニーズや、当社が提供できる価値についてMarkdown形式で記述してください。",
-  "draftProposal": "分析レポートに基づいた提案書のドラフト。Markdown形式で記述し、「1. 背景と課題」「2. 提案内容」「3. 期待される効果」「4. 概算費用」のセクションを含めてください。「4. 概算費用」: 概算費用を具体的に提示してください。もし書籍の保管や発送代行のような継続的なサービスが含まれる場合、必ず「初期費用」と「月額費用」に分けて、保管料、発送手数料などの具体的な項目と金額を提示してください。"
-}
-`;
+上記データから、洞察に富んだサマリーを生成してください。`;
 
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro',
-            contents: prompt,
-            config: { 
-                tools: [{ googleSearch: {} }],
-                signal 
-            },
-        });
-        
-        let jsonStr = response.text.trim();
-        if (jsonStr.startsWith('```json')) {
-            jsonStr = jsonStr.substring(7, jsonStr.length - 3).trim();
-        }
-
-        try {
-            return JSON.parse(jsonStr);
-        } catch (e) {
-            console.error("Failed to parse JSON from Gemini for lead analysis:", e);
-            console.error("Received text:", jsonStr);
-            // Fallback: return the text as part of the analysis if JSON parsing fails.
-            return {
-                 analysisReport: "AIからの応答を解析できませんでした。以下に生の応答を示します。\n\n" + jsonStr,
-                 draftProposal: "AIからの応答を解析できませんでした。"
-            };
-        }
+        const response = await ai.models.generateContent({ model: "gemini-2.5-pro", contents: prompt, config: { signal } });
+        return response.text;
     });
+};
+
+// FIX: ADD startBugReportChat
+export const startBugReportChat = (): Chat => {
+    if (NEXT_PUBLIC_AI_OFF) {
+        throw new Error('AI機能は現在無効です。');
+    }
+    const systemInstruction = `あなたはバグ報告・改善要望の受付アシスタントです。ユーザーからの自然言語での報告をヒアリングし、最終的に以下のJSON形式で情報を整理して出力してください。必要な情報が足りない場合は、追加で質問してください。JSON以外のテキストは絶対に出力しないでください。
+{
+  "report_type": "'bug' or 'improvement'",
+  "summary": "簡潔な件名",
+  "description": "問題の詳細な説明。再現手順、期待される動作、実際の動作などを含む。"
+}`;
+    return ai.chats.create({
+        model,
+        config: {
+            systemInstruction,
+            responseMimeType: "application/json",
+        },
+    });
+};
+
+// FIX: ADD processApplicationChat
+export const processApplicationChat = async (
+    history: { role: 'user' | 'model', content: string }[],
+    appCodes: ApplicationCode[],
+    users: User[],
+    approvalRoutes: ApprovalRoute[]
+): Promise<string> => {
+    checkOnlineAndAIOff();
+    return withRetry(async (signal) => {
+        const latestMessage = history[history.length - 1].content;
+        const prompt = `あなたは社内申請アシスタントです。ユーザーからの自然言語での申請内容をヒアリングし、最終的に以下のJSON形式で情報を整理して出力してください。
+必要な情報が足りない場合は、ユーザーに追加で質問してください。
+ユーザーとの会話履歴と、利用可能なマスターデータを参考にしてください。
+最終的なJSONオブジェクトのみを出力し、それ以外のテキストは絶対に追加しないでください。
+JSON出力例:
+{
+  "applicationCodeId": "利用可能な申請種別ID",
+  "formData": { /* 申請フォームのスキーマに沿ったデータ */ },
+  "approvalRouteId": "利用可能な承認ルートID"
+}
+
+--- 会話履歴 ---
+${history.map(m => `${m.role}: ${m.content}`).join('\n')}
+
+--- 利用可能なマスターデータ ---
+- 申請種別: ${JSON.stringify(appCodes.map(c => ({ id: c.id, name: c.name, code: c.code })))}
+- ユーザー: ${JSON.stringify(users.map(u => ({ id: u.id, name: u.name })))}
+- 承認ルート: ${JSON.stringify(approvalRoutes.map(r => ({ id: r.id, name: r.name })))}
+
+--- ユーザーの最新の入力 ---
+"${latestMessage}"
+
+上記に基づいて、次の応答（質問または最終的なJSON）を生成してください。`;
+
+        const response = await ai.models.generateContent({ model, contents: prompt, config: { signal } });
+        return response.text.trim();
+    });
+};
+
+// FIX: ADD generateMarketResearchReport
+const marketResearchSchema = {
+    type: Type.OBJECT,
+    properties: {
+        title: { type: Type.STRING, description: "レポートのタイトル" },
+        summary: { type: Type.STRING, description: "調査結果の要約" },
+        trends: { type: Type.ARRAY, items: { type: Type.STRING }, description: "主要な市場トレンドのリスト" },
+        competitorAnalysis: { type: Type.STRING, description: "主要な競合他社の分析" },
+        opportunities: { type: Type.ARRAY, items: { type: Type.STRING }, description: "ビジネスチャンスのリスト" },
+        threats: { type: Type.ARRAY, items: { type: Type.STRING }, description: "脅威やリスクのリスト" },
+    },
+    required: ["title", "summary", "trends", "competitorAnalysis", "opportunities", "threats"],
 };
 
 export const generateMarketResearchReport = async (topic: string): Promise<MarketResearchReport> => {
     checkOnlineAndAIOff();
     return withRetry(async (signal) => {
-        const prompt = `以下のトピックについて、Web検索を活用して詳細な市場調査レポートを、必ず指定されたJSON形式で作成してください。
-
-調査トピック: "${topic}"
-
-レポートには、市場の概要、主要トレンド、競合分析、ビジネスチャンス、脅威/リスクを含めてください。
-JSONフォーマット:
-{
-    "title": "調査トピックを反映した、レポート全体のタイトル。",
-    "summary": "調査結果全体の簡潔なエグゼクティブサマリー。",
-    "trends": ["市場の主要なトレンド。箇条書きで複数挙げる。"],
-    "competitorAnalysis": "主要な競合他社の動向や戦略に関する分析。",
-    "opportunities": ["調査結果から導き出されるビジネスチャンスや機会。箇条書きで複数挙げる。"],
-    "threats": ["市場に潜む脅威やリスク。箇条書きで複数挙げる。"]
-}`;
+        const prompt = `以下のトピックについて、Web検索を活用して詳細な市場調査レポートをJSON形式で作成してください。
+トピック: "${topic}"`;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro',
+            model: "gemini-2.5-pro",
             contents: prompt,
             config: {
                 tools: [{ googleSearch: {} }],
+                responseMimeType: "application/json",
+                responseSchema: marketResearchSchema,
                 signal,
                 thinkingConfig: { thinkingBudget: 32768 },
             },
         });
         
-        let jsonStr = response.text.trim();
-        if (jsonStr.startsWith('```json')) {
-            jsonStr = jsonStr.substring(7, jsonStr.length - 3).trim();
-        }
+        let jsonStr = response.text.trim().replace(/^```json\n|\n```$/g, '');
         const result = JSON.parse(jsonStr);
 
         const rawChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
@@ -624,117 +998,100 @@ JSONフォーマット:
     });
 };
 
-export const generateCustomProposalContent = async (lead: Lead): Promise<CustomProposalContent> => {
+// FIX: ADD Live API helper functions
+function encode(bytes: Uint8Array) {
+  let binary = '';
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+export function decode(base64: string) {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+export async function decodeAudioData(
+  data: Uint8Array,
+  ctx: AudioContext,
+  sampleRate: number,
+  numChannels: number,
+): Promise<AudioBuffer> {
+  const dataInt16 = new Int16Array(data.buffer);
+  const frameCount = dataInt16.length / numChannels;
+  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+
+  for (let channel = 0; channel < numChannels; channel++) {
+    const channelData = buffer.getChannelData(channel);
+    for (let i = 0; i < frameCount; i++) {
+      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+    }
+  }
+  return buffer;
+}
+
+export function createBlob(data: Float32Array): Blob {
+  const l = data.length;
+  const int16 = new Int16Array(l);
+  for (let i = 0; i < l; i++) {
+    int16[i] = data[i] * 32768;
+  }
+  return {
+    data: encode(new Uint8Array(int16.buffer)),
+    mimeType: 'audio/pcm;rate=16000',
+  };
+}
+
+interface LiveChatCallbacks {
+    onTranscription: (type: 'input' | 'output', text: string) => void;
+    onAudioChunk: (base64Audio: string) => void;
+    onTurnComplete: () => void;
+    onError: (e: ErrorEvent) => void;
+    onClose: (e: CloseEvent) => void;
+    onInterrupted: () => void;
+}
+
+export const startLiveChatSession = async (callbacks: LiveChatCallbacks): Promise<any> => {
     checkOnlineAndAIOff();
-    return withRetry(async (signal) => {
-        const prompt = `あなたは「文唱堂印刷株式会社」の優秀なセールスコンサルタントです。以下のリード情報を基に、Webリサーチを徹底的に行い、その企業のためだけの本格的な提案資料のコンテンツを、必ず指定されたJSON形式で生成してください。
-
-## リード情報
-- 企業名: ${lead.company}
-- Webサイト: ${lead.landingPageUrl || '不明'}
-- 問い合わせ内容: ${lead.message || '具体的な内容は記載されていません。'}
-
-## 指示
-1.  **ディープリサーチ**: Google検索を駆使して、上記企業の事業内容、最近のニュース、業界での立ち位置、IR情報などを調査し、深く理解してください。
-2.  **コンテンツ生成**: リサーチ結果と問い合わせ内容を統合し、以下の各セクションの文章を生成してください。文章はプロフェッショナルかつ説得力のあるものにしてください。
-3.  **JSON出力**: 必ず以下のJSONフォーマットに従って出力してください。
-{
-    "coverTitle": "提案書の表紙のタイトル。例:「株式会社〇〇様向け 物流効率化のご提案」",
-    "businessUnderstanding": "Webリサーチに基づいた、提案先企業の事業内容の理解。客観的な事実を簡潔にまとめる。",
-    "challenges": "リサーチ結果と問い合わせ内容から推測される、提案先企業が抱える課題やニーズの仮説。箇条書きで記述。",
-    "proposal": "上記の課題を解決するための、自社（文唱堂印刷）の具体的なサービス提案。提供する価値やメリットを明確にする。",
-    "conclusion": "提案の締めくくりと、次のアクションを促す力強い結びの言葉。"
-}`;
-
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro',
-            contents: prompt,
-            config: {
-                tools: [{ googleSearch: {} }],
-                signal,
-                thinkingConfig: { thinkingBudget: 32768 },
+    const sessionPromise = ai.live.connect({
+        model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+        callbacks: {
+            onopen: () => {
+                console.debug('Live session opened');
             },
-        });
-
-        let jsonStr = response.text.trim();
-        if (jsonStr.startsWith('```json')) {
-            jsonStr = jsonStr.substring(7, jsonStr.length - 3).trim();
-        }
-        try {
-            return JSON.parse(jsonStr);
-        } catch (e) {
-            console.error("Failed to parse JSON from Gemini for custom proposal:", e);
-            console.error("Received text:", jsonStr);
-            throw new Error("AIからの提案書コンテンツの生成に失敗しました。");
-        }
-    });
-};
-
-export const createLeadProposalPackage = async (lead: Lead): Promise<LeadProposalPackage> => {
-    checkOnlineAndAIOff();
-    return withRetry(async (signal) => {
-        const prompt = `あなたは「文唱堂印刷株式会社」の非常に優秀なセールスコンサルタントです。以下のリード情報を分析し、次のタスクを実行してください。
-
-## リード情報
-- 企業名: ${lead.company}
-- Webサイト: ${lead.landingPageUrl || '不明'}
-- 問い合わせ内容: ${lead.message || '具体的な内容は記載されていません。'}
-
-## タスク
-1.  **リードの分類**: この問い合わせが、当社のサービスに対する**本物の関心**にもとづくものか、あるいは単なる**営業メール（売り込み）**かを判断してください。
-2.  **本物のリードの場合**:
-    a. **ディープリサーチ**: Google検索を駆使して、上記企業の事業内容、最近のニュース、業界での立ち位置などを調査し、深く理解してください。
-    b. **提案書コンテンツ生成**: リサーチ結果と問い合わせ内容を統合し、プロフェッショナルで説得力のある提案書コンテンツを生成してください。
-    c. **見積案作成**: 提案内容に基づき、現実的で詳細な見積の明細項目を作成してください。もし顧客の要望が倉庫管理、定期発送、サブスクリプション型のサービスを示唆している場合、必ず「初期費用」と「月額費用」の項目を立てて見積を作成してください。
-3.  **営業メールの場合**:
-    a. なぜそのように判断したか、簡潔な理由を述べてください。proposal と estimate フィールドは省略してください。
-
-## JSON出力
-必ず指定されたJSONフォーマットに従って、結果を単一のJSONオブジェクトとして出力してください。
-フォーマット:
-{
-    "isSalesLead": "boolean",
-    "reason": "string, isSalesLeadがfalseの場合のみ",
-    "proposal": {
-        "coverTitle": "string",
-        "businessUnderstanding": "string",
-        "challenges": "string",
-        "proposal": "string",
-        "conclusion": "string"
-    },
-    "estimate": [
-        {
-            "division": "string, enum: ['用紙代', 'デザイン・DTP代', '刷版代', '印刷代', '加工代', 'その他', '初期費用', '月額費用']",
-            "content": "string",
-            "quantity": "number",
-            "unit": "string",
-            "unitPrice": "number",
-            "price": "number",
-            "cost": "number"
-        }
-    ]
-}`;
-
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro',
-            contents: prompt,
-            config: {
-                tools: [{ googleSearch: {} }],
-                signal,
-                thinkingConfig: { thinkingBudget: 32768 },
+            onmessage: async (message: LiveServerMessage) => {
+                if (message.serverContent?.outputTranscription) {
+                    callbacks.onTranscription('output', message.serverContent.outputTranscription.text);
+                }
+                if (message.serverContent?.inputTranscription) {
+                    callbacks.onTranscription('input', message.serverContent.inputTranscription.text);
+                }
+                if (message.serverContent?.turnComplete) {
+                    callbacks.onTurnComplete();
+                }
+                const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
+                if (base64Audio) {
+                    callbacks.onAudioChunk(base64Audio);
+                }
+                if(message.serverContent?.interrupted){
+                    callbacks.onInterrupted();
+                }
             },
-        });
-
-        let jsonStr = response.text.trim();
-        if (jsonStr.startsWith('```json')) {
-            jsonStr = jsonStr.substring(7, jsonStr.length - 3).trim();
-        }
-        try {
-            return JSON.parse(jsonStr);
-        } catch (e) {
-            console.error("Failed to parse JSON from Gemini for lead proposal package:", e);
-            console.error("Received text:", jsonStr);
-            throw new Error("AIからの提案パッケージの生成に失敗しました。");
-        }
+            onerror: callbacks.onError,
+            onclose: callbacks.onClose,
+        },
+        config: {
+            responseModalities: [Modality.AUDIO],
+            inputAudioTranscription: {},
+            outputAudioTranscription: {},
+        },
     });
+    return sessionPromise;
 };

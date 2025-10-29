@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import ApplicationList from '../ApplicationList';
 import ApplicationDetailModal from '../ApplicationDetailModal';
 import { getApplications, getApplicationCodes, approveApplication, rejectApplication } from '../../services/dataService';
-// FIX: Import AllocationDivision type.
 import { ApplicationWithDetails, ApplicationCode, EmployeeUser, Toast, Customer, AccountItem, Job, PurchaseOrder, Department, AllocationDivision } from '../../types';
 import { Loader, AlertTriangle } from '../Icons';
 
@@ -10,6 +9,7 @@ import { Loader, AlertTriangle } from '../Icons';
 import ExpenseReimbursementForm from '../forms/ExpenseReimbursementForm';
 import TransportExpenseForm from '../forms/TransportExpenseForm';
 import LeaveApplicationForm from '../forms/LeaveApplicationForm';
+// FIX: Corrected import path for ApprovalForm.
 import ApprovalForm from '../forms/ApprovalForm';
 import DailyReportForm from '../forms/DailyReportForm';
 import WeeklyReportForm from '../forms/WeeklyReportForm';
@@ -26,17 +26,18 @@ interface ApprovalWorkflowPageProps {
     purchaseOrders?: PurchaseOrder[];
     departments?: Department[];
     isAIOff?: boolean;
-    // FIX: Add missing 'allocationDivisions' property.
     allocationDivisions?: AllocationDivision[];
+    onSuccess?: () => void; // Added for form submission success callback
+    onRefreshData?: () => void; // Added for list data refresh
 }
 
 const TABS_CONFIG = {
-    pending: { title: "要承認", description: "あなたが承認する必要がある申請の一覧です。" },
+    pending: { title: "あなたが承認する申請", description: "あなたが承認する必要がある申請の一覧です。" },
     submitted: { title: "自分の申請", description: "あなたが過去に提出したすべての申請履歴です。" },
     completed: { title: "完了済", description: "承認または却下されたすべての申請の履歴です。" },
 };
 
-const ApprovalWorkflowPage: React.FC<ApprovalWorkflowPageProps> = ({ currentUser, view, formCode, searchTerm, addToast, customers, accountItems, jobs, purchaseOrders, departments, isAIOff, allocationDivisions }) => {
+const ApprovalWorkflowPage: React.FC<ApprovalWorkflowPageProps> = ({ currentUser, view, formCode, searchTerm, addToast, customers, accountItems, jobs, purchaseOrders, departments, isAIOff, allocationDivisions, onSuccess, onRefreshData }) => {
     // State for list view
     const [applications, setApplications] = useState<ApplicationWithDetails[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -101,7 +102,8 @@ const ApprovalWorkflowPage: React.FC<ApprovalWorkflowPageProps> = ({ currentUser
             await approveApplication(application, currentUser as any);
             addToast('申請を承認しました。', 'success');
             handleModalClose();
-            await fetchListData();
+            await fetchListData(); // Refresh list after action
+            onRefreshData?.(); // Notify parent to refresh if needed
         } catch (err: any) {
             addToast(`エラー: ${err.message}`, 'error');
         }
@@ -113,7 +115,8 @@ const ApprovalWorkflowPage: React.FC<ApprovalWorkflowPageProps> = ({ currentUser
             await rejectApplication(application, reason, currentUser as any);
             addToast('申請を差し戻しました。', 'success');
             handleModalClose();
-            await fetchListData();
+            await fetchListData(); // Refresh list after action
+            onRefreshData?.(); // Notify parent to refresh if needed
         } catch (err: any) {
             addToast(`エラー: ${err.message}`, 'error');
         }
@@ -160,6 +163,7 @@ const ApprovalWorkflowPage: React.FC<ApprovalWorkflowPageProps> = ({ currentUser
     // Form View Logic
     const handleFormSuccess = () => {
         addToast('申請が提出されました。承認一覧で確認できます。', 'success');
+        onSuccess?.(); // Call parent onSuccess to trigger global data reload
     };
 
     const renderActiveForm = () => {
@@ -188,14 +192,15 @@ const ApprovalWorkflowPage: React.FC<ApprovalWorkflowPageProps> = ({ currentUser
 
         switch(formCode) {
             case 'EXP': return <ExpenseReimbursementForm {...formProps} customers={customers || []} accountItems={accountItems || []} jobs={jobs || []} purchaseOrders={purchaseOrders || []} departments={departments || []} allocationDivisions={allocationDivisions || []} />;
-            case 'TRP': return <TransportExpenseForm {...formProps} />;
+            // FIX: Pass accountItems and allocationDivisions to TransportExpenseForm
+            case 'TRP': return <TransportExpenseForm {...formProps} accountItems={accountItems || []} allocationDivisions={allocationDivisions || []} />;
             case 'LEV': return <LeaveApplicationForm {...formProps} />;
             case 'APL': return <ApprovalForm {...formProps} />;
             case 'DLY': return <DailyReportForm {...formProps} />;
             case 'WKR': return <WeeklyReportForm {...formProps} />;
             default: return (
                 <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-sm text-center">
-                    <AlertTriangle className="w-12 h-12 text-red-500 mx-auto" />
+                    <AlertTriangle className="w-12 h-12 text-red-500 mx-auto" aria-hidden="true" />
                     <h3 className="mt-4 text-lg font-bold">フォームが見つかりません</h3>
                     <p className="mt-2 text-slate-600 dark:text-slate-400">申請フォーム '{formCode}' は存在しないか、正しく設定されていません。</p>
                 </div>
@@ -227,6 +232,8 @@ const ApprovalWorkflowPage: React.FC<ApprovalWorkflowPageProps> = ({ currentUser
                         ? 'border-blue-500 text-blue-600 bg-white dark:bg-slate-800'
                         : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'
                 }`}
+                aria-selected={activeTab === id}
+                role="tab"
             >
                 {label}
                 <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
@@ -242,8 +249,8 @@ const ApprovalWorkflowPage: React.FC<ApprovalWorkflowPageProps> = ({ currentUser
         return (
             <div className="flex flex-col gap-6">
                 <div className="border-b border-slate-200 dark:border-slate-700">
-                    <nav className="flex space-x-2">
-                        <TabButton id="pending" label="要承認" count={tabCounts.pending} />
+                    <nav className="flex space-x-2" role="tablist">
+                        <TabButton id="pending" label="あなたが承認する申請" count={tabCounts.pending} />
                         <TabButton id="submitted" label="自分の申請" count={tabCounts.submitted} />
                         <TabButton id="completed" label="完了済" count={tabCounts.completed} />
                     </nav>
@@ -255,9 +262,9 @@ const ApprovalWorkflowPage: React.FC<ApprovalWorkflowPageProps> = ({ currentUser
                 </div>
 
                 {isLoading ? (
-                    <div className="text-center p-16"><Loader className="w-8 h-8 mx-auto animate-spin"/></div>
+                    <div className="text-center p-16" aria-live="polite"><Loader className="w-8 h-8 mx-auto animate-spin" aria-hidden="true" /></div>
                 ) : error ? (
-                    <div className="text-center p-16 text-red-500">{error}</div>
+                    <div className="text-center p-16 text-red-500" role="alert">{error}</div>
                 ) : displayedApplications.length > 0 ? (
                     <ApplicationList
                         applications={displayedApplications}

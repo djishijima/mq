@@ -1,3 +1,5 @@
+
+
 import { User } from './types';
 
 declare const jspdf: any;
@@ -82,16 +84,16 @@ E-mail：sales.system@mqprint.co.jp
     }
 };
 
-export const generateMultipagePdf = async (elementId: string, fileName: string) => {
+export const generateMultipagePdf = async (elementId: string, fileName: string): Promise<void> => {
     const input = document.getElementById(elementId);
     if (!input) {
-        throw new Error(`PDF生成用の要素(ID: "${elementId}")が見つかりませんでした。`);
+      throw new Error(`Element with id '${elementId}' not found.`);
     }
 
     const canvas = await html2canvas(input, {
         scale: 2,
         useCORS: true,
-        logging: false,
+        logging: true,
         width: input.scrollWidth,
         height: input.scrollHeight,
         windowWidth: input.scrollWidth,
@@ -100,7 +102,7 @@ export const generateMultipagePdf = async (elementId: string, fileName: string) 
 
     const pdf = new jspdf.jsPDF({
         orientation: 'p',
-        unit: 'mm',
+        unit: 'px',
         format: 'a4',
     });
 
@@ -110,7 +112,6 @@ export const generateMultipagePdf = async (elementId: string, fileName: string) 
     const canvasWidth = canvas.width;
     const canvasHeight = canvas.height;
     
-    // Calculate the height of the canvas content when fitted to the PDF width
     const ratio = canvasWidth / pdfWidth;
     const canvasRenderedHeight = canvasHeight / ratio;
 
@@ -125,25 +126,13 @@ export const generateMultipagePdf = async (elementId: string, fileName: string) 
         
         pdf.addImage(canvas, 'PNG', 0, -position, pdfWidth, canvasRenderedHeight);
 
-        // Add header and footer to each page
         pdf.setFontSize(8);
         pdf.setTextColor(150);
-        
-        // Header
-        pdf.text('文唱堂印刷株式会社 | Confidential', 15, 10);
-        
-        // Footer
         pdf.text(
             `Page ${pageCount} of ${totalPages}`,
             pdfWidth / 2,
             pdfHeight - 10,
             { align: 'center' }
-        );
-        pdf.text(
-            new Date().toLocaleDateString('ja-JP'),
-            pdfWidth - 15,
-            pdfHeight - 10,
-            { align: 'right' }
         );
 
         position += pdfHeight;

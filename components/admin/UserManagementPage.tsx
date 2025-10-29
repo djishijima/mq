@@ -11,13 +11,14 @@ const UserModal: React.FC<{
     const [name, setName] = useState(user?.name || '');
     const [email, setEmail] = useState(user?.email || '');
     const [role, setRole] = useState<'admin' | 'user'>(user?.role || 'user');
+    const [canUseAnythingAnalysis, setCanUseAnythingAnalysis] = useState(user?.canUseAnythingAnalysis ?? true);
     const [isSaving, setIsSaving] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!name || !email) return;
         setIsSaving(true);
-        await onSave({ ...user, name, email, role });
+        await onSave({ ...user, name, email, role, canUseAnythingAnalysis });
         setIsSaving(false);
     };
 
@@ -43,6 +44,13 @@ const UserModal: React.FC<{
                             <option value="user">一般ユーザー</option>
                             <option value="admin">管理者</option>
                         </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">権限</label>
+                        <div className="flex items-center gap-2 mt-2 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                            <input id="canUseAnythingAnalysis" name="canUseAnythingAnalysis" type="checkbox" checked={canUseAnythingAnalysis} onChange={e => setCanUseAnythingAnalysis(e.target.checked)} className="h-4 w-4 rounded text-blue-600 focus:ring-blue-500" />
+                            <label htmlFor="canUseAnythingAnalysis" className="text-sm">「なんでも分析」機能の利用を許可</label>
+                        </div>
                     </div>
                 </div>
                 <div className="flex justify-end gap-4 p-6 border-t border-slate-200 dark:border-slate-700">
@@ -101,7 +109,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ addToast, reque
                 await updateUser(userData.id, userData);
                 addToast('ユーザー情報が更新されました。', 'success');
             } else {
-                await addUser({ name: userData.name || '', email: userData.email || null, role: userData.role || 'user' });
+                await addUser({ name: userData.name || '', email: userData.email || null, role: userData.role || 'user', canUseAnythingAnalysis: userData.canUseAnythingAnalysis });
                 addToast('新規ユーザーが追加されました。', 'success');
             }
             await loadUsers();
@@ -150,6 +158,7 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ addToast, reque
                             <th className="px-6 py-3">氏名</th>
                             <th className="px-6 py-3">メールアドレス</th>
                             <th className="px-6 py-3">役割</th>
+                            <th className="px-6 py-3">なんでも分析</th>
                             <th className="px-6 py-3">登録日</th>
                             <th className="px-6 py-3 text-center">操作</th>
                         </tr>
@@ -163,6 +172,9 @@ const UserManagementPage: React.FC<UserManagementPageProps> = ({ addToast, reque
                                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 text-slate-800'}`}>
                                         {user.role === 'admin' ? '管理者' : '一般ユーザー'}
                                     </span>
+                                </td>
+                                <td className="px-6 py-4 text-center">
+                                    {user.canUseAnythingAnalysis ? '✅' : '❌'}
                                 </td>
                                 <td className="px-6 py-4">{new Date(user.createdAt).toLocaleDateString()}</td>
                                 <td className="px-6 py-4">

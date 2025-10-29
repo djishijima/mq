@@ -1,14 +1,20 @@
 import React, { useState, useMemo } from 'react';
-import { Lead, LeadStatus, SortConfig, Toast, ConfirmationDialogProps, EmployeeUser, Estimate } from '../../types';
+// FIX: Corrected import paths to be relative from the 'sales/' directory.
+import { Lead, LeadStatus, SortConfig, Toast, ConfirmationDialogProps, EmployeeUser } from '../../types';
 import { Loader, Pencil, Trash2, Mail, Eye, CheckCircle, Lightbulb, List, KanbanSquare } from '../Icons';
+// FIX: Corrected import path for LeadDetailModal.
 import { LeadDetailModal } from './LeadDetailModal';
+// FIX: Corrected import path for LeadStatusBadge.
 import LeadStatusBadge from './LeadStatusBadge';
+// FIX: Corrected import path for LeadKanbanView.
 import LeadKanbanView from './LeadKanbanView';
+// FIX: Corrected import paths to be relative from the 'sales/' directory.
 import { generateLeadReplyEmail } from '../../services/geminiService';
-import { formatDate } from '../../utils';
+import { formatDate, formatDateTime, createSignature } from '../../utils';
 import EmptyState from '../ui/EmptyState';
 import SortableHeader from '../ui/SortableHeader';
-import { DropdownMenu, DropdownMenuItem } from '../ui/DropdownMenu';
+// import { DropdownMenu, DropdownMenuItem } from '../ui/DropdownMenu'; // Removed DropdownMenu
+import LeadSummaryCards from './LeadSummaryCards';
 
 interface LeadManagementPageProps {
   leads: Lead[];
@@ -24,22 +30,33 @@ interface LeadManagementPageProps {
 }
 
 const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTerm, onRefresh, onUpdateLead, onDeleteLead, addToast, requestConfirmation, currentUser, isAIOff, onAddEstimate }) => {
-    const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'updatedAt', direction: 'descending' });
+    const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'updatedAt', direction: 'descending' }); // Changed default sort key to updatedAt
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+    const [selectedLeadIndex, setSelectedLeadIndex] = useState<number>(0);
     const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
     const [editingStatusLeadId, setEditingStatusLeadId] = useState<string | null>(null);
-    const [isReplyingTo, setIsReplyingTo] = useState<string | null>(null);
+    // Removed isReplyingTo state from here, now handled in LeadDetailModal
     const [isMarkingContacted, setIsMarkingContacted] = useState<string | null>(null);
 
     const handleRowClick = (lead: Lead) => {
         setSelectedLead(lead);
+        const index = sortedLeads.findIndex(l => l.id === lead.id);
+        setSelectedLeadIndex(index);
         setIsModalOpen(true);
     };
 
     const handleCloseModal = () => {
         setIsModalOpen(false);
         setSelectedLead(null);
+        setSelectedLeadIndex(0);
+    };
+    
+    const handleNavigateLead = (index: number) => {
+        if (index >= 0 && index < sortedLeads.length) {
+            setSelectedLeadIndex(index);
+            setSelectedLead(sortedLeads[index]);
+        }
     };
 
     const handleSaveLead = async (leadId: string, updatedData: Partial<Lead>) => {
@@ -63,7 +80,8 @@ const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTe
         });
     };
     
-    const handleGenerateReply = async (lead: Lead) => {
+    // This function will now be handled internally by LeadDetailModal
+    const handleGenerateReplyFromList = async (lead: Lead) => {
         if (!lead.email) {
             addToast('返信先のメールアドレスが登録されていません。', 'error');
             return;
@@ -72,13 +90,20 @@ const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTe
             addToast('ログインユーザー情報が見つかりません。', 'error');
             return;
         }
-        setIsReplyingTo(lead.id);
+        // Temporarily set a state to show loading icon, then handle in modal
+        // setIsReplyingTo(lead.id); // This state no longer exists here
         try {
-            const { subject, body } = await generateLeadReplyEmail(lead, currentUser.name);
-            const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${lead.email}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            // FIX: Changed `generateLeadReplyEmail` to match its expected single argument.
+            // FIX: Property 'body' does not exist on type 'GeneratedEmailContent'. Use 'bodyText' instead.
+            const { subject, bodyText } = await generateLeadReplyEmail(lead);
+            const signature = createSignature();
+            // FIX: Property 'body' does not exist on type 'GeneratedEmailContent'. Use 'bodyText' instead.
+            const finalBody = `${bodyText}\n\n${signature}`.trim();
+
+            const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${lead.email}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(finalBody)}`;
             window.open(gmailUrl, '_blank');
             
-            const timestamp = new Date().toLocaleString('ja-JP');
+            const timestamp = formatDateTime(new Date().toISOString());
             const logMessage = `[${timestamp}] AI返信メールを作成しました。`;
             const updatedInfo = `${logMessage}\n${lead.infoSalesActivity || ''}`.trim();
             
@@ -91,15 +116,16 @@ const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTe
         } catch (error) {
             addToast(error instanceof Error ? error.message : 'AIによるメール作成に失敗しました。', 'error');
         } finally {
-            setIsReplyingTo(null);
+            // setIsReplyingTo(null); // This state no longer exists here
         }
     };
+
 
     const handleMarkContacted = async (e: React.MouseEvent, lead: Lead) => {
         e.stopPropagation();
         setIsMarkingContacted(lead.id);
         try {
-            const timestamp = new Date().toLocaleString('ja-JP');
+            const timestamp = formatDateTime(new Date().toISOString());
             const logMessage = `[${timestamp}] ステータスを「${lead.status}」から「${LeadStatus.Contacted}」に変更しました。`;
             const updatedInfo = `${logMessage}\n${lead.infoSalesActivity || ''}`.trim();
 
@@ -139,9 +165,14 @@ const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTe
                     bVal = b.inquiryTypes ? b.inquiryTypes.join(', ') : (b.inquiryType || '');
                 }
                 
+                // Prioritize updatedAt, fallback to createdAt if updatedAt is null
                 if (sortConfig.key === 'updatedAt') {
                     aVal = a.updatedAt || a.createdAt;
                     bVal = b.updatedAt || b.createdAt;
+                }
+                if (sortConfig.key === 'createdAt') { // Added for explicit '受信日時' sorting
+                    aVal = a.createdAt;
+                    bVal = b.createdAt;
                 }
 
                 if (aVal === null || aVal === undefined) return 1;
@@ -165,6 +196,8 @@ const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTe
 
     return (
         <>
+            <LeadSummaryCards leads={leads} /> {/* Added LeadSummaryCards */}
+
             <div className="flex justify-end mb-4">
                 <div className="flex items-center p-1 bg-slate-200 dark:bg-slate-700 rounded-lg">
                     <button onClick={() => setViewMode('list')} className={`px-3 py-1 rounded-md text-sm font-semibold flex items-center gap-2 ${viewMode === 'list' ? 'bg-white dark:bg-slate-800 shadow text-slate-800 dark:text-white' : 'text-slate-500 dark:text-slate-300'}`}>
@@ -182,7 +215,8 @@ const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTe
                         <table className="w-full text-base text-left text-slate-500 dark:text-slate-400">
                             <thead className="text-sm text-slate-700 uppercase bg-slate-50 dark:bg-slate-700 dark:text-slate-300">
                                 <tr>
-                                    <SortableHeader sortKey="updatedAt" label="最終更新日時" sortConfig={sortConfig} requestSort={requestSort} />
+                                    <SortableHeader sortKey="createdAt" label="受信日時" sortConfig={sortConfig} requestSort={requestSort} />
+                                    <SortableHeader sortKey="updatedAt" label="最終更新日時" sortConfig={sortConfig} requestSort={requestSort} /> {/* Changed label to "最終更新日時" */}
                                     <SortableHeader sortKey="company" label="会社名 / 担当者" sortConfig={sortConfig} requestSort={requestSort} />
                                     <SortableHeader sortKey="status" label="ステータス" sortConfig={sortConfig} requestSort={requestSort} />
                                     <SortableHeader sortKey="inquiryTypes" label="問い合わせ種別" sortConfig={sortConfig} requestSort={requestSort} />
@@ -195,10 +229,10 @@ const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTe
                                     <tr 
                                       key={lead.id} 
                                       className="group bg-white dark:bg-slate-800 border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 cursor-pointer odd:bg-slate-50 dark:odd:bg-slate-800/50"
-                                      onClick={() => handleRowClick(lead)}
                                     >
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm">{formatDate(lead.updatedAt || lead.createdAt)}</td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm" onClick={() => handleRowClick(lead)}>{formatDateTime(lead.createdAt)}</td> {/* Display createdAt with time */}
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm" onClick={() => handleRowClick(lead)}>{formatDateTime(lead.updatedAt || lead.createdAt)}</td> {/* Display updatedAt with time, fallback to createdAt */}
+                                        <td className="px-6 py-4" onClick={() => handleRowClick(lead)}>
                                             <div className="font-semibold text-slate-800 dark:text-slate-200">
                                                 {lead.company} <span className="font-normal text-slate-500">/ {lead.name}</span>
                                             </div>
@@ -225,42 +259,43 @@ const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTe
                                                     className="w-full text-left relative group/status p-1 flex items-center gap-2"
                                                 >
                                                     <LeadStatusBadge status={lead.status} />
-                                                    <Pencil className="w-3 h-3 text-slate-400 opacity-0 group-hover/status:opacity-100 transition-opacity" />
+                                                    <Pencil className="w-3 h-3 text-slate-400 opacity-0 group-hover/status:opacity-100 transition-opacity" aria-hidden="true" />
                                                 </button>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
+                                        <td className="px-6 py-4 whitespace-nowrap" onClick={() => handleRowClick(lead)}>
                                             {lead.inquiryTypes && lead.inquiryTypes.length > 0
-                                                ? <div className="flex flex-wrap gap-1">{lead.inquiryTypes.slice(0, 2).map(type => <span key={type} className="px-2 py-0.5 text-xs rounded-full bg-slate-200 dark:bg-slate-600">{type}</span>)}</div>
+                                                // FIX: Use index for key to prevent potential duplicate key errors.
+                                                ? <div className="flex flex-wrap gap-1">{lead.inquiryTypes.slice(0, 2).map((type, index) => <span key={index} className="px-2 py-0.5 text-xs rounded-full bg-slate-200 dark:bg-slate-600">{type}</span>)}</div>
                                                 : (lead.inquiryType || '-')
                                             }
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm">{lead.email || '-'}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm" onClick={() => handleRowClick(lead)}>{lead.email || '-'}</td>
                                         <td className="px-6 py-4 text-center">
-                                            <div className="flex justify-center items-center opacity-0 group-hover:opacity-100 transition-opacity focus-within:opacity-100" onClick={e => e.stopPropagation()}>
-                                                <DropdownMenu>
-                                                    <DropdownMenuItem onClick={() => handleRowClick(lead)}>
-                                                        <Eye className="w-4 h-4" /> 詳細表示
-                                                    </DropdownMenuItem>
-                                                     {lead.status === LeadStatus.Untouched && (
-                                                        <DropdownMenuItem onClick={(e) => handleMarkContacted(e, lead)}>
-                                                            {isMarkingContacted === lead.id ? <Loader className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} コンタクト済にする
-                                                        </DropdownMenuItem>
-                                                     )}
-                                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleGenerateReply(lead); }} disabled={isAIOff}>
-                                                        {isReplyingTo === lead.id ? <Loader className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />} AIで返信作成
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={(e) => handleDeleteClick(e, lead)} className="text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50">
-                                                        <Trash2 className="w-4 h-4" /> 削除
-                                                    </DropdownMenuItem>
-                                                </DropdownMenu>
+                                            <div className="flex justify-center items-center gap-2" onClick={e => e.stopPropagation()}>
+                                                <button onClick={() => handleRowClick(lead)} className="p-2 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700" title="詳細表示" aria-label={`リード「${lead.company}」の詳細を表示`}>
+                                                    <Eye className="w-5 h-5"/>
+                                                </button>
+                                                {lead.status === LeadStatus.Untouched && (
+                                                    <button onClick={(e) => handleMarkContacted(e, lead)} disabled={isMarkingContacted === lead.id} className="p-2 rounded-full text-green-600 hover:bg-green-100 dark:hover:bg-green-900/50 disabled:opacity-50" title="コンタクト済にする" aria-label={`リード「${lead.company}」をコンタクト済みにする`}>
+                                                        {isMarkingContacted === lead.id ? <Loader className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
+                                                    </button>
+                                                )}
+                                                {/* Re-added AI Reply to list view directly to allow quick action */}
+                                                <button onClick={(e) => { e.stopPropagation(); handleGenerateReplyFromList(lead); }} disabled={isAIOff} className="p-2 rounded-full text-purple-600 hover:bg-purple-100 dark:hover:bg-purple-900/50 disabled:opacity-50" title="AIで返信作成" aria-label={`リード「${lead.company}」へAIで返信を作成`}>
+                                                    {/* isReplyingTo state is removed, so assume it's loading briefly or just trigger */}
+                                                    <Mail className="w-5 h-5" />
+                                                </button>
+                                                <button onClick={(e) => handleDeleteClick(e, lead)} className="p-2 rounded-full text-red-600 hover:bg-red-100 dark:hover:bg-red-900/50" title="削除" aria-label={`リード「${lead.company}」を削除`}>
+                                                    <Trash2 className="w-5 h-5" />
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
                                 ))}
                                  {sortedLeads.length === 0 && (
                                     <tr>
-                                        <td colSpan={6}>
+                                        <td colSpan={7}>
                                             <EmptyState 
                                                 icon={Lightbulb}
                                                 title={searchTerm ? '検索結果がありません' : 'リードがありません'}
@@ -280,12 +315,15 @@ const LeadManagementPage: React.FC<LeadManagementPageProps> = ({ leads, searchTe
                 isOpen={isModalOpen}
                 onClose={handleCloseModal}
                 lead={selectedLead}
+                allLeads={sortedLeads} // Pass all filtered and sorted leads
+                currentLeadIndex={selectedLeadIndex}
+                onNavigateLead={handleNavigateLead}
                 onSave={handleSaveLead}
                 onDelete={onDeleteLead}
                 addToast={addToast}
                 requestConfirmation={requestConfirmation}
                 currentUser={currentUser}
-                onGenerateReply={handleGenerateReply}
+                // onGenerateReply prop is removed from here
                 isAIOff={isAIOff}
                 // FIX: Pass the onAddEstimate prop to satisfy the LeadDetailModalProps interface.
                 onAddEstimate={onAddEstimate}

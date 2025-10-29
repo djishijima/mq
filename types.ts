@@ -1,18 +1,30 @@
+
+
 export type Page =
-  | 'analysis_dashboard' | 'sales_dashboard' | 'sales_leads' | 'sales_customers' | 'sales_pipeline'
-  | 'sales_estimates' | 'sales_orders' | 'sales_billing' | 'analysis_ranking'
-  | 'purchasing_orders' | 'purchasing_invoices' | 'purchasing_payments'
+  | 'analysis_dashboard' | 'sales_leads' | 'sales_customers' | 'sales_pipeline' | 'sales_delivery'
+  | 'sales_estimates' |
+  | 'sales_orders' | 'sales_billing' | 'analysis_ranking'
+  | 'purchasing_orders' | 'purchasing_invoices' | 'purchasing_payments' | 'purchasing_suppliers'
   | 'inventory_management' | 'manufacturing_orders' | 'manufacturing_progress' | 'manufacturing_cost'
-  | 'hr_attendance' | 'hr_man_hours' | 'hr_labor_cost'
+  | 'hr_attendance' | 'hr_man_hours' | 'hr_labor_cost' | 'hr_org_chart'
   | 'approval_list' | 'approval_form_expense' | 'approval_form_transport' | 'approval_form_leave'
   | 'approval_form_approval' | 'approval_form_daily' | 'approval_form_weekly'
+  | 'report_other' // New report page
   | 'accounting_journal' | 'accounting_general_ledger' | 'accounting_trial_balance'
-  | 'accounting_tax_summary' | 'accounting_period_closing' | 'accounting_business_plan'
+  | 'accounting_tax_summary'
+  | 'accounting_period_closing'
+  | 'accounting_business_plan'
   | 'business_support_proposal'
   | 'ai_business_consultant'
   | 'ai_market_research'
+  | 'ai_live_chat'
+  | 'ai_anything_analysis' // New "Analyze Anything" page
+  | 'estimate_creation' |
+  | 'project_list' | 'project_creation' | // New project management pages
   | 'admin_audit_log' | 'admin_journal_queue' | 'admin_user_management' | 'admin_route_management'
   | 'admin_master_management' | 'admin_bug_reports' | 'settings';
+
+export type UUID = string;
 
 export enum JobStatus {
   Pending = '保留',
@@ -59,6 +71,15 @@ export enum EstimateStatus {
   Lost = '失注',
 }
 
+export enum ProjectStatus {
+  Draft = '下書き',
+  New = '新規',
+  InProgress = '進行中',
+  Completed = '完了',
+  Cancelled = 'キャンセル',
+  Archived = 'アーカイブ済',
+}
+
 export enum BugReportStatus {
     Open = '未対応',
     InProgress = '対応中',
@@ -69,7 +90,7 @@ export enum BugReportStatus {
 export interface Job {
   id: string;
   jobNumber: number;
-  clientName: string;
+  clientName: string; // Deprecate - use projectName/customerId for lookup
   title: string;
   status: JobStatus;
   dueDate: string;
@@ -86,6 +107,9 @@ export interface Job {
   readyToInvoice?: boolean;
   invoiceId?: string | null;
   manufacturingStatus?: ManufacturingStatus;
+  projectId?: string; // New: Link to project
+  projectName?: string; // New: Derived from project for convenience
+  userId?: string;
 }
 
 export interface JournalEntry {
@@ -103,6 +127,7 @@ export interface User {
   email: string | null;
   role: 'admin' | 'user';
   createdAt: string;
+  canUseAnythingAnalysis?: boolean;
 }
 
 export interface EmployeeUser {
@@ -113,6 +138,7 @@ export interface EmployeeUser {
   email: string;
   role: 'admin' | 'user';
   createdAt: string;
+  canUseAnythingAnalysis?: boolean;
 }
 
 export interface Customer {
@@ -205,6 +231,7 @@ export interface InvoiceData {
     account: string;
     relatedCustomer?: string;
     project?: string;
+    allocationDivision?: string;
 }
 
 export interface AIJournalSuggestion {
@@ -228,21 +255,90 @@ export interface EstimateItem {
     quantity: number;
     unit: string;
     unitPrice: number;
-    price: number;
+    price: number; // calculated price
     cost: number;
     costRate: number;
     subtotal: number;
 }
 
+// NEW: Estimate creation specific types
+export type PostalMethod = 'inhouse_print' | 'outsourced_label';
+export type PostalStatus = 'preparing' | 'shipped' | 'delivered';
+export type MailOpenStatus = 'opened' | 'unopened' | 'forwarded';
+
+export interface TrackingInfo {
+  trackId: UUID;
+  mailStatus: MailOpenStatus;     // 🟢 opened / 🟡 unopened / 🔵 forwarded
+  lastEventAt?: string;           // ISO8601
+  firstOpenedAt?: string;         // ISO8601
+  totalOpens: number;
+  totalClicks: number;
+}
+
+export interface PostalInfo {
+  method: PostalMethod;
+  status: PostalStatus;
+  toName: string;
+  toCompany?: string;
+  postalCode?: string;
+  prefecture?: string;
+  city?: string;
+  address1?: string;
+  address2?: string;
+  phone?: string;
+  labelPreviewSvg?: string;       // 宛名ラベルSVG（プレビュー用）
+}
+
+export interface EstimateLineItem {
+  sku?: string;
+  name: string;
+  description?: string;
+  qty: number;
+  unit?: string;
+  unitPrice: number;
+  taxRate?: number; // 0.1 = 10%
+  subtotal?: number;
+  taxAmount?: number;
+  total?: number;
+}
+
+export interface ExtractedParty {
+  company?: string;
+  department?: string;
+  title?: string;
+  person?: string;
+  email?: string;
+  tel?: string;
+  address?: string;
+  domain?: string;
+  confidence?: number; // 0-1
+}
+
+export interface EstimateDraft {
+  draftId: UUID;
+  sourceSummary?: string; // 解析要約
+  customerCandidates: ExtractedParty[];
+  subjectCandidates: string[];
+  paymentTerms?: string;
+  deliveryTerms?: string;
+  deliveryMethod?: string;
+  currency: 'JPY';
+  taxInclusive?: boolean;
+  dueDate?: string; // ISO
+  items: EstimateLineItem[];
+  notes?: string;
+}
+
 export interface Estimate {
-    id: string;
-    estimateNumber: number;
+    id: UUID;
+    estimateNumber: number; // Auto-generated display number
     customerName: string;
-    title: string;
-    items: EstimateItem[];
-    total: number;
+    title: string; // Subject for estimate
+    items: EstimateLineItem[]; // Changed from EstimateItem[]
+    // total: number; // Subtotal before tax - Removed as `subtotal` field exists
     deliveryDate: string;
     paymentTerms: string;
+    deliveryTerms?: string; // Added from EstimateDraft
     deliveryMethod: string;
     notes: string;
     status: EstimateStatus;
@@ -251,12 +347,49 @@ export interface Estimate {
     user?: User;
     createdAt: string;
     updatedAt: string;
+    projectId?: string; 
+    projectName?: string;
+    // NEW: Fields for tracking and postal
+    subtotal: number; // Recalculated subtotal (no tax)
+    taxTotal: number; // Recalculated tax total
+    grandTotal: number; // Recalculated grand total (with tax)
+    taxInclusive?: boolean; // Added for tax calculation logic
+    pdfUrl?: string; // URL to the generated PDF
+    tracking?: TrackingInfo;
+    postal?: PostalInfo;
+}
+
+export interface ProjectAttachment {
+  id: UUID;
+  projectId: UUID;
+  fileName: string;
+  filePath: string;
+  fileUrl: string;
+  mimeType: string;
+  category: string;
+  createdAt: string;
+}
+
+export interface Project {
+  id: UUID;
+  projectName: string;
+  customerName: string;
+  customerId?: string;
+  status: ProjectStatus;
+  overview: string; // AI generated summary
+  extracted_details: string; // AI extracted key details
+  createdAt: string;
+  updatedAt: string;
+  userId: string;
+  attachments?: ProjectAttachment[];
+  relatedEstimates?: Partial<Estimate>[];
+  relatedJobs?: Partial<Job>[];
 }
 
 export interface Lead {
     id: string;
     status: LeadStatus;
-    createdAt: string;
+    createdAt: string; // 受信日時として利用
     name: string;
     email: string | null;
     phone: string | null;
@@ -519,4 +652,46 @@ export interface MarketResearchReport {
   opportunities: string[];
   threats: string[];
   sources?: { uri: string; title: string; }[];
+}
+
+export interface GeneratedEmailContent {
+  subject: string;
+  bodyText: string;
+  bodyHtml?: string;
+}
+
+export interface EmailEnvelope {
+  to: { name?: string; email: string }[];
+  cc?: { name?: string; email: string }[];
+  bcc?: { name?: string; email: string }[];
+  subject: string;
+  bodyText: string;    // 開封ピクセル/追跡URL付与前の本文
+  bodyHtml?: string;   // 同上
+  attachments?: { filename: string; url: string }[];
+}
+
+// New types for "Anything Analysis"
+export interface AnalysisResult {
+    title: string;
+    summary: string;
+    table: {
+        headers: string[];
+        rows: string[][];
+    };
+    chart: {
+        type: 'bar' | 'line';
+        data: { name: string; value: number }[];
+    };
+}
+
+export interface AnalysisHistory {
+    id: UUID;
+    userId: UUID;
+    viewpoint: string;
+    dataSources: {
+        filenames: string[];
+        urls: string[];
+    };
+    result: AnalysisResult;
+    createdAt: string;
 }

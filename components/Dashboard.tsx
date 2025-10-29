@@ -5,30 +5,7 @@ import {
 import { Job, JournalEntry, AccountItem, JobStatus } from '../types';
 import { MONTHLY_GOALS, FIXED_COSTS } from '../constants';
 import { formatJPY } from '../utils';
-import { Lightbulb, Loader, AlertTriangle } from './Icons';
-
-const AISuggestionCard: React.FC<{ suggestion: string; isLoading: boolean; isAIOff: boolean }> = ({ suggestion, isLoading, isAIOff }) => (
-    <div className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-800 dark:to-slate-900/70 p-6 rounded-2xl shadow-sm flex items-start gap-4 col-span-1 lg:col-span-2">
-        <div className="bg-blue-200 dark:bg-blue-900/50 p-3 rounded-full flex-shrink-0">
-            <Lightbulb className="w-6 h-6 text-blue-600 dark:text-blue-300" />
-        </div>
-        <div>
-            <h3 className="text-lg font-semibold text-slate-800 dark:text-white">AIからの提案</h3>
-            <div className="mt-2 text-slate-600 dark:text-slate-300 min-h-[48px]">
-                {isAIOff ? (
-                    <p className="text-base">AI機能は現在無効です。</p>
-                ) : isLoading ? (
-                    <div className="flex items-center gap-2">
-                        <Loader className="w-5 h-5 animate-spin" />
-                        <span>分析中...</span>
-                    </div>
-                ) : (
-                    <p className="text-base">{suggestion}</p>
-                )}
-            </div>
-        </div>
-    </div>
-);
+import { Loader, AlertTriangle } from './Icons';
 
 const ActionItemsCard: React.FC<{
   jobs: Job[];
@@ -136,14 +113,11 @@ interface DashboardProps {
   jobs: Job[];
   journalEntries: JournalEntry[];
   accountItems: AccountItem[];
-  suggestion: string;
-  isSuggestionLoading: boolean;
   pendingApprovalCount: number;
   onNavigateToApprovals: () => void;
-  isAIOff: boolean;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ jobs, journalEntries, accountItems, suggestion, isSuggestionLoading, pendingApprovalCount, onNavigateToApprovals, isAIOff }) => {
+const Dashboard: React.FC<DashboardProps> = ({ jobs, journalEntries, accountItems, pendingApprovalCount, onNavigateToApprovals }) => {
     
     const mqData = useMemo(() => {
         const today = new Date();
@@ -240,10 +214,7 @@ const Dashboard: React.FC<DashboardProps> = ({ jobs, journalEntries, accountItem
 
     return (
         <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <AISuggestionCard suggestion={suggestion} isLoading={isSuggestionLoading} isAIOff={isAIOff} />
-                <ActionItemsCard jobs={jobs} pendingApprovalCount={pendingApprovalCount} onNavigateToApprovals={onNavigateToApprovals} />
-            </div>
+            <ActionItemsCard jobs={jobs} pendingApprovalCount={pendingApprovalCount} onNavigateToApprovals={onNavigateToApprovals} />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <MQCard title="PQ (売上高)" value={pq} colorClass="bg-sky-700 dark:bg-sky-800" meterGoal={MONTHLY_GOALS.pq} />
