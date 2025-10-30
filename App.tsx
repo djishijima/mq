@@ -51,6 +51,7 @@ import * as dataService from './services/dataService.ts';
 import * as geminiService from './services/geminiService.ts';
 import { supabase, hasSupabaseCredentials } from './services/supabaseClient.ts';
 import { Session } from '@supabase/supabase-js';
+import { getEnvValue } from './utils.ts';
 
 import { Page, Job, Customer, JournalEntry, User, AccountItem, Lead, ApprovalRoute, PurchaseOrder, InventoryItem, Employee, Toast, ConfirmationDialogProps, BugReport, Estimate, ApplicationWithDetails, Invoice, EmployeeUser, Department, PaymentRecipient, MasterAccountItem, AllocationDivision, Title, Project, ApplicationCode } from './types.ts';
 import { PlusCircle, Loader, AlertTriangle, RefreshCw, Settings, Bug } from './components/Icons.tsx';
@@ -196,7 +197,7 @@ const App: React.FC = () => {
     
     const [isBugReportModalOpen, setIsBugReportModalOpen] = useState(false);
 
-    const isAIOff = process.env.NEXT_PUBLIC_AI_OFF === '1';
+    const isAIOff = getEnvValue('NEXT_PUBLIC_AI_OFF') === '1';
     
     const [showSetupModal, setShowSetupModal] = useState(false);
 

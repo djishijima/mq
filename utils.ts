@@ -1,9 +1,40 @@
-
-
 import { User } from './types.ts';
 
 declare const jspdf: any;
 declare const html2canvas: any;
+
+const getImportMetaEnv = (): Record<string, string | undefined> | undefined => {
+  try {
+    // `import.meta` may be undefined in some runtimes (e.g. Node during testing)
+    return (typeof import.meta !== 'undefined' ? (import.meta as any).env : undefined) as
+      | Record<string, string | undefined>
+      | undefined;
+  } catch (error) {
+    console.warn('Failed to access import.meta.env:', error);
+    return undefined;
+  }
+};
+
+export const getEnvValue = (key: string): string | undefined => {
+  if (typeof process !== 'undefined' && process.env && process.env[key] !== undefined) {
+    return process.env[key];
+  }
+
+  const metaEnv = getImportMetaEnv();
+  if (metaEnv) {
+    if (metaEnv[key] !== undefined) {
+      return metaEnv[key];
+    }
+
+    const viteKey = `VITE_${key}`;
+    if (metaEnv[viteKey] !== undefined) {
+      return metaEnv[viteKey];
+    }
+  }
+
+  return undefined;
+};
+
 
 export const formatJPY = (amount: number | null | undefined): string => {
   if (amount === null || amount === undefined) return '-';

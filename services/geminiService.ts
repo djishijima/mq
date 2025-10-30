@@ -2,19 +2,19 @@
 import { GoogleGenAI, Type, GenerateContentResponse, Chat, Modality, FunctionDeclaration, LiveServerMessage, Blob } from "@google/genai";
 // FIX: Import MarketResearchReport type.
 import { AISuggestions, Customer, CompanyAnalysis, InvoiceData, AIJournalSuggestion, User, ApplicationCode, Estimate, EstimateItem, Lead, ApprovalRoute, Job, LeadStatus, JournalEntry, LeadScore, Application, ApplicationWithDetails, CompanyInvestigation, CustomProposalContent, LeadProposalPackage, MarketResearchReport, EstimateDraft, ExtractedParty, GeneratedEmailContent, EstimateLineItem, UUID, Project, AllocationDivision, AccountItem } from '../types.ts';
-import { formatJPY, createSignature } from "../utils.ts";
+import { formatJPY, createSignature, getEnvValue } from "../utils.ts";
 import { v4 as uuidv4 } from 'uuid';
 
 // AI機能をグローバルに制御する環境変数
-const NEXT_PUBLIC_AI_OFF = process.env.NEXT_PUBLIC_AI_OFF === '1';
+const NEXT_PUBLIC_AI_OFF = getEnvValue('NEXT_PUBLIC_AI_OFF') === '1';
 
-const API_KEY = process.env.API_KEY;
+const API_KEY = getEnvValue('API_KEY') ?? getEnvValue('GEMINI_API_KEY');
 
 if (!API_KEY && !NEXT_PUBLIC_AI_OFF) {
   console.error("API_KEY environment variable not set. AI functions might be unavailable.");
 }
 
-const ai = new GoogleGenAI({ apiKey: API_KEY! });
+const ai = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
 
 const model = "gemini-2.5-flash"; // Default model for low-latency
 
@@ -22,10 +22,13 @@ const checkOnlineAndAIOff = () => {
     if (NEXT_PUBLIC_AI_OFF) {
         throw new Error('AI機能は現在無効です。');
     }
-    if (!navigator.onLine) {
+    if (!API_KEY) {
+        throw new Error('AI APIキーが設定されていません。');
+    }
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
         throw new Error('オフラインです。ネットワーク接続を確認してください。');
     }
-}
+};
 
 async function withRetry<T>(fn: (signal?: AbortSignal) => Promise<T>, retries = 2, delay = 500): Promise<T> {
     const controller = new AbortController();
@@ -71,10 +74,11 @@ export const suggestJobParameters = async (prompt: string, paperTypes: string[],
 選択可能な加工リスト: ${finishingOptions.join(', ')}
 
 上記リストに最適なものがない場合は、依頼内容に最も近い一般的なものを提案してください。`;
-    const response = await ai.models.generateContent({
+    const response = await ai!.models.generateContent({
       model,
       contents: fullPrompt,
-      config: { responseMimeType: "application/json", responseSchema: suggestJobSchema, signal },
+      // FIX: Removed `signal` property as it's not valid in GenerateContentConfig.
+      config: { responseMimeType: "application/json", responseSchema: suggestJobSchema },
     });
     let jsonStr = response.text.trim();
     if (jsonStr.startsWith('```json')) {
@@ -106,12 +110,12 @@ JSONのフォーマットは以下のようにしてください:
   }
 }
 `;
-        const response = await ai.models.generateContent({
+        const response = await ai!.models.generateContent({
             model: "gemini-2.5-pro", // Use pro model for complex analysis
             contents: prompt,
             config: {
                 tools: [{ googleSearch: {} }],
-                signal,
+                // FIX: Removed `signal` property as it's not valid in GenerateContentConfig.
                 thinkingConfig: { thinkingBudget: 32768 }, // Max thinking budget for complex queries
             },
         });
@@ -145,12 +149,12 @@ export const investigateLeadCompany = async (companyName: string): Promise<Compa
     checkOnlineAndAIOff();
     return withRetry(async (signal) => {
         const prompt = `企業名「${companyName}」について、その事業内容、最近のニュース、市場での評判を調査し、簡潔にまとめてください。`;
-        const response = await ai.models.generateContent({
+        const response = await ai!.models.generateContent({
             model,
             contents: prompt,
             config: {
                 tools: [{ googleSearch: {} }],
-                signal
+                // FIX: Removed `signal` property as it's not valid in GenerateContentConfig.
             },
         });
 
@@ -181,12 +185,12 @@ export const enrichCustomerData = async (customerName: string): Promise<Partial<
 - 本社の住所 (address1)
 - 代表電話番号 (phoneNumber)
 - 代表者名 (representative)`;
-        const response = await ai.models.generateContent({
+        const response = await ai!.models.generateContent({
             model,
             contents: prompt,
             config: {
                 tools: [{ googleSearch: {} }],
-                signal
+                // FIX: Removed `signal` property as it's not valid in GenerateContentConfig.
             },
         });
         
@@ -231,10 +235,11 @@ export const extractInvoiceDetails = async (imageBase64: string, mimeType: strin
         const textPart = { text: `この画像から請求書の詳細情報を抽出してください。
 勘定科目は次のリストから選択してください: ${accountItems.map(i => i.name).join(', ')}
 振分区分は次のリストから選択してください: ${allocationDivisions.map(d => d.name).join(', ')}` };
-        const response = await ai.models.generateContent({
+        const response = await ai!.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: { parts: [imagePart, textPart] },
-            config: { responseMimeType: "application/json", responseSchema: extractInvoiceSchema, signal }
+            // FIX: Removed `signal` property as it's not valid in GenerateContentConfig.
+            config: { responseMimeType: "application/json", responseSchema: extractInvoiceSchema }
         });
         let jsonStr = response.text.trim();
         if (jsonStr.startsWith('```json')) {
@@ -259,10 +264,11 @@ export const suggestJournalEntry = async (prompt: string): Promise<AIJournalSugg
   checkOnlineAndAIOff();
   return withRetry(async (signal) => {
     const fullPrompt = `以下の日常的な取引内容を会計仕訳に変換してください。「${prompt}」`;
-    const response = await ai.models.generateContent({
+    const response = await ai!.models.generateContent({
       model,
       contents: fullPrompt,
-      config: { responseMimeType: "application/json", responseSchema: suggestJournalEntrySchema, signal },
+      // FIX: Removed `signal` property as it's not valid in GenerateContentConfig.
+      config: { responseMimeType: "application/json", responseSchema: suggestJournalEntrySchema },
     });
     let jsonStr = response.text.trim();
     if (jsonStr.startsWith('```json')) {
@@ -276,7 +282,8 @@ export const generateSalesEmail = async (customer: Customer, senderName: string)
     checkOnlineAndAIOff();
     return withRetry(async (signal) => {
         const prompt = `顧客名「${customer.customerName}」向けの営業提案メールを作成してください。送信者は「${senderName}」です。`;
-        const response = await ai.models.generateContent({ model, contents: prompt, config: { signal } });
+        // FIX: Removed `signal` property as it's not valid in GenerateContentConfig.
+        const response = await ai!.models.generateContent({ model, contents: prompt, config: { } });
         const text = response.text;
         const subjectMatch = text.match(/件名:\s*(.*)/);
         const bodyMatch = text.match(/本文:\s*([\s\S]*)/);
@@ -301,11 +308,11 @@ export const generateLeadReplyEmail = async (lead: Lead): Promise<GeneratedEmail
   "subject": "提案メールの件名",
   "bodyText": "提案メールの本文。担当者名は[あなたの名前]としてください。"
 }`;
-        const response = await ai.models.generateContent({ 
+        const response = await ai!.models.generateContent({ 
             model, 
             contents: prompt, 
             config: { 
-                signal,
+                // FIX: Removed `signal` property as it's not valid in GenerateContentConfig.
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: Type.OBJECT,
@@ -331,7 +338,8 @@ export const analyzeLeadData = async (leads: Lead[]): Promise<string> => {
         データサンプル:
         ${JSON.stringify(leads.slice(0, 3).map(l => ({ company: l.company, status: l.status, inquiryType: l.inquiryType, message: l.message })), null, 2)}
         `;
-        const response = await ai.models.generateContent({ model, contents: prompt, config: { signal } });
+        // FIX: Removed `signal` property as it's not valid in GenerateContentConfig.
+        const response = await ai!.models.generateContent({ model, contents: prompt, config: { } });
         return response.text;
     });
 };
@@ -390,12 +398,12 @@ Web検索を活用して、企業の事業内容、最近の動向、および�
 その上で、当社の印刷・物流サービスがどのように役立つかを具体的に提案してください。
 必ず指定されたJSON形式で出力してください。`;
 
-        const response = await ai.models.generateContent({
+        const response = await ai!.models.generateContent({
             model: "gemini-2.5-pro",
             contents: prompt,
             config: {
                 tools: [{ googleSearch: {} }],
-                signal,
+                // FIX: Removed `signal` property as it's not valid in GenerateContentConfig.
                 responseMimeType: "application/json",
                 responseSchema: proposalPackageSchema,
                 thinkingConfig: { thinkingBudget: 32768 },
@@ -435,7 +443,8 @@ export const getDashboardSuggestion = async (jobs: Job[]): Promise<string> => {
 データサンプル:
 ${JSON.stringify(recentJobs, null, 2)}
 `;
-        const response = await ai.models.generateContent({ model, contents: prompt, config: { signal } });
+        // FIX: Removed `signal` property as it's not valid in GenerateContentConfig.
+        const response = await ai!.models.generateContent({ model, contents: prompt, config: { } });
         return response.text;
     });
 };
@@ -446,7 +455,8 @@ export const generateDailyReportSummary = async (customerName: string, activityC
         const prompt = `以下のキーワードを元に、営業日報の活動内容をビジネス文書としてまとめてください。
 訪問先: ${customerName}
 キーワード: ${activityContent}`;
-        const response = await ai.models.generateContent({ model, contents: prompt, config: { signal } });
+        // FIX: Removed `signal` property as it's not valid in GenerateContentConfig.
+        const response = await ai!.models.generateContent({ model, contents: prompt, config: { } });
         return response.text;
     });
 };
@@ -456,7 +466,8 @@ export const generateWeeklyReportSummary = async (keywords: string): Promise<str
     return withRetry(async (signal) => {
         const prompt = `以下のキーワードを元に、週報の報告内容をビジネス文書としてまとめてください。
 キーワード: ${keywords}`;
-        const response = await ai.models.generateContent({ model, contents: prompt, config: { signal } });
+        // FIX: Removed `signal` property as it's not valid in GenerateContentConfig.
+        const response = await ai!.models.generateContent({ model, contents: prompt, config: { } });
         return response.text;
     });
 };
@@ -482,7 +493,7 @@ export const parseLineItems = async (prompt: string): Promise<EstimateLineItem[]
   const fullPrompt = `以下のテキストから見積の明細項目を抽出してください。印刷会社の標準的な項目で構成し、現実的な単価を設定してください。
 テキスト: "${prompt}"`;
   
-  const response = await ai.models.generateContent({
+  const response = await ai!.models.generateContent({
     model,
     contents: fullPrompt,
     config: { responseMimeType: "application/json", responseSchema: schema },
@@ -621,7 +632,7 @@ ${JSON.stringify({
     required: ["customerCandidates", "subjectCandidates", "items", "currency"],
 }, null, 2)}
 `;
-    const response = await ai.models.generateContent({
+    const response = await ai!.models.generateContent({
         model: "gemini-2.5-pro", // Use pro model for complex extraction
         contents: [...contents, { text: fullPrompt }],
         config: {
@@ -767,7 +778,7 @@ export const createProjectFromInputs = async (
 抽出されたデータは必ずJSON形式で出力してください。`;
     contents.push({ text: fullPrompt });
 
-    const response = await ai.models.generateContent({
+    const response = await ai!.models.generateContent({
         model: "gemini-2.5-pro",
         contents: contents,
         config: {
@@ -807,7 +818,8 @@ ${estimate ? `- 件名: ${estimate.title}\n- 合計金額: ${formatJPY(estimate.
 
 セクション「${sectionTitle}」の本文のみを生成してください。見出しは不要です。`;
 
-        const response = await ai.models.generateContent({ model: "gemini-2.5-pro", contents: prompt, config: { signal } });
+        // FIX: Removed `signal` property as it's not valid in GenerateContentConfig.
+        const response = await ai!.models.generateContent({ model: "gemini-2.5-pro", contents: prompt, config: { } });
         return response.text;
     });
 };
@@ -827,13 +839,13 @@ export const parseApprovalDocument = async (base64Data: string, mimeType: string
         const imagePart = { inlineData: { data: base64Data, mimeType } };
         const textPart = { text: "この画像またはPDFファイルから、稟議書の件名と詳細内容を抽出してください。" };
 
-        const response = await ai.models.generateContent({
+        const response = await ai!.models.generateContent({
             model: "gemini-2.5-pro",
             contents: { parts: [imagePart, textPart] },
             config: {
                 responseMimeType: "application/json",
                 responseSchema: parseApprovalDocumentSchema,
-                signal
+                // FIX: Removed `signal` property as it's not valid in GenerateContentConfig.
             }
         });
         const jsonStr = response.text.trim().replace(/^```json\n|\n```$/g, '');
@@ -846,7 +858,7 @@ export const startBusinessConsultantChat = (): Chat => {
         throw new Error('AI機能は現在無効です。');
     }
     const systemInstruction = `あなたは経験豊富な経営コンサルタントです。ユーザーは印刷会社の従業員です。提供された社内データ（案件情報、顧客情報、会計情報など）のコンテキストを理解し、具体的で実践的なアドバイスを提供してください。必要に応じてWeb検索も活用し、市場のトレンドや競合の動向も踏まえた回答を心がけてください。`;
-    return ai.chats.create({
+    return ai!.chats.create({
         model: "gemini-2.5-pro",
         config: {
             systemInstruction,
@@ -883,7 +895,8 @@ export const generateClosingSummary = async (
 
 上記データから、洞察に富んだサマリーを生成してください。`;
 
-        const response = await ai.models.generateContent({ model: "gemini-2.5-pro", contents: prompt, config: { signal } });
+        // FIX: Removed `signal` property as it's not valid in GenerateContentConfig.
+        const response = await ai!.models.generateContent({ model: "gemini-2.5-pro", contents: prompt, config: { } });
         return response.text;
     });
 };
@@ -898,7 +911,7 @@ export const startBugReportChat = (): Chat => {
   "summary": "簡潔な件名",
   "description": "問題の詳細な説明。再現手順、期待される動作、実際の動作などを含む。"
 }`;
-    return ai.chats.create({
+    return ai!.chats.create({
         model,
         config: {
             systemInstruction,
@@ -940,7 +953,8 @@ ${history.map(m => `${m.role}: ${m.content}`).join('\n')}
 
 上記に基づいて、次の応答（質問または最終的なJSON）を生成してください。`;
 
-        const response = await ai.models.generateContent({ model, contents: prompt, config: { signal } });
+        // FIX: Removed `signal` property as it's not valid in GenerateContentConfig.
+        const response = await ai!.models.generateContent({ model, contents: prompt, config: { } });
         return response.text.trim();
     });
 };
@@ -964,14 +978,14 @@ export const generateMarketResearchReport = async (topic: string): Promise<Marke
         const prompt = `以下のトピックについて、Web検索を活用して詳細な市場調査レポートをJSON形式で作成してください。
 トピック: "${topic}"`;
 
-        const response = await ai.models.generateContent({
+        const response = await ai!.models.generateContent({
             model: "gemini-2.5-pro",
             contents: prompt,
             config: {
                 tools: [{ googleSearch: {} }],
                 responseMimeType: "application/json",
                 responseSchema: marketResearchSchema,
-                signal,
+                // FIX: Removed `signal` property as it's not valid in GenerateContentConfig.
                 thinkingConfig: { thinkingBudget: 32768 },
             },
         });
@@ -1048,7 +1062,7 @@ interface LiveChatCallbacks {
 
 export const startLiveChatSession = async (callbacks: LiveChatCallbacks): Promise<any> => {
     checkOnlineAndAIOff();
-    const sessionPromise = ai.live.connect({
+    const sessionPromise = ai!.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-09-2025',
         callbacks: {
             onopen: () => {

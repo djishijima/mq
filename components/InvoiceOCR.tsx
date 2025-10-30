@@ -3,6 +3,7 @@
 
 
 
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { extractInvoiceDetails } from '../services/geminiService.ts';
 import { getInboxItems, addInboxItem, updateInboxItem, deleteInboxItem, uploadFile } from '../services/dataService.ts';
@@ -62,7 +63,8 @@ const InboxItemCard: React.FC<{
         setLocalData(item.extractedData);
     }, [item.extractedData]);
 
-    const handleLocalChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    // FIX: Add HTMLTextAreaElement to the event type to allow usage with textareas.
+    const handleLocalChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setLocalData(prev => prev ? { ...prev, [name]: value } : null);
     };

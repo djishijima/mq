@@ -49,7 +49,21 @@ const readFileAsBase64 = (file: File): Promise<string> => {
 
 const ExpenseReimbursementForm: React.FC<ExpenseReimbursementFormProps> = ({ onSuccess, applicationCodeId, currentUser, customers, accountItems, jobs, purchaseOrders, departments, isAIOff, isLoading, error: formLoadError, allocationDivisions }) => {
     const [departmentId, setDepartmentId] = useState<string>('');
-    const [details, setDetails] = useState<ExpenseDetail[]>([]);
+    // FIX: Initialize with one empty row to prevent validation issues and improve UX.
+    const [details, setDetails] = useState<ExpenseDetail[]>(() => [{
+        id: `row_${Date.now()}`,
+        paymentDate: new Date().toISOString().split('T')[0],
+        paymentRecipientId: '',
+        description: '',
+        allocationTarget: '',
+        costType: 'F',
+        accountItemId: '',
+        allocationDivisionId: '',
+        amount: 0,
+        p: 0,
+        v: 0,
+        q: 1,
+    }]);
     const [notes, setNotes] = useState('');
     const [approvalRouteId, setApprovalRouteId] = useState<string>('');
     const [isSubmitting, setIsSubmitting] = useState(false);

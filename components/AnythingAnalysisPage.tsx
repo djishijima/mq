@@ -3,6 +3,7 @@ import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, L
 import { GoogleGenAI, Type } from "@google/genai";
 import { User, AnalysisResult, AnalysisHistory } from '../types';
 import { getAnalysisHistory, addAnalysisHistory } from '../services/dataService';
+import { getEnvValue } from '../utils.ts';
 import { Loader, Sparkles, FileText, Link as LinkIcon, Trash2, Copy, History, X } from './Icons';
 
 interface AnythingAnalysisPageProps {
@@ -186,7 +187,11 @@ const AnythingAnalysisPage: React.FC<AnythingAnalysisPageProps> = ({ currentUser
         setResult(null);
 
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+            const apiKey = getEnvValue('API_KEY') ?? getEnvValue('GEMINI_API_KEY');
+            if (!apiKey) {
+                throw new Error('AI APIキーが設定されていません。');
+            }
+            const ai = new GoogleGenAI({ apiKey });
             
             const contents: any[] = [{ text: `以下のデータセットを分析してください。\n分析の視点: ${viewpoint}` }];
 
