@@ -15,7 +15,7 @@ import UserManagementPage from './components/admin/UserManagementPage.tsx';
 import ApprovalRouteManagementPage from './components/admin/ApprovalRouteManagementPage.tsx';
 import BugReportList from './components/admin/BugReportList.tsx';
 import SettingsPage from './components/SettingsPage.tsx';
-import AccountingPage from './components/accounting/Accounting.tsx';
+import AccountingPage from './components/Accounting.tsx';
 import SalesPipelinePage from './components/sales/SalesPipelinePage.tsx';
 import InventoryManagementPage from './components/inventory/InventoryManagementPage.tsx';
 import CreateInventoryItemModal from './components/inventory/CreateInventoryItemModal.tsx';
@@ -138,7 +138,6 @@ const GlobalErrorBanner: React.FC<{ error: string; onRetry: () => void; onShowSe
 const App: React.FC = () => {
     const [session, setSession] = useState<Session | null>(null);
     const [authLoading, setAuthLoading] = useState(true);
-    const [isDemoMode, setIsDemoMode] = useState(false);
 
     const [currentPage, setCurrentPage] = useState<Page>('analysis_dashboard');
     const [currentUser, setCurrentUser] = useState<EmployeeUser | null>(null);
@@ -260,109 +259,39 @@ const App: React.FC = () => {
     }, [currentUser]);
 
     useEffect(() => {
-        let isMounted = true;
-        const credentialsConfigured = hasSupabaseCredentials();
-
-        const activateDemoMode = async (message?: string) => {
-            try {
-                const demoUser = await dataService.resolveUserSession(dataService.createDemoAuthUser());
-                if (!isMounted) return;
-                setSession(null);
-                setCurrentUser(demoUser);
-                setIsDemoMode(true);
-                if (message) {
-                    setError(prev => prev ?? message);
-                }
-            } catch (demoError) {
-                console.error('Failed to initialize demo mode:', demoError);
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setSession(session);
+            if (session) {
+                dataService.resolveUserSession(session.user).then(setCurrentUser).finally(() => setAuthLoading(false));
+            } else {
+                setAuthLoading(false);
             }
-        };
+        });
 
-        const initializeAuth = async () => {
-            if (!credentialsConfigured) {
-                await activateDemoMode();
-                if (isMounted) {
-                    setAuthLoading(false);
-                }
-                return;
-            }
-
-            try {
-                const { data, error } = await supabase.auth.getSession();
-                if (!isMounted) return;
-
-                if (error) {
-                    throw error;
-                }
-
-                const sessionData = data.session ?? null;
-                setSession(sessionData);
-
-                if (sessionData) {
-                    const resolvedUser = await dataService.resolveUserSession(sessionData.user);
-                    if (!isMounted) return;
-                    setCurrentUser(resolvedUser);
-                    setIsDemoMode(false);
-                } else {
-                    setCurrentUser(null);
-                }
-            } catch (authError) {
-                console.error('Supabase auth initialization failed:', authError);
-                await activateDemoMode('Supabase 認証に接続できません。デモモードで起動しました。');
-            } finally {
-                if (isMounted) {
-                    setAuthLoading(false);
-                }
-            }
-        };
-
-        initializeAuth();
-
-        if (!credentialsConfigured) {
-            return () => {
-                isMounted = false;
-            };
-        }
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-            if (!isMounted) return;
-            setSession(nextSession);
-            if (nextSession) {
-                dataService.resolveUserSession(nextSession.user)
-                    .then(user => {
-                        if (!isMounted) return;
-                        setCurrentUser(user);
-                        setIsDemoMode(false);
-                    })
-                    .catch(err => console.error('Failed to resolve user session:', err));
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setSession(session);
+            if (session) {
+                dataService.resolveUserSession(session.user).then(setCurrentUser);
             } else {
                 setCurrentUser(null);
             }
         });
 
-        return () => {
-            isMounted = false;
-            subscription.unsubscribe();
-        };
+        return () => subscription.unsubscribe();
     }, []);
     
     useEffect(() => {
-      if (session || (isDemoMode && currentUser)) {
+      if (session) {
         fetchData();
-      } else if (!authLoading) {
+      } else {
         setIsLoading(false);
       }
-    }, [fetchData, session, isDemoMode, currentUser, authLoading]);
+    }, [fetchData, session]);
 
-    const handleSignOut = useCallback(async () => {
-        if (isDemoMode || !hasSupabaseCredentials()) {
-            addToast('デモモードではサインアウトは利用できません。', 'info');
-            return;
-        }
+    const handleSignOut = async () => {
         await supabase.auth.signOut();
         setCurrentUser(null);
-        setSession(null);
-    }, [addToast, isDemoMode]);
+    };
 
     // ... (rest of the component remains the same)
 
@@ -637,7 +566,7 @@ const App: React.FC = () => {
         return <div className="flex h-screen items-center justify-center"><Loader className="w-12 h-12 animate-spin" /></div>;
     }
     
-    if (!session && !isDemoMode) {
+    if (!session) {
         return <LoginPage />;
     }
 

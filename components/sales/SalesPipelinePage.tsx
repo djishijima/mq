@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import { Job, JobStatus } from '../../types.ts';
-import JobStatusBadge from '../JobStatusBadge.tsx';
 import { formatJPY, formatDate } from '../../utils.ts';
 
 interface SalesPipelinePageProps {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo } from 'react';
 import { Lead, LeadStatus } from '../../types.ts';
 import LeadStatusBadge from './LeadStatusBadge.tsx';
 
@@ -46,7 +46,7 @@ const LeadCard: React.FC<{ lead: Lead; onClick: () => void; }> = ({ lead, onClic
     );
 };
 
-const SimpleLeadKanbanView: React.FC<LeadKanbanViewProps> = ({ leads, onUpdateLead, onCardClick }) => {
+const LeadKanbanView: React.FC<LeadKanbanViewProps> = ({ leads, onUpdateLead, onCardClick }) => {
     
     const handleDropOnColumn = (e: React.DragEvent<HTMLDivElement>, newStatus: LeadStatus) => {
         e.preventDefault();
@@ -100,4 +100,4 @@ const SimpleLeadKanbanView: React.FC<LeadKanbanViewProps> = ({ leads, onUpdateLe
     );
 };
 
-export default SimpleLeadKanbanView;
+export default LeadKanbanView;

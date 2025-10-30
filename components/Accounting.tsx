@@ -1,9 +1,3 @@
-
-
-
-
-
-
 import React from 'react';
 // FIX: Corrected import path for JournalLedger.
 import JournalLedger from './JournalLedger.tsx';
