@@ -1,4 +1,3 @@
-
 import React from 'react';
 import JournalLedger from '../JournalLedger.tsx';
 import GeneralLedger from './GeneralLedger.tsx';
@@ -9,9 +8,7 @@ import LaborCostManagement from './LaborCostManagement.tsx';
 import PeriodClosingPage from './PeriodClosingPage.tsx';
 import PlaceholderPage from '../PlaceholderPage.tsx';
 import BillingManagement from './BillingManagement.tsx';
-
-
-import { JournalEntry, InvoiceData, Page } from '../types.ts';
+import { JournalEntry, InvoiceData, Page } from '../../types.ts';
 
 const AccountingPage: React.FC<any> = (props) => {
     const { page, journalEntries, accountItems, onAddEntry, addToast, requestConfirmation, jobs, applications, onNavigate, customers, employees, onRefreshData, allocationDivisions } = props;
