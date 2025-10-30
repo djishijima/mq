@@ -9,15 +9,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^19.2.0",
+    "@google/genai": "^1.15.0",
+    "recharts": "^3.1.2",
     "react-dom": "^19.2.0",
-    "@google/genai": "0.14.0",
-    "recharts": "2.12.7",
-    "@supabase/supabase-js": "2.44.4",
-    "uuid": "9.0.1",
-    "jszip": "3.10.1",
+    "react": "^19.1.1",
+    "@supabase/supabase-js": "^2.44.4",
     "@playwright/test": "^1.56.1",
-    "@axe-core/playwright": "^4.11.0"
+    "@axe-core/playwright": "^4.11.0",
+    "uuid": "^13.0.0",
+    "jszip": "^3.10.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

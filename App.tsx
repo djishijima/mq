@@ -138,6 +138,7 @@ const GlobalErrorBanner: React.FC<{ error: string; onRetry: () => void; onShowSe
 const App: React.FC = () => {
     const [session, setSession] = useState<Session | null>(null);
     const [authLoading, setAuthLoading] = useState(true);
+    const [authError, setAuthError] = useState<string | null>(null);
 
     const [currentPage, setCurrentPage] = useState<Page>('analysis_dashboard');
     const [currentUser, setCurrentUser] = useState<EmployeeUser | null>(null);
@@ -263,19 +264,17 @@ const App: React.FC = () => {
         }
         
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            setAuthError(null); // Reset error on any auth change
             setSession(session);
             if (session?.user) {
                 try {
-                    setError(null); // Clear previous errors on a new auth state change
                     const userProfile = await dataService.resolveUserSession(session.user);
                     setCurrentUser(userProfile);
                 } catch (e) {
-                    const errorMessage = e instanceof Error ? e.message : 'ユーザープロファイルの取得または作成に失敗しました。データベースのスキーマが最新でない可能性があります。セットアップガイドを確認してください。';
-                    setError(errorMessage);
-                    addToast(errorMessage, 'error');
-                    // Do NOT sign out. This prevents the login loop. The user is authenticated
-                    // but their profile is missing. The error banner will inform them.
-                    setCurrentUser(null); // Set user to null to prevent data loading attempts.
+                    const errorMessage = e instanceof Error ? e.message : 'ユーザーセッションの解決に失敗しました。';
+                    console.error("Auth Error:", errorMessage);
+                    setAuthError(errorMessage);
+                    // Do not sign out, let the user see the error on the login page.
                 }
             } else {
                 setCurrentUser(null);
@@ -354,8 +353,8 @@ const App: React.FC = () => {
         return <div className="flex justify-center items-center h-screen"><Loader className="w-12 h-12 animate-spin text-blue-500" /></div>;
     }
     
-    if (!session || !currentUser) {
-        return <LoginPage />;
+    if (!session || !currentUser || authError) {
+        return <LoginPage authError={authError} />;
     }
 
     return (

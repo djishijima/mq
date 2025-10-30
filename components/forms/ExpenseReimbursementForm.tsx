@@ -240,16 +240,67 @@ const ExpenseReimbursementForm: React.FC<ExpenseReimbursementFormProps> = ({ onS
                         return (
                             <div key={item.id} className="p-3 border border-slate-200 dark:border-slate-700 rounded-lg mb-3 space-y-2">
                                 <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start">
-                                    <input type="date" value={item.paymentDate} onChange={e => handleDetailChange(item.id, 'paymentDate', e.target.value)} className={`${inputClass} md:col-span-2 ${validationErrors.has(`${item.id}-paymentDate`) ? 'border-red-500 shake' : ''}`} disabled={isDisabled} aria-label="支払日" />
+                                    <input type="date" value={item.paymentDate} onChange={e => handleDetailChange(item.id, 'paymentDate', e.target.value)} className={`${inputClass} md:col-span-2 ${validationErrors.has(`${item.id}-paymentDate`) ? 'border-red-500 shake' : ''}`} disabled={isDisabled} aria-label="支払日" required />
+                                    <div className={`md:col-span-2 ${validationErrors.has(`${item.id}-paymentRecipientId`) ? 'p-1 bg-red-100 rounded-lg shake' : ''}`}>
+                                        <PaymentRecipientSelect value={item.paymentRecipientId} onChange={(id) => handleDetailChange(item.id, 'paymentRecipientId', id)} required aria-label="支払先" />
+                                    </div>
+                                    <input type="text" placeholder="内容" value={item.description} onChange={e => handleDetailChange(item.id, 'description', e.target.value)} className={`${inputClass} md:col-span-2 ${validationErrors.has(`${item.id}-description`) ? 'border-red-500 shake' : ''}`} disabled={isDisabled} aria-label="内容" required />
+                                    <div className={`md:col-span-1 ${validationErrors.has(`${item.id}-accountItemId`) ? 'p-1 bg-red-100 rounded-lg shake' : ''}`}>
+                                        <AccountItemSelect value={item.accountItemId} onChange={(id) => handleDetailChange(item.id, 'accountItemId', id)} required aria-label="勘定科目" />
+                                    </div>
+                                    <div className={`md:col-span-1 ${validationErrors.has(`${item.id}-allocationDivisionId`) ? 'p-1 bg-red-100 rounded-lg shake' : ''}`}>
+                                        <select value={item.allocationDivisionId} onChange={e => handleDetailChange(item.id, 'allocationDivisionId', e.target.value)} className={`${inputClass}`} disabled={isDisabled} aria-label="振分区分" required>
+                                            <option value="">振分区分</option>
+                                            {allocationDivisions.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <select value={item.allocationTarget} onChange={e => handleDetailChange(item.id, 'allocationTarget', e.target.value)} className={`${inputClass} md:col-span-2`} disabled={isDisabled} aria-label="振分先">
+                                        <option value="">振分先</option>
+                                        <optgroup label="顧客"><option value="common">共通</option>{customers.map(c => <option key={`customer:${c.id}`} value={`customer:${c.id}`}>{c.customerName}</option>)}</optgroup>
+                                        <optgroup label="案件">{jobs.map(j => <option key={`job:${j.id}`} value={`job:${j.id}`}>{j.title}</option>)}</optgroup>
+                                    </select>
+                                    <input type="number" placeholder="金額" value={item.amount} onChange={e => handleDetailChange(item.id, 'amount', Number(e.target.value))} className={`${inputClass} text-right md:col-span-1 ${validationErrors.has(`${item.id}-amount`) ? 'border-red-500 shake' : ''}`} disabled={isDisabled} aria-label="金額" required min="1" />
+                                    <button type="button" onClick={() => handleRemoveRow(item.id)} className="p-2 text-slate-400 hover:text-red-500 h-10 md:col-span-1" disabled={isDisabled} aria-label="行を削除"><Trash2 className="w-5 h-5" aria-hidden="true" /></button>
+                                </div>
+                                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 items-center pt-2 border-t border-slate-200 dark:border-slate-700">
+                                    <input type="number" placeholder="P (売上高)" value={item.p} onChange={e => handleDetailChange(item.id, 'p', Number(e.target.value))} className={`${inputClass} text-right`} disabled={isDisabled} aria-label="売上高P" />
+                                    <input type="number" placeholder="V (変動費)" value={item.v} onChange={e => handleDetailChange(item.id, 'v', Number(e.target.value))} className={`${inputClass} text-right`} disabled={isDisabled} aria-label="変動費V" />
+                                    <input type="number" placeholder="Q (数量)" value={item.q} onChange={e => handleDetailChange(item.id, 'q', Number(e.target.value))} className={`${inputClass} text-right`} disabled={isDisabled} aria-label="数量Q" />
+                                    <div className="text-sm text-center"><span className="text-slate-500">M: </span><span className="font-semibold">{m.toLocaleString()}</span></div>
+                                    <div className="text-sm text-center"><span className="text-slate-500">MQ: </span><span className="font-semibold">{mq.toLocaleString()}</span></div>
                                 </div>
                             </div>
                         )
                     })}
+                     <div className="flex items-center justify-between mt-2">
+                        <button type="button" onClick={addNewRow} className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-700" disabled={isDisabled} aria-label="行を追加">
+                            <PlusCircle className="w-4 h-4" aria-hidden="true" /> 行を追加
+                        </button>
+                        <div className="text-right">
+                            <span className="text-sm text-slate-500 dark:text-slate-400">合計金額: </span>
+                            <span className="text-xl font-bold text-slate-800 dark:text-white">¥{totalAmount.toLocaleString()}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label htmlFor="notes" className="block text-base font-semibold text-slate-700 dark:text-slate-200 mb-2">備考</label>
+                    <textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} rows={3} className={inputClass} placeholder="補足事項があれば入力してください。" disabled={isDisabled} aria-label="備考" />
+                </div>
+
+                <div className={validationErrors.has('approvalRouteId') ? 'p-1 bg-red-100 rounded-lg shake' : ''}>
+                    <ApprovalRouteSelector onChange={setApprovalRouteId} isSubmitting={isDisabled} requiredRouteName="社長決裁ルート" />
+                </div>
+
+                <div className="flex justify-end gap-4 pt-6 border-t border-slate-200 dark:border-slate-700">
+                    <button type="button" className="bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold py-2 px-4 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600" disabled={isSubmitting} aria-label="下書き保存">下書き保存</button>
+                    <button type="submit" className="w-40 flex justify-center items-center bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 disabled:bg-slate-400" disabled={isDisabled} aria-label="申請を送信する">
+                        {isSubmitting ? <Loader className="w-5 h-5 animate-spin" aria-hidden="true" /> : '申請を送信する'}
+                    </button>
                 </div>
             </form>
         </div>
     );
 };
 
-// FIX: Add missing default export.
 export default ExpenseReimbursementForm;

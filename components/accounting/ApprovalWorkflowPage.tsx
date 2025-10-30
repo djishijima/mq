@@ -9,7 +9,6 @@ import { Loader, AlertTriangle } from '../Icons';
 import ExpenseReimbursementForm from '../forms/ExpenseReimbursementForm';
 import TransportExpenseForm from '../forms/TransportExpenseForm';
 import LeaveApplicationForm from '../forms/LeaveApplicationForm';
-// FIX: Corrected import path for ApprovalForm.
 import ApprovalForm from '../forms/ApprovalForm';
 import DailyReportForm from '../forms/DailyReportForm';
 import WeeklyReportForm from '../forms/WeeklyReportForm';

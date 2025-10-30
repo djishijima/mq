@@ -1,12 +1,3 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from '../App';
-
-const rootElement = document.getElementById('root');
-if (!rootElement) {
-  throw new Error('Could not find root element to mount to');
-}
-
-ReactDOM.createRoot(rootElement).render(
-  <App />,
-);
+// This file acts as a proxy to resolve a build system conflict
+// caused by multiple entry points. It points to the correct entry point.
+import '../index.tsx';
