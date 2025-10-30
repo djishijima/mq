@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { AuthUser } from '@supabase/supabase-js';
+import { AuthUser } from '@supabase/supabase-js';
 import { createDemoDataState, DemoDataState } from './demoData.ts';
 import {
   EmployeeUser,
@@ -48,24 +48,6 @@ import {
   UUID,
   ConfirmationDialogProps,
 } from '../types.ts';
-
-type MinimalAuthUser = Pick<AuthUser, 'id'> & {
-  email?: string | null;
-  user_metadata?: { [key: string]: any; full_name?: string | null } | null;
-};
-
-const DEMO_AUTH_USER: MinimalAuthUser = {
-  id: 'demo-user',
-  email: 'demo.user@mqprint.co.jp',
-  user_metadata: { full_name: 'デモユーザー' },
-};
-
-export const createDemoAuthUser = (): MinimalAuthUser => ({
-  ...DEMO_AUTH_USER,
-  user_metadata: DEMO_AUTH_USER.user_metadata
-    ? { ...DEMO_AUTH_USER.user_metadata }
-    : undefined,
-});
 
 const demoState: DemoDataState = createDemoDataState();
 
@@ -171,7 +153,7 @@ export const isSupabaseUnavailableError = (error: any): boolean => {
   return /fetch failed/i.test(message) || /failed to fetch/i.test(message) || /network/i.test(message);
 };
 
-export const resolveUserSession = async (authUser: MinimalAuthUser): Promise<EmployeeUser> => {
+export const resolveUserSession = async (authUser: AuthUser): Promise<EmployeeUser> => {
   const fallbackEmail = authUser.email ?? '';
   const existing = demoState.employeeUsers.find(user => user.id === authUser.id || (!!fallbackEmail && user.email === fallbackEmail));
   if (existing) {

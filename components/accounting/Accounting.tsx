@@ -8,6 +8,8 @@ import LaborCostManagement from './LaborCostManagement.tsx';
 import PeriodClosingPage from './PeriodClosingPage.tsx';
 import PlaceholderPage from '../PlaceholderPage.tsx';
 import BillingManagement from './BillingManagement.tsx';
+
+
 import { JournalEntry, InvoiceData, Page } from '../../types.ts';
 
 const AccountingPage: React.FC<any> = (props) => {
