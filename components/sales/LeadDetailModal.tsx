@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Lead, LeadStatus, Toast, ConfirmationDialogProps, EmployeeUser, CustomProposalContent, LeadProposalPackage, EstimateStatus, EstimateItem, CompanyInvestigation } from '../../types';
-import { X, Save, Loader, Pencil, Trash2, Mail, CheckCircle, Lightbulb, Search, FileText, ArrowRight, ArrowLeft, AlertTriangle, RefreshCw, Sparkles } from '../Icons';
-import LeadStatusBadge from './LeadStatusBadge';
-import { INQUIRY_TYPES } from '../../constants';
-import LeadScoreBadge from '../ui/LeadScoreBadge';
-import { createLeadProposalPackage, investigateLeadCompany, generateLeadReplyEmail } from '../../services/geminiService';
-import ProposalPdfContent from './ProposalPdfContent';
-import { generateMultipagePdf, formatDate, formatJPY, formatDateTime, createSignature } from '../../utils';
-import InvestigationReportPdfContent from '../reports/InvestigationReportPdfContent';
+import { Lead, LeadStatus, Toast, ConfirmationDialogProps, EmployeeUser, CustomProposalContent, LeadProposalPackage, EstimateStatus, EstimateItem, CompanyInvestigation } from '../../types.ts';
+import { X, Save, Loader, Pencil, Trash2, Mail, CheckCircle, Lightbulb, Search, FileText, ArrowRight, ArrowLeft, AlertTriangle, RefreshCw, Sparkles } from '../Icons.tsx';
+import LeadStatusBadge from './LeadStatusBadge.tsx';
+import { INQUIRY_TYPES } from '../../constants.ts';
+import LeadScoreBadge from '../ui/LeadScoreBadge.tsx';
+import { createLeadProposalPackage, investigateLeadCompany, generateLeadReplyEmail } from '../../services/geminiService.ts';
+import ProposalPdfContent from './ProposalPdfContent.tsx';
+import { generateMultipagePdf, formatDate, formatJPY, formatDateTime, createSignature } from '../../utils.ts';
+import InvestigationReportPdfContent from '../reports/InvestigationReportPdfContent.tsx';
 
 interface LeadDetailModalProps {
     isOpen: boolean;

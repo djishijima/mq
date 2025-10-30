@@ -1,11 +1,11 @@
 import React, { useState, useMemo, useRef } from 'react';
 import JSZip from 'jszip';
-import { submitApplication } from '../../services/dataService';
-import { parseApprovalDocument } from '../../services/geminiService';
-import ApprovalRouteSelector from './ApprovalRouteSelector';
-import { Loader, Sparkles, AlertTriangle, Upload, FileText, X } from '../Icons';
-import { User, Toast } from '../../types';
-import ChatApplicationModal from '../ChatApplicationModal';
+import { submitApplication } from '../../services/dataService.ts';
+import { parseApprovalDocument } from '../../services/geminiService.ts';
+import ApprovalRouteSelector from './ApprovalRouteSelector.tsx';
+import { Loader, Sparkles, AlertTriangle, Upload, FileText, X } from '../Icons.tsx';
+import { User, Toast } from '../../types.ts';
+import ChatApplicationModal from '../ChatApplicationModal.tsx';
 
 interface ApprovalFormProps {
     onSuccess: () => void;

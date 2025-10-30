@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
-import { Lead, LeadStatus } from '../../types';
-import StatCard from '../StatCard';
-import { Users, Lightbulb, CheckCircle, TrendingUp } from '../Icons';
+import { Lead, LeadStatus } from '../../types.ts';
+import StatCard from '../StatCard.tsx';
+import { Users, Lightbulb, CheckCircle, TrendingUp } from '../Icons.tsx';
 
 interface LeadSummaryCardsProps {
   leads: Lead[];

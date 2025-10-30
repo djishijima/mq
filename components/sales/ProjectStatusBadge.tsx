@@ -1,5 +1,5 @@
 import React from 'react';
-import { ProjectStatus } from '../../types';
+import { ProjectStatus } from '../../types.ts';
 
 interface ProjectStatusBadgeProps {
   status: ProjectStatus | string;

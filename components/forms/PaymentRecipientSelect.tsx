@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { getPaymentRecipients } from '../../services/dataService';
-import { PaymentRecipient } from '../../types';
+import { getPaymentRecipients } from '../../services/dataService.ts';
+import { PaymentRecipient } from '../../types.ts';
 
 type Props = {
   value?: string; // id
@@ -13,14 +13,20 @@ type Props = {
 export default function PaymentRecipientSelect({ value, onChange, required, name = 'paymentRecipientId', id = 'paymentRecipientId' }: Props) {
   const [q, setQ] = useState('');
   const [list, setList] = useState<PaymentRecipient[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
-    getPaymentRecipients(q).then(setList).finally(() => setLoading(false));
-  }, [q]);
+    getPaymentRecipients().then(setList).finally(() => setLoading(false));
+  }, []);
 
-  const options = useMemo(() => list, [list]);
+  const options = useMemo(() => {
+    if (!q) return list;
+    const lowerQ = q.toLowerCase();
+    return list.filter(v =>
+      (v.companyName || '').toLowerCase().includes(lowerQ) ||
+      (v.recipientName || '').toLowerCase().includes(lowerQ)
+    );
+  }, [list, q]);
 
   const selectClass = "w-full text-sm bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white rounded-md p-2 focus:ring-blue-500 focus:border-blue-500";
   const inputClass = "w-full text-sm bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white rounded-md p-2 focus:ring-blue-500 focus:border-blue-500";

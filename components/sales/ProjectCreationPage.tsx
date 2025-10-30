@@ -1,9 +1,9 @@
 import React, { useState, useCallback } from 'react';
 import JSZip from 'jszip';
-import { Project, Customer, EmployeeUser, ProjectStatus, Toast } from '../../types';
-import { ArrowLeft, Sparkles, Loader, Upload, FileText, X } from '../Icons';
-import { createProjectFromInputs } from '../../services/geminiService';
-import { addProject } from '../../services/dataService';
+import { Project, Customer, EmployeeUser, ProjectStatus, Toast } from '../../types.ts';
+import { ArrowLeft, Sparkles, Loader, Upload, FileText, X } from '../Icons.tsx';
+import { createProjectFromInputs } from '../../services/geminiService.ts';
+import { addProject } from '../../services/dataService.ts';
 
 interface ProjectCreationPageProps {
     onNavigateBack: () => void;

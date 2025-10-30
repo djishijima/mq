@@ -1,11 +1,12 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import JSZip from 'jszip';
-import { Customer, EmployeeUser, Estimate, EstimateDraft, EstimateLineItem, Toast, Page, ExtractedParty, EstimateStatus, UUID } from '../../types';
-import { createDraftEstimate, parseLineItems } from '../../services/geminiService';
-import { addEstimate } from '../../services/dataService';
-import { Sparkles, Loader, X, PlusCircle, Trash2, ArrowLeft, Save, Upload, FileText } from '../Icons';
-import { formatJPY } from '../../utils';
+import { Customer, EmployeeUser, Estimate, EstimateDraft, EstimateLineItem, Toast, Page, ExtractedParty, EstimateStatus, UUID } from '../../types.ts';
+import { createDraftEstimate, parseLineItems } from '../../services/geminiService.ts';
+import { addEstimate } from '../../services/dataService.ts';
+import { Sparkles, Loader, X, PlusCircle, Trash2, ArrowLeft, Save, Upload, FileText } from '../Icons.tsx';
+import { formatJPY } from '../../utils.ts';
 
 interface EstimateCreationPageProps {
     customers: Customer[];

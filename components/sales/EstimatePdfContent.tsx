@@ -1,5 +1,5 @@
 import React from 'react';
-import { Estimate } from '../../types';
+import { Estimate } from '../../types.ts';
 
 type Props = { estimate: Estimate; footerLeft?: string; footerRight?: string };
 

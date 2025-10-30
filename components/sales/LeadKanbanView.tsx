@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Lead, LeadStatus } from '../../types';
-import LeadStatusBadge from './LeadStatusBadge';
+import { Lead, LeadStatus } from '../../types.ts';
+import LeadStatusBadge from './LeadStatusBadge.tsx';
 
 interface LeadKanbanViewProps {
   leads: Lead[];

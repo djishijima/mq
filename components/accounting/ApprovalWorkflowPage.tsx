@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import ApplicationList from '../ApplicationList';
-import ApplicationDetailModal from '../ApplicationDetailModal';
-import { getApplications, getApplicationCodes, approveApplication, rejectApplication } from '../../services/dataService';
-import { ApplicationWithDetails, ApplicationCode, EmployeeUser, Toast, Customer, AccountItem, Job, PurchaseOrder, Department, AllocationDivision } from '../../types';
-import { Loader, AlertTriangle } from '../Icons';
+import ApplicationList from '../ApplicationList.tsx';
+import ApplicationDetailModal from '../ApplicationDetailModal.tsx';
+import { getApplications, getApplicationCodes, approveApplication, rejectApplication } from '../../services/dataService.ts';
+import { ApplicationWithDetails, ApplicationCode, EmployeeUser, Toast, Customer, AccountItem, Job, PurchaseOrder, Department, AllocationDivision } from '../../types.ts';
+import { Loader, AlertTriangle } from '../Icons.tsx';
 
 // Form components
-import ExpenseReimbursementForm from '../forms/ExpenseReimbursementForm';
-import TransportExpenseForm from '../forms/TransportExpenseForm';
-import LeaveApplicationForm from '../forms/LeaveApplicationForm';
-import ApprovalForm from '../forms/ApprovalForm';
-import DailyReportForm from '../forms/DailyReportForm';
-import WeeklyReportForm from '../forms/WeeklyReportForm';
+import ExpenseReimbursementForm from '../forms/ExpenseReimbursementForm.tsx';
+import TransportExpenseForm from '../forms/TransportExpenseForm.tsx';
+import LeaveApplicationForm from '../forms/LeaveApplicationForm.tsx';
+import ApprovalForm from '../forms/ApprovalForm.tsx';
+import DailyReportForm from '../forms/DailyReportForm.tsx';
+import WeeklyReportForm from '../forms/WeeklyReportForm.tsx';
 
 interface ApprovalWorkflowPageProps {
     currentUser: EmployeeUser | null;
@@ -191,7 +191,6 @@ const ApprovalWorkflowPage: React.FC<ApprovalWorkflowPageProps> = ({ currentUser
 
         switch(formCode) {
             case 'EXP': return <ExpenseReimbursementForm {...formProps} customers={customers || []} accountItems={accountItems || []} jobs={jobs || []} purchaseOrders={purchaseOrders || []} departments={departments || []} allocationDivisions={allocationDivisions || []} />;
-            // FIX: Pass accountItems and allocationDivisions to TransportExpenseForm
             case 'TRP': return <TransportExpenseForm {...formProps} accountItems={accountItems || []} allocationDivisions={allocationDivisions || []} />;
             case 'LEV': return <LeaveApplicationForm {...formProps} />;
             case 'APL': return <ApprovalForm {...formProps} />;

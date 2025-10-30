@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Customer, SortConfig, Toast, EmployeeUser } from '../types';
-import { Pencil, Eye, Mail, Lightbulb, Users, PlusCircle, Loader, Save, X, Search } from './Icons';
-import EmptyState from './ui/EmptyState';
-import SortableHeader from './ui/SortableHeader';
-import { generateSalesEmail, enrichCustomerData } from '../services/geminiService';
-import { createSignature } from '../utils';
+import { Customer, SortConfig, Toast, EmployeeUser } from '../types.ts';
+import { Pencil, Eye, Mail, Lightbulb, Users, PlusCircle, Loader, Save, X, Search } from './Icons.tsx';
+import EmptyState from './ui/EmptyState.tsx';
+import SortableHeader from './ui/SortableHeader.tsx';
+import { generateSalesEmail, enrichCustomerData } from '../services/geminiService.ts';
+import { createSignature } from '../utils.ts';
 
 interface CustomerListProps {
   customers: Customer[];

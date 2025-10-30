@@ -1,4 +1,4 @@
-import { Job, JobStatus, InvoiceStatus, Employee, JournalEntry, Customer, PurchaseOrder, PurchaseOrderStatus } from './types';
+import { Job, JobStatus, InvoiceStatus, Employee, JournalEntry, Customer, PurchaseOrder, PurchaseOrderStatus } from './types.ts';
 
 export const PAPER_TYPES = [
   'コート紙 90kg',

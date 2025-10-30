@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { submitApplication } from '../../services/dataService';
-import { Loader, Sparkles, AlertTriangle } from '../Icons';
-import { User } from '../../types';
-import ChatApplicationModal from '../ChatApplicationModal';
-import ApprovalRouteSelector from './ApprovalRouteSelector';
+import { submitApplication } from '../../services/dataService.ts';
+import { Loader, Sparkles, AlertTriangle } from '../Icons.tsx';
+import { User } from '../../types.ts';
+import ChatApplicationModal from '../ChatApplicationModal.tsx';
+import ApprovalRouteSelector from './ApprovalRouteSelector.tsx';
 
 interface LeaveApplicationFormProps {
     onSuccess: () => void;

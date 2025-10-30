@@ -1,6 +1,6 @@
 
 
-import { User } from './types';
+import { User } from './types.ts';
 
 declare const jspdf: any;
 declare const html2canvas: any;

@@ -1,8 +1,8 @@
 // FIX: Import LiveServerMessage and Blob for Live Chat functionality.
 import { GoogleGenAI, Type, GenerateContentResponse, Chat, Modality, FunctionDeclaration, LiveServerMessage, Blob } from "@google/genai";
 // FIX: Import MarketResearchReport type.
-import { AISuggestions, Customer, CompanyAnalysis, InvoiceData, AIJournalSuggestion, User, ApplicationCode, Estimate, EstimateItem, Lead, ApprovalRoute, Job, LeadStatus, JournalEntry, LeadScore, Application, ApplicationWithDetails, CompanyInvestigation, CustomProposalContent, LeadProposalPackage, MarketResearchReport, EstimateDraft, ExtractedParty, GeneratedEmailContent, EstimateLineItem, UUID, Project, AllocationDivision, AccountItem } from '../types';
-import { formatJPY, createSignature } from "../utils";
+import { AISuggestions, Customer, CompanyAnalysis, InvoiceData, AIJournalSuggestion, User, ApplicationCode, Estimate, EstimateItem, Lead, ApprovalRoute, Job, LeadStatus, JournalEntry, LeadScore, Application, ApplicationWithDetails, CompanyInvestigation, CustomProposalContent, LeadProposalPackage, MarketResearchReport, EstimateDraft, ExtractedParty, GeneratedEmailContent, EstimateLineItem, UUID, Project, AllocationDivision, AccountItem } from '../types.ts';
+import { formatJPY, createSignature } from "../utils.ts";
 import { v4 as uuidv4 } from 'uuid';
 
 // AI機能をグローバルに制御する環境変数
@@ -16,7 +16,7 @@ if (!API_KEY && !NEXT_PUBLIC_AI_OFF) {
 
 const ai = new GoogleGenAI({ apiKey: API_KEY! });
 
-const model = "gemini-2.5-flash-lite"; // Default model for low-latency
+const model = "gemini-2.5-flash"; // Default model for low-latency
 
 const checkOnlineAndAIOff = () => {
     if (NEXT_PUBLIC_AI_OFF) {
@@ -287,7 +287,7 @@ export const generateSalesEmail = async (customer: Customer, senderName: string)
     });
 };
 
-export const generateLeadReplyEmail = async (lead: Lead): Promise<GeneratedEmailContent> => { // FIX: Changed return type to GeneratedEmailContent
+export const generateLeadReplyEmail = async (lead: Lead): Promise<GeneratedEmailContent> => {
     checkOnlineAndAIOff();
     return withRetry(async (signal) => {
         const prompt = `以下のリード情報に対して、初回の返信メールを作成してください。
@@ -318,11 +318,10 @@ export const generateLeadReplyEmail = async (lead: Lead): Promise<GeneratedEmail
             },
         });
         const jsonStr = response.text.trim().replace(/^```json\n|\n```$/g, ''); // Clean JSON block
-        return JSON.parse(jsonStr); // FIX: Ensure proper JSON parsing
+        return JSON.parse(jsonStr);
     });
 };
 
-// FIX: Add missing 'analyzeLeadData' function.
 export const analyzeLeadData = async (leads: Lead[]): Promise<string> => {
     checkOnlineAndAIOff();
     return withRetry(async (signal) => {
@@ -337,7 +336,6 @@ export const analyzeLeadData = async (leads: Lead[]): Promise<string> => {
     });
 };
 
-// FIX: Add missing 'createLeadProposalPackage' function.
 const proposalPackageSchema = {
     type: Type.OBJECT,
     properties: {
@@ -463,7 +461,6 @@ export const generateWeeklyReportSummary = async (keywords: string): Promise<str
     });
 };
 
-// FIX: Add missing 'parseLineItems' function.
 export const parseLineItems = async (prompt: string): Promise<EstimateLineItem[]> => {
   checkOnlineAndAIOff();
   const schema = {
@@ -714,7 +711,6 @@ ${JSON.stringify({
     return parsed;
 };
 
-// FIX: Add missing 'createProjectFromInputs' function.
 const projectCreationSchema = {
     type: Type.OBJECT,
     properties: {
@@ -794,7 +790,6 @@ export const createProjectFromInputs = async (
     }
 };
 
-// FIX: ADD generateProposalSection
 export const generateProposalSection = async (sectionTitle: string, customer: Customer, job: Job | null, estimate: Estimate | null): Promise<string> => {
     checkOnlineAndAIOff();
     return withRetry(async (signal) => {
@@ -817,7 +812,6 @@ ${estimate ? `- 件名: ${estimate.title}\n- 合計金額: ${formatJPY(estimate.
     });
 };
 
-// FIX: ADD parseApprovalDocument
 const parseApprovalDocumentSchema = {
     type: Type.OBJECT,
     properties: {
@@ -847,7 +841,6 @@ export const parseApprovalDocument = async (base64Data: string, mimeType: string
     });
 };
 
-// FIX: ADD startBusinessConsultantChat
 export const startBusinessConsultantChat = (): Chat => {
     if (NEXT_PUBLIC_AI_OFF) {
         throw new Error('AI機能は現在無効です。');
@@ -862,7 +855,6 @@ export const startBusinessConsultantChat = (): Chat => {
     });
 };
 
-// FIX: ADD generateClosingSummary
 export const generateClosingSummary = async (
     type: '月次' | '四半期' | '年次',
     currentPeriodJobs: Job[],
@@ -896,7 +888,6 @@ export const generateClosingSummary = async (
     });
 };
 
-// FIX: ADD startBugReportChat
 export const startBugReportChat = (): Chat => {
     if (NEXT_PUBLIC_AI_OFF) {
         throw new Error('AI機能は現在無効です。');
@@ -916,7 +907,6 @@ export const startBugReportChat = (): Chat => {
     });
 };
 
-// FIX: ADD processApplicationChat
 export const processApplicationChat = async (
     history: { role: 'user' | 'model', content: string }[],
     appCodes: ApplicationCode[],
@@ -955,7 +945,6 @@ ${history.map(m => `${m.role}: ${m.content}`).join('\n')}
     });
 };
 
-// FIX: ADD generateMarketResearchReport
 const marketResearchSchema = {
     type: Type.OBJECT,
     properties: {
@@ -998,7 +987,6 @@ export const generateMarketResearchReport = async (topic: string): Promise<Marke
     });
 };
 
-// FIX: ADD Live API helper functions
 function encode(bytes: Uint8Array) {
   let binary = '';
   const len = bytes.byteLength;

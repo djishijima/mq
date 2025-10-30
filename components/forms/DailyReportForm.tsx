@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { submitApplication } from '../../services/dataService';
-import { generateDailyReportSummary } from '../../services/geminiService';
-import ApprovalRouteSelector from './ApprovalRouteSelector';
-import { Loader, Sparkles, AlertTriangle } from '../Icons';
-import { User, Toast } from '../../types';
-import ChatApplicationModal from '../ChatApplicationModal';
+import { submitApplication } from '../../services/dataService.ts';
+import { generateDailyReportSummary } from '../../services/geminiService.ts';
+import ApprovalRouteSelector from './ApprovalRouteSelector.tsx';
+import { Loader, Sparkles, AlertTriangle } from '../Icons.tsx';
+import { User, Toast } from '../../types.ts';
+import ChatApplicationModal from '../ChatApplicationModal.tsx';
 
 interface DailyReportFormProps {
     onSuccess: () => void;

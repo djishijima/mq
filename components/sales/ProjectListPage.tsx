@@ -1,11 +1,12 @@
 
+
 import React, { useState } from 'react';
-import { Project, ProjectStatus } from '../../types';
-import { KanbanSquare, PlusCircle, Sparkles, Eye, FileText } from '../Icons';
-import EmptyState from '../ui/EmptyState';
-import { formatDate } from '../../utils';
-import ProjectDetailModal from './ProjectDetailModal';
-import ProjectStatusBadge from './ProjectStatusBadge';
+import { Project, ProjectStatus } from '../../types.ts';
+import { KanbanSquare, PlusCircle, Sparkles, Eye, FileText } from '../Icons.tsx';
+import EmptyState from '../ui/EmptyState.tsx';
+import { formatDate } from '../../utils.ts';
+import ProjectDetailModal from './ProjectDetailModal.tsx';
+import ProjectStatusBadge from './ProjectStatusBadge.tsx';
 
 
 interface ProjectListPageProps {

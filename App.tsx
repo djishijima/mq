@@ -1,60 +1,59 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import Sidebar from './components/Sidebar';
-import Header from './components/Header';
-import Dashboard from './components/Dashboard';
-import JobList from './components/JobList';
-import CreateJobModal from './components/CreateJobModal';
-import JobDetailModal from './components/JobDetailModal';
-import CustomerList from './components/CustomerList';
-import CustomerDetailModal from './components/CustomerDetailModal';
-import { CompanyAnalysisModal } from './components/CompanyAnalysisModal';
-import LeadManagementPage from './components/sales/LeadManagementPage';
-import CreateLeadModal from './components/sales/CreateLeadModal';
-import PlaceholderPage from './components/PlaceholderPage';
-import UserManagementPage from './components/admin/UserManagementPage';
-import ApprovalRouteManagementPage from './components/admin/ApprovalRouteManagementPage';
-import BugReportList from './components/admin/BugReportList';
-import SettingsPage from './components/SettingsPage';
-import AccountingPage from './components/Accounting';
-import SalesPipelinePage from './components/sales/SalesPipelinePage';
-import InventoryManagementPage from './components/inventory/InventoryManagementPage';
-import CreateInventoryItemModal from './components/inventory/CreateInventoryItemModal';
-import ManufacturingPipelinePage from './components/manufacturing/ManufacturingPipelinePage';
-import ManufacturingOrdersPage from './components/manufacturing/ManufacturingOrdersPage';
-import PurchasingManagementPage from './components/purchasing/PurchasingManagementPage';
-import CreatePurchaseOrderModal from './components/purchasing/CreatePurchaseOrderModal';
-import EstimateManagementPage from './components/sales/EstimateManagementPage';
-import EstimateCreationPage from './components/sales/EstimateCreationPage';
-import ProjectListPage from './components/sales/ProjectListPage';
-import ProjectCreationPage from './components/sales/ProjectCreationPage';
-import SalesRanking from './components/accounting/SalesRanking';
-import BusinessPlanPage from './components/accounting/BusinessPlanPage';
-import ApprovalWorkflowPage from './components/accounting/ApprovalWorkflowPage';
-import BusinessSupportPage from './components/BusinessSupportPage';
-import AIChatPage from './components/AIChatPage';
-import MarketResearchPage from './components/MarketResearchPage';
-import LiveChatPage from './components/LiveChatPage';
-import AnythingAnalysisPage from './components/AnythingAnalysisPage';
-import { ToastContainer } from './components/Toast';
-import ConfirmationDialog from './components/ConfirmationDialog';
-import ManufacturingCostManagement from './components/accounting/ManufacturingCostManagement';
-import AuditLogPage from './components/admin/AuditLogPage';
-import JournalQueuePage from './components/admin/JournalQueuePage';
-import MasterManagementPage from './components/admin/MasterManagementPage';
-import DatabaseSetupInstructionsModal from './components/DatabaseSetupInstructionsModal';
-import OrganizationChartPage from './components/hr/OrganizationChartPage';
-import LoginPage from './components/LoginPage';
-import BugReportModal from './components/BugReportModal';
+import Sidebar from './components/Sidebar.tsx';
+import Header from './components/Header.tsx';
+import Dashboard from './components/Dashboard.tsx';
+import JobList from './components/JobList.tsx';
+import CreateJobModal from './components/CreateJobModal.tsx';
+import JobDetailModal from './components/JobDetailModal.tsx';
+import CustomerList from './components/CustomerList.tsx';
+import CustomerDetailModal from './components/CustomerDetailModal.tsx';
+import { CompanyAnalysisModal } from './components/CompanyAnalysisModal.tsx';
+import LeadManagementPage from './components/sales/LeadManagementPage.tsx';
+import CreateLeadModal from './components/sales/CreateLeadModal.tsx';
+import PlaceholderPage from './components/PlaceholderPage.tsx';
+import UserManagementPage from './components/admin/UserManagementPage.tsx';
+import ApprovalRouteManagementPage from './components/admin/ApprovalRouteManagementPage.tsx';
+import BugReportList from './components/admin/BugReportList.tsx';
+import SettingsPage from './components/SettingsPage.tsx';
+import AccountingPage from './components/accounting/Accounting.tsx';
+import SalesPipelinePage from './components/sales/SalesPipelinePage.tsx';
+import InventoryManagementPage from './components/inventory/InventoryManagementPage.tsx';
+import CreateInventoryItemModal from './components/inventory/CreateInventoryItemModal.tsx';
+import ManufacturingPipelinePage from './components/manufacturing/ManufacturingPipelinePage.tsx';
+import ManufacturingOrdersPage from './components/manufacturing/ManufacturingOrdersPage.tsx';
+import PurchasingManagementPage from './components/purchasing/PurchasingManagementPage.tsx';
+import CreatePurchaseOrderModal from './components/purchasing/CreatePurchaseOrderModal.tsx';
+import EstimateManagementPage from './components/sales/EstimateManagementPage.tsx';
+import EstimateCreationPage from './components/sales/EstimateCreationPage.tsx';
+import ProjectListPage from './components/sales/ProjectListPage.tsx';
+import ProjectCreationPage from './components/sales/ProjectCreationPage.tsx';
+import SalesRanking from './components/accounting/SalesRanking.tsx';
+import BusinessPlanPage from './components/accounting/BusinessPlanPage.tsx';
+import ApprovalWorkflowPage from './components/accounting/ApprovalWorkflowPage.tsx';
+import BusinessSupportPage from './components/BusinessSupportPage.tsx';
+import AIChatPage from './components/AIChatPage.tsx';
+import MarketResearchPage from './components/MarketResearchPage.tsx';
+import LiveChatPage from './components/LiveChatPage.tsx';
+import AnythingAnalysisPage from './components/AnythingAnalysisPage.tsx';
+import { ToastContainer } from './components/Toast.tsx';
+import ConfirmationDialog from './components/ConfirmationDialog.tsx';
+import ManufacturingCostManagement from './components/accounting/ManufacturingCostManagement.tsx';
+import AuditLogPage from './components/admin/AuditLogPage.tsx';
+import JournalQueuePage from './components/admin/JournalQueuePage.tsx';
+import MasterManagementPage from './components/admin/MasterManagementPage.tsx';
+import DatabaseSetupInstructionsModal from './components/DatabaseSetupInstructionsModal.tsx';
+import OrganizationChartPage from './components/hr/OrganizationChartPage.tsx';
+import LoginPage from './components/LoginPage.tsx';
+import BugReportModal from './components/BugReportModal.tsx';
 
 
-import * as dataService from './services/dataService';
-import * as geminiService from './services/geminiService';
-import { supabase, hasSupabaseCredentials } from './services/supabaseClient';
+import * as dataService from './services/dataService.ts';
+import * as geminiService from './services/geminiService.ts';
+import { supabase, hasSupabaseCredentials } from './services/supabaseClient.ts';
 import { Session } from '@supabase/supabase-js';
 
-// FIX: Import ApplicationCode type to resolve 'Cannot find name' error.
-import { Page, Job, Customer, JournalEntry, User, AccountItem, Lead, ApprovalRoute, PurchaseOrder, InventoryItem, Employee, Toast, ConfirmationDialogProps, BugReport, Estimate, ApplicationWithDetails, Invoice, EmployeeUser, Department, PaymentRecipient, MasterAccountItem, AllocationDivision, Title, Project, ApplicationCode } from './types';
-import { PlusCircle, Loader, AlertTriangle, RefreshCw, Settings, Bug } from './components/Icons';
+import { Page, Job, Customer, JournalEntry, User, AccountItem, Lead, ApprovalRoute, PurchaseOrder, InventoryItem, Employee, Toast, ConfirmationDialogProps, BugReport, Estimate, ApplicationWithDetails, Invoice, EmployeeUser, Department, PaymentRecipient, MasterAccountItem, AllocationDivision, Title, Project, ApplicationCode } from './types.ts';
+import { PlusCircle, Loader, AlertTriangle, RefreshCw, Settings, Bug } from './components/Icons.tsx';
 
 const PAGE_TITLES: Record<Page, string> = {
     analysis_dashboard: 'ホーム',
@@ -138,7 +137,6 @@ const GlobalErrorBanner: React.FC<{ error: string; onRetry: () => void; onShowSe
 const App: React.FC = () => {
     const [session, setSession] = useState<Session | null>(null);
     const [authLoading, setAuthLoading] = useState(true);
-    const [authError, setAuthError] = useState<string | null>(null);
 
     const [currentPage, setCurrentPage] = useState<Page>('analysis_dashboard');
     const [currentUser, setCurrentUser] = useState<EmployeeUser | null>(null);
@@ -167,298 +165,455 @@ const App: React.FC = () => {
     const [allocationDivisions, setAllocationDivisions] = useState<AllocationDivision[]>([]);
     const [titles, setTitles] = useState<Title[]>([]);
 
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
-    const [isAIOff, setIsAIOff] = useState(false);
-    
-    // Modals
     const [isCreateJobModalOpen, setIsCreateJobModalOpen] = useState(false);
-    const [isCreateLeadModalOpen, setIsCreateLeadModalOpen] = useState(false);
-    const [isCreateInventoryItemModalOpen, setIsCreateInventoryItemModalOpen] = useState(false);
-    const [isCreatePurchaseOrderModalOpen, setIsCreatePurchaseOrderModalOpen] = useState(false);
+    const [isJobDetailModalOpen, setIsJobDetailModalOpen] = useState(false);
     const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+
+    const [isCreateCustomerModalOpen, setIsCreateCustomerModalOpen] = useState(false);
+    const [isCustomerDetailModalOpen, setIsCustomerDetailModalOpen] = useState(false);
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
     const [customerModalMode, setCustomerModalMode] = useState<'view' | 'edit' | 'new'>('view');
+
+    const [isCreateLeadModalOpen, setIsCreateLeadModalOpen] = useState(false);
+
+    const [isCreatePurchaseOrderModalOpen, setIsCreatePurchaseOrderModalOpen] = useState(false);
+    const [isCreateInventoryItemModalOpen, setIsCreateInventoryItemModalOpen] = useState(false);
+    const [selectedInventoryItem, setSelectedInventoryItem] = useState<InventoryItem | null>(null);
+
     const [isCompanyAnalysisModalOpen, setIsCompanyAnalysisModalOpen] = useState(false);
     const [analysisTargetCustomer, setAnalysisTargetCustomer] = useState<Customer | null>(null);
-    const [companyAnalysis, setCompanyAnalysis] = useState<any>(null);
     const [isAnalysisLoading, setIsAnalysisLoading] = useState(false);
+    const [analysisResult, setAnalysisResult] = useState<any>(null);
     const [analysisError, setAnalysisError] = useState('');
-    const [showSetup, setShowSetup] = useState(false);
+
+    const [toasts, setToasts] = useState<Toast[]>([]);
+    const [confirmationDialog, setConfirmationDialog] = useState<ConfirmationDialogProps>({
+      isOpen: false, title: '', message: '', onConfirm: () => {}, onClose: () => {}
+    });
+    
     const [isBugReportModalOpen, setIsBugReportModalOpen] = useState(false);
 
-    // Toasts
-    const [toasts, setToasts] = useState<Toast[]>([]);
-    const addToast = useCallback((message: string, type: 'success' | 'error' | 'info') => {
+    const isAIOff = process.env.NEXT_PUBLIC_AI_OFF === '1';
+    
+    const [showSetupModal, setShowSetupModal] = useState(false);
+
+    const addToast = useCallback((message: string, type: Toast['type']) => {
         setToasts(prev => [...prev, { id: Date.now(), message, type }]);
     }, []);
 
-    // Confirmation Dialog
-    const [confirmationDialog, setConfirmationDialog] = useState<ConfirmationDialogProps>({
-        isOpen: false, title: '', message: '', onConfirm: () => {}, onClose: () => {}
-    });
     const requestConfirmation = useCallback((dialog: Omit<ConfirmationDialogProps, 'isOpen' | 'onClose'>) => {
-        setConfirmationDialog({ ...dialog, isOpen: true, onClose: () => setConfirmationDialog(prev => ({...prev, isOpen: false})) });
+      setConfirmationDialog({ ...dialog, isOpen: true, onClose: () => setConfirmationDialog(prev => ({ ...prev, isOpen: false })) });
     }, []);
 
-    const loadData = useCallback(async (user: EmployeeUser) => {
-      if (!hasSupabaseCredentials()) {
-        setError('Supabaseの接続情報が設定されていません。services/supabaseClient.tsを編集してください。');
-        setIsLoading(false);
-        return;
-      }
+    const fetchData = useCallback(async () => {
       setIsLoading(true);
       setError(null);
       try {
         const [
-            usersData, jobsData, customersData, journalEntriesData, accountItemsData, leadsData,
-            approvalRoutesData, purchaseOrdersData, inventoryItemsData, employeesData,
-            bugReportsData, estimatesData, applicationsData, applicationCodesData,
-            invoicesData, projectsData, departmentsData, paymentRecipientsData,
-            masterAccountItemsData, allocationDivisionsData, titlesData
+          jobsData, customersData, journalData, accountsData, leadsData, routesData,
+          poData, inventoryData, employeesData, usersData, bugReportsData, estimatesData, 
+          applicationsData, appCodesData, invoicesData, projectsData,
+          departmentsData, paymentRecipientsData, allocationDivisionsData, titlesData
         ] = await Promise.all([
-            dataService.getUsers(), dataService.getJobs(), dataService.getCustomers(), dataService.getJournalEntries(), dataService.getAccountItems(), dataService.getLeads(),
-            dataService.getApprovalRoutes(), dataService.getPurchaseOrders(), dataService.getInventoryItems(), dataService.getEmployees(),
-            dataService.getBugReports(), dataService.getEstimates(), dataService.getApplications(user), dataService.getApplicationCodes(),
-            dataService.getInvoices(), dataService.getProjects(), dataService.getDepartments(), dataService.getPaymentRecipients(),
-            dataService.getActiveAccountItems(), dataService.getAllocationDivisions(), dataService.getTitles()
+          dataService.getJobs(), dataService.getCustomers(), dataService.getJournalEntries(),
+          dataService.getAccountItems(), dataService.getLeads(), dataService.getApprovalRoutes(),
+          dataService.getPurchaseOrders(), dataService.getInventoryItems(), dataService.getEmployees(),
+          dataService.getUsers(), dataService.getBugReports(), dataService.getEstimates(),
+          dataService.getApplications(currentUser), dataService.getApplicationCodes(), dataService.getInvoices(),
+          dataService.getProjects(), dataService.getDepartments(), dataService.getPaymentRecipients(),
+          dataService.getAllocationDivisions(), dataService.getTitles()
         ]);
-        setAllUsers(usersData);
         setJobs(jobsData);
         setCustomers(customersData);
-        setJournalEntries(journalEntriesData);
-        setAccountItems(accountItemsData);
+        setJournalEntries(journalData);
+        setAccountItems(accountsData);
         setLeads(leadsData);
-        setApprovalRoutes(approvalRoutesData);
-        setPurchaseOrders(purchaseOrdersData);
-        setInventoryItems(inventoryItemsData);
+        setApprovalRoutes(routesData);
+        setPurchaseOrders(poData);
+        setInventoryItems(inventoryData);
         setEmployees(employeesData);
+        setAllUsers(usersData);
         setBugReports(bugReportsData);
         setEstimates(estimatesData);
         setApplications(applicationsData);
-        setApplicationCodes(applicationCodesData);
+        setApplicationCodes(appCodesData);
         setInvoices(invoicesData);
         setProjects(projectsData);
         setDepartments(departmentsData);
         setPaymentRecipients(paymentRecipientsData);
-        setMasterAccountItems(masterAccountItemsData);
         setAllocationDivisions(allocationDivisionsData);
         setTitles(titlesData);
       } catch (err: any) {
+        console.error("Data fetching error:", err);
+        setError("データの読み込みに失敗しました。");
         if (dataService.isSupabaseUnavailableError(err)) {
-          setError('データベースに接続できませんでした。ネットワーク接続を確認してください。');
-        } else {
-          setError(`データの読み込みに失敗しました: ${err.message}`);
+            setError('データベースに接続できません。オフラインまたは Supabase の認証情報が正しく設定されていない可能性があります。');
         }
-        console.error(err);
       } finally {
         setIsLoading(false);
       }
-    }, []);
+    }, [currentUser]);
 
     useEffect(() => {
-        if (!process.env.API_KEY) {
-          setIsAIOff(true);
-          addToast("AI機能は無効です: APIキーが設定されていません。", 'info');
-        }
-        
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-            setAuthError(null); // Reset error on any auth change
+        supabase.auth.getSession().then(({ data: { session } }) => {
             setSession(session);
-            if (session?.user) {
-                try {
-                    const userProfile = await dataService.resolveUserSession(session.user);
-                    setCurrentUser(userProfile);
-                } catch (e) {
-                    const errorMessage = e instanceof Error ? e.message : 'ユーザーセッションの解決に失敗しました。';
-                    console.error("Auth Error:", errorMessage);
-                    setAuthError(errorMessage);
-                    // Do not sign out, let the user see the error on the login page.
-                }
+            if (session) {
+                dataService.resolveUserSession(session.user).then(setCurrentUser).finally(() => setAuthLoading(false));
+            } else {
+                setAuthLoading(false);
+            }
+        });
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setSession(session);
+            if (session) {
+                dataService.resolveUserSession(session.user).then(setCurrentUser);
             } else {
                 setCurrentUser(null);
             }
-            setAuthLoading(false);
         });
 
-        return () => {
-            subscription?.unsubscribe();
-        };
-    }, [addToast]);
-
+        return () => subscription.unsubscribe();
+    }, []);
+    
     useEffect(() => {
-        if (currentUser) {
-            loadData(currentUser);
-        } else {
-            // Reset all data on logout
-            setJobs([]); setCustomers([]); setJournalEntries([]); setAccountItems([]); setLeads([]);
-            setApprovalRoutes([]); setPurchaseOrders([]); setInventoryItems([]); setEmployees([]);
-            setBugReports([]); setEstimates([]); setApplications([]); setApplicationCodes([]);
-            setInvoices([]); setProjects([]); setDepartments([]); setPaymentRecipients([]);
-            setMasterAccountItems([]); setAllocationDivisions([]); setTitles([]);
-        }
-    }, [currentUser, loadData]);
+      if (session) {
+        fetchData();
+      } else {
+        setIsLoading(false);
+      }
+    }, [fetchData, session]);
 
     const handleSignOut = async () => {
-        const { error } = await supabase.auth.signOut();
-        if (error) addToast(`ログアウトに失敗しました: ${error.message}`, 'error');
+        await supabase.auth.signOut();
+        setCurrentUser(null);
     };
 
-    const handleNavigate = useCallback((page: Page) => {
-        setCurrentPage(page);
-        setSearchTerm('');
-    }, []);
-
-    const primaryAction = useMemo(() => {
-        const actions: Partial<Record<Page, { label: string; onClick: () => void; icon: React.ElementType }>> = {
-            analysis_dashboard: { label: '新規案件作成', onClick: () => setIsCreateJobModalOpen(true), icon: PlusCircle },
-            sales_customers: { label: '新規顧客登録', onClick: () => { setSelectedCustomer(null); setCustomerModalMode('new'); }, icon: PlusCircle },
-            sales_leads: { label: '新規リード追加', onClick: () => setIsCreateLeadModalOpen(true), icon: PlusCircle },
-            inventory_management: { label: '新規品目登録', onClick: () => setIsCreateInventoryItemModalOpen(true), icon: PlusCircle },
-            purchasing_orders: { label: '新規発注作成', onClick: () => setIsCreatePurchaseOrderModalOpen(true), icon: PlusCircle },
-            sales_estimates: { label: '新規見積作成', onClick: () => handleNavigate('estimate_creation'), icon: PlusCircle },
-            project_list: { label: '新規案件作成', onClick: () => handleNavigate('project_creation'), icon: PlusCircle },
-        };
-        const currentPageKey = Object.keys(actions).find(key => currentPage.startsWith(key));
-        return currentPageKey ? actions[currentPageKey as Page] : undefined;
-    }, [currentPage, handleNavigate]);
+    // ... (rest of the component remains the same)
 
     const handleAnalyzeCustomer = useCallback(async (customer: Customer) => {
-        if (isAIOff) {
-            addToast('AI機能は無効です。', 'error');
-            return;
-        }
         setAnalysisTargetCustomer(customer);
         setIsCompanyAnalysisModalOpen(true);
         setIsAnalysisLoading(true);
         setAnalysisError('');
+        setAnalysisResult(null);
         try {
-            const analysis = await geminiService.analyzeCompany(customer);
-            setCompanyAnalysis(analysis);
-        } catch (e: any) {
-            setAnalysisError(e.message || "分析中に不明なエラーが発生しました。");
+            const result = await geminiService.analyzeCompany(customer);
+            setAnalysisResult(result);
+            // Optionally save analysis to customer record
+            // await dataService.updateCustomer(customer.id, { aiAnalysis: result });
+        } catch (e) {
+            setAnalysisError(e instanceof Error ? e.message : '分析中にエラーが発生しました。');
         } finally {
             setIsAnalysisLoading(false);
         }
-    }, [isAIOff, addToast]);
+    }, []);
+
+    const handleAddJob = useCallback(async (jobData: any) => {
+        await dataService.addJob(jobData);
+        await fetchData();
+        addToast("新しい案件が追加されました。", "success");
+    }, [fetchData, addToast]);
     
-    const handleReanalyze = (customer: Customer) => {
-        if (customer) {
-            handleAnalyzeCustomer(customer);
+    const handleUpdateJob = useCallback(async (jobId: string, updatedData: Partial<Job>) => {
+        await dataService.updateJob(jobId, updatedData);
+        await fetchData();
+        addToast("案件情報が更新されました。", "success");
+    }, [fetchData, addToast]);
+    
+    const handleDeleteJob = useCallback(async (jobId: string) => {
+        await dataService.deleteJob(jobId);
+        await fetchData();
+        addToast("案件が削除されました。", "success");
+        setIsJobDetailModalOpen(false);
+    }, [fetchData, addToast]);
+
+    const handleAddCustomer = useCallback(async (customerData: Partial<Customer>) => {
+        await dataService.addCustomer(customerData);
+        await fetchData();
+        addToast("新しい顧客が追加されました。", "success");
+        setCustomerModalMode('view');
+        setIsCustomerDetailModalOpen(false);
+    }, [fetchData, addToast]);
+    
+    const handleUpdateCustomer = useCallback(async (customerId: string, updatedData: Partial<Customer>) => {
+        await dataService.updateCustomer(customerId, updatedData);
+        await fetchData();
+        addToast("顧客情報が更新されました。", "success");
+    }, [fetchData, addToast]);
+    
+    const handleAddJournalEntry = useCallback(async (entry: Omit<JournalEntry, 'id' | 'date'>) => {
+        await dataService.addJournalEntry({ ...entry, date: new Date().toISOString() });
+        await fetchData();
+        addToast("仕訳が追加されました。", "success");
+    }, [fetchData, addToast]);
+
+    const handleAddLead = useCallback(async (leadData: Partial<Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>>) => {
+        await dataService.addLead(leadData);
+        await fetchData();
+        addToast("新しいリードが追加されました。", "success");
+    }, [fetchData, addToast]);
+
+    const handleUpdateLead = useCallback(async (leadId: string, updatedData: Partial<Lead>) => {
+        await dataService.updateLead(leadId, updatedData);
+        await fetchData();
+        addToast("リード情報が更新されました。", "success");
+    }, [fetchData, addToast]);
+
+    const handleDeleteLead = useCallback(async (leadId: string) => {
+        await dataService.deleteLead(leadId);
+        await fetchData();
+        addToast("リードが削除されました。", "success");
+    }, [fetchData, addToast]);
+
+    const handleAddPurchaseOrder = useCallback(async (orderData: Omit<PurchaseOrder, 'id'>) => {
+        await dataService.addPurchaseOrder(orderData);
+        await fetchData();
+        addToast("新しい発注が作成されました。", "success");
+        setIsCreatePurchaseOrderModalOpen(false);
+    }, [fetchData, addToast]);
+    
+    const handleSaveInventoryItem = useCallback(async (itemData: Partial<InventoryItem>) => {
+        if(itemData.id){
+            await dataService.updateInventoryItem(itemData.id, itemData);
+            addToast("在庫品目が更新されました。", "success");
+        } else {
+            await dataService.addInventoryItem(itemData);
+            addToast("新しい在庫品目が追加されました。", "success");
         }
+        await fetchData();
+        setIsCreateInventoryItemModalOpen(false);
+        setSelectedInventoryItem(null);
+    }, [fetchData, addToast]);
+
+    const handleAddBugReport = useCallback(async (reportData: any) => {
+        if (!currentUser) return;
+        const newReport = { ...reportData, reporterName: currentUser.name };
+        await dataService.addBugReport(newReport);
+        await fetchData();
+        addToast('フィードバックを送信しました。ご協力ありがとうございます！', 'success');
+        setIsBugReportModalOpen(false);
+    }, [currentUser, fetchData, addToast]);
+    
+    const handleUpdateBugReport = useCallback(async (reportId: string, updatedData: Partial<BugReport>) => {
+        await dataService.updateBugReport(reportId, updatedData);
+        await fetchData();
+        addToast("レポートのステータスが更新されました。", "success");
+    }, [fetchData, addToast]);
+    
+    const handleCreateEstimate = useCallback(async (estimateData: any) => {
+        await dataService.addEstimate(estimateData);
+        await fetchData();
+    }, [fetchData]);
+
+    const handleProjectCreated = useCallback(async () => {
+        await fetchData();
+        addToast("AIによる案件作成が完了しました。", "success");
+        setCurrentPage('project_list');
+    }, [fetchData, addToast]);
+
+    // Master data handlers
+    const masterSaveHandler = (saveFn: (item: any) => Promise<any>, entity: string) => async (item: any) => {
+        await saveFn(item);
+        addToast(`${entity}を保存しました。`, 'success');
+        await fetchData();
+    };
+    const masterDeleteHandler = (deleteFn: (id: string) => Promise<any>, entity: string) => async (id: string) => {
+        await deleteFn(id);
+        addToast(`${entity}を削除しました。`, 'success');
+        await fetchData();
     };
 
+
+    const renderPage = () => {
+        switch (currentPage) {
+            case 'analysis_dashboard':
+                return <Dashboard jobs={jobs} journalEntries={journalEntries} accountItems={accountItems} pendingApprovalCount={applications.filter(a => a.approverId === currentUser?.id && a.status === 'pending_approval').length} onNavigateToApprovals={() => setCurrentPage('approval_list')} />;
+            case 'sales_orders':
+                return <JobList jobs={jobs} searchTerm={searchTerm} onSelectJob={(job) => { setSelectedJob(job); setIsJobDetailModalOpen(true); }} onNewJob={() => setIsCreateJobModalOpen(true)} />;
+            case 'sales_customers':
+                return <CustomerList customers={customers} searchTerm={searchTerm} onSelectCustomer={(c) => { setSelectedCustomer(c); setCustomerModalMode('view'); setIsCustomerDetailModalOpen(true); }} onUpdateCustomer={handleUpdateCustomer} onAnalyzeCustomer={handleAnalyzeCustomer} addToast={addToast} currentUser={currentUser} onNewCustomer={() => { setCustomerModalMode('new'); setIsCustomerDetailModalOpen(true); }} isAIOff={isAIOff} />;
+            case 'sales_leads':
+                return <LeadManagementPage leads={leads} searchTerm={searchTerm} onRefresh={fetchData} onUpdateLead={handleUpdateLead} onDeleteLead={handleDeleteLead} addToast={addToast} requestConfirmation={requestConfirmation} currentUser={currentUser} isAIOff={isAIOff} onAddEstimate={handleCreateEstimate} />;
+            case 'sales_pipeline':
+                return <SalesPipelinePage jobs={jobs} onUpdateJob={handleUpdateJob} onCardClick={(job) => { setSelectedJob(job); setIsJobDetailModalOpen(true); }} />;
+            case 'inventory_management':
+                return <InventoryManagementPage inventoryItems={inventoryItems} onSelectItem={(item) => { setSelectedInventoryItem(item); setIsCreateInventoryItemModalOpen(true); }} />;
+            case 'manufacturing_progress':
+                return <ManufacturingPipelinePage jobs={jobs} onUpdateJob={handleUpdateJob} onCardClick={(job) => { setSelectedJob(job); setIsJobDetailModalOpen(true); }} />;
+            case 'manufacturing_orders':
+                return <ManufacturingOrdersPage jobs={jobs} onSelectJob={(job) => { setSelectedJob(job); setIsJobDetailModalOpen(true); }} />;
+            case 'purchasing_orders':
+                return <PurchasingManagementPage purchaseOrders={purchaseOrders} />;
+            case 'sales_estimates':
+                return <EstimateManagementPage estimates={estimates} customers={customers} allUsers={allUsers} addToast={addToast} currentUser={currentUser} searchTerm={searchTerm} isAIOff={isAIOff} onNavigateToCreate={setCurrentPage} />;
+            case 'estimate_creation':
+                 return <EstimateCreationPage customers={customers} allUsers={allUsers} addToast={addToast} currentUser={currentUser} isAIOff={isAIOff} onCreateEstimate={handleCreateEstimate} onNavigateBack={() => setCurrentPage('sales_estimates')} />;
+            case 'project_list':
+                 return <ProjectListPage projects={projects} onNavigateToCreate={() => setCurrentPage('project_creation')} />;
+            case 'project_creation':
+                return <ProjectCreationPage onNavigateBack={() => setCurrentPage('project_list')} onProjectCreated={handleProjectCreated} customers={customers} currentUser={currentUser} isAIOff={isAIOff} addToast={addToast} />;
+            case 'analysis_ranking':
+                return <SalesRanking jobs={jobs} />;
+            case 'accounting_business_plan':
+                return <BusinessPlanPage allUsers={allUsers} />;
+            case 'manufacturing_cost':
+                return <ManufacturingCostManagement jobs={jobs} />;
+            case 'business_support_proposal':
+                return <BusinessSupportPage customers={customers} jobs={jobs} estimates={estimates} currentUser={currentUser} addToast={addToast} isAIOff={isAIOff} />;
+            case 'ai_business_consultant':
+                return <AIChatPage currentUser={currentUser} jobs={jobs} customers={customers} journalEntries={journalEntries} />;
+            case 'ai_market_research':
+                return <MarketResearchPage addToast={addToast} isAIOff={isAIOff} />;
+            case 'ai_live_chat':
+                return <LiveChatPage addToast={addToast} isAIOff={isAIOff} />;
+            case 'ai_anything_analysis':
+                return currentUser?.canUseAnythingAnalysis ? <AnythingAnalysisPage currentUser={currentUser} addToast={addToast} isAIOff={isAIOff} /> : <PlaceholderPage title="なんでも分析" />;
+            
+            case 'approval_list':
+                return <ApprovalWorkflowPage view="list" currentUser={currentUser} searchTerm={searchTerm} addToast={addToast} onRefreshData={fetchData} />;
+            case 'approval_form_expense':
+            case 'approval_form_transport':
+            case 'approval_form_leave':
+            case 'approval_form_approval':
+            case 'approval_form_daily':
+            case 'approval_form_weekly':
+                const formCode = currentPage.split('_').pop()?.toUpperCase();
+                return <ApprovalWorkflowPage 
+                    view="form" 
+                    formCode={formCode} 
+                    currentUser={currentUser} 
+                    addToast={addToast}
+                    isAIOff={isAIOff}
+                    customers={customers}
+                    accountItems={accountItems}
+                    jobs={jobs}
+                    purchaseOrders={purchaseOrders}
+                    departments={departments}
+                    allocationDivisions={allocationDivisions}
+                    onSuccess={() => { setCurrentPage('approval_list'); fetchData(); }}
+                />;
+            
+            case 'accounting_journal':
+            case 'purchasing_invoices':
+            case 'purchasing_payments':
+            case 'hr_labor_cost':
+            case 'accounting_general_ledger':
+            case 'accounting_trial_balance':
+            case 'accounting_period_closing':
+            case 'sales_billing':
+                 return <AccountingPage 
+                    page={currentPage}
+                    journalEntries={journalEntries}
+                    accountItems={accountItems}
+                    onAddEntry={handleAddJournalEntry}
+                    addToast={addToast}
+                    requestConfirmation={requestConfirmation}
+                    isAIOff={isAIOff}
+                    jobs={jobs}
+                    applications={applications}
+                    onNavigate={setCurrentPage}
+                    customers={customers}
+                    employees={employees}
+                    onRefreshData={fetchData}
+                    allocationDivisions={allocationDivisions}
+                />;
+
+            case 'admin_user_management':
+                return <UserManagementPage addToast={addToast} requestConfirmation={requestConfirmation} />;
+            case 'admin_route_management':
+                return <ApprovalRouteManagementPage addToast={addToast} requestConfirmation={requestConfirmation} />;
+            case 'admin_bug_reports':
+                return <BugReportList reports={bugReports} onUpdateReport={handleUpdateBugReport} searchTerm={searchTerm} />;
+            case 'admin_audit_log': return <AuditLogPage />;
+            case 'admin_journal_queue': return <JournalQueuePage />;
+            case 'admin_master_management': 
+                return <MasterManagementPage 
+                    accountItems={accountItems}
+                    paymentRecipients={paymentRecipients}
+                    allocationDivisions={allocationDivisions}
+                    departments={departments}
+                    titles={titles}
+                    onSaveAccountItem={masterSaveHandler(dataService.saveAccountItem, '勘定科目')}
+                    onDeleteAccountItem={masterDeleteHandler(dataService.deactivateAccountItem, '勘定科目')}
+                    onSavePaymentRecipient={masterSaveHandler(dataService.savePaymentRecipient, '支払先')}
+                    onDeletePaymentRecipient={masterDeleteHandler(dataService.deletePaymentRecipient, '支払先')}
+                    onSaveAllocationDivision={masterSaveHandler(dataService.saveAllocationDivision, '振分区分')}
+                    onDeleteAllocationDivision={masterDeleteHandler(dataService.deleteAllocationDivision, '振分区分')}
+                    onSaveDepartment={masterSaveHandler(dataService.saveDepartment, '部署')}
+                    onDeleteDepartment={masterDeleteHandler(dataService.deleteDepartment, '部署')}
+                    onSaveTitle={masterSaveHandler(dataService.saveTitle, '役職')}
+                    onDeleteTitle={masterDeleteHandler(dataService.deleteTitle, '役職')}
+                    addToast={addToast}
+                    requestConfirmation={requestConfirmation}
+                />;
+
+            case 'hr_org_chart':
+                return <OrganizationChartPage employees={employees} />;
+            case 'settings':
+                return <SettingsPage addToast={addToast} />;
+
+            default:
+                return <PlaceholderPage title={PAGE_TITLES[currentPage] || currentPage} />;
+        }
+    };
+    
     if (authLoading) {
-        return <div className="flex justify-center items-center h-screen"><Loader className="w-12 h-12 animate-spin text-blue-500" /></div>;
+        return <div className="flex h-screen items-center justify-center"><Loader className="w-12 h-12 animate-spin" /></div>;
     }
     
-    if (!session || !currentUser || authError) {
-        return <LoginPage authError={authError} />;
+    if (!session) {
+        return <LoginPage />;
     }
 
     return (
-        <div className="flex h-screen w-full font-sans bg-slate-100 dark:bg-slate-900">
-            {error && <GlobalErrorBanner error={error} onRetry={() => { if(currentUser) loadData(currentUser); }} onShowSetup={() => setShowSetup(true)}/>}
-            <Sidebar currentPage={currentPage} onNavigate={handleNavigate} currentUser={currentUser} onSignOut={handleSignOut}/>
-            <main className="flex-1 flex flex-col p-8 overflow-y-auto">
-                <Header 
-                    title={PAGE_TITLES[currentPage] || currentPage} 
-                    primaryAction={primaryAction} 
-                    search={currentPage.startsWith('sales_') || currentPage.startsWith('admin_bug_reports') ? {
-                        value: searchTerm,
-                        onChange: setSearchTerm,
-                        placeholder: `${PAGE_TITLES[currentPage]}を検索...`
-                    } : undefined}
-                />
-                <div className="flex-1 mt-6">
-                    {isLoading && !error ? <div className="flex justify-center items-center h-full"><Loader className="w-12 h-12 animate-spin text-blue-500" /></div> :
-                     !hasSupabaseCredentials() ? <div className="text-red-500">Supabaseの接続情報が設定されていません。</div> :
-                     (() => {
-                        switch (currentPage) {
-                            case 'analysis_dashboard': return <Dashboard jobs={jobs} journalEntries={journalEntries} accountItems={accountItems} pendingApprovalCount={applications.filter(a => a.approverId === currentUser?.id && a.status === 'pending_approval').length} onNavigateToApprovals={() => handleNavigate('approval_list')} />;
-                            case 'sales_orders': return <JobList jobs={jobs} searchTerm={searchTerm} onSelectJob={setSelectedJob} onNewJob={() => setIsCreateJobModalOpen(true)} />;
-                            case 'sales_customers': return <CustomerList customers={customers} searchTerm={searchTerm} onSelectCustomer={(c) => {setSelectedCustomer(c); setCustomerModalMode('view');}} onUpdateCustomer={async (id, data) => {await dataService.updateCustomer(id, data); loadData(currentUser);}} onAnalyzeCustomer={handleAnalyzeCustomer} addToast={addToast} currentUser={currentUser} onNewCustomer={() => {setSelectedCustomer(null); setCustomerModalMode('new');}} isAIOff={isAIOff} />;
-                            case 'sales_leads': return <LeadManagementPage leads={leads} searchTerm={searchTerm} onRefresh={() => loadData(currentUser)} onUpdateLead={async (id, data) => {await dataService.updateLead(id, data); loadData(currentUser);}} onDeleteLead={async (id) => {await dataService.deleteLead(id); loadData(currentUser);}} addToast={addToast} requestConfirmation={requestConfirmation} currentUser={currentUser} isAIOff={isAIOff} onAddEstimate={async (est) => {await dataService.addEstimate(est); loadData(currentUser);}} />;
-                            case 'sales_pipeline': return <SalesPipelinePage jobs={jobs} onUpdateJob={async (id, data) => {await dataService.updateJob(id, data); loadData(currentUser);}} onCardClick={setSelectedJob} />;
-                            case 'inventory_management': return <InventoryManagementPage inventoryItems={inventoryItems} onSelectItem={(item) => setIsCreateInventoryItemModalOpen(true)} />;
-                            case 'manufacturing_progress': return <ManufacturingPipelinePage jobs={jobs} onUpdateJob={async (id, data) => {await dataService.updateJob(id, data); loadData(currentUser);}} onCardClick={setSelectedJob} />;
-                            case 'manufacturing_orders': return <ManufacturingOrdersPage jobs={jobs} onSelectJob={setSelectedJob} />;
-                            case 'purchasing_orders': return <PurchasingManagementPage purchaseOrders={purchaseOrders} />;
-                            case 'admin_user_management': return <UserManagementPage addToast={addToast} requestConfirmation={requestConfirmation} />;
-                            case 'admin_route_management': return <ApprovalRouteManagementPage addToast={addToast} requestConfirmation={requestConfirmation} />;
-                            case 'admin_bug_reports': return <BugReportList reports={bugReports} onUpdateReport={async (id, data) => {await dataService.updateBugReport(id, data); loadData(currentUser);}} searchTerm={searchTerm} />;
-                            case 'settings': return <SettingsPage addToast={addToast} />;
-                            case 'accounting_journal':
-                            case 'sales_billing':
-                            case 'purchasing_invoices':
-                            case 'purchasing_payments':
-                            case 'hr_labor_cost':
-                            case 'accounting_general_ledger':
-                            case 'accounting_trial_balance':
-                            case 'accounting_period_closing':
-                                // FIX: Pass allocationDivisions to AccountingPage
-                                return <AccountingPage page={currentPage} journalEntries={journalEntries} accountItems={accountItems} onAddEntry={async (entry) => {await dataService.addJournalEntry(entry); loadData(currentUser);}} addToast={addToast} requestConfirmation={requestConfirmation} jobs={jobs} applications={applications} onNavigate={handleNavigate} customers={customers} employees={employees} onRefreshData={() => loadData(currentUser)} isAIOff={isAIOff} allocationDivisions={allocationDivisions} />;
-                            case 'sales_estimates': return <EstimateManagementPage estimates={estimates} customers={customers} allUsers={allUsers} addToast={addToast} currentUser={currentUser} searchTerm={searchTerm} isAIOff={isAIOff} onNavigateToCreate={handleNavigate} />;
-                            case 'estimate_creation': return <EstimateCreationPage customers={customers} allUsers={allUsers} addToast={addToast} currentUser={currentUser} isAIOff={isAIOff} onCreateEstimate={async (est) => {await dataService.addEstimate(est as any); loadData(currentUser);}} onNavigateBack={() => handleNavigate('sales_estimates')} />;
-                            case 'project_list': return <ProjectListPage projects={projects} onNavigateToCreate={() => handleNavigate('project_creation')} />;
-                            case 'project_creation': return <ProjectCreationPage onNavigateBack={() => handleNavigate('project_list')} onProjectCreated={() => {addToast('案件を作成しました', 'success'); loadData(currentUser); handleNavigate('project_list');}} customers={customers} currentUser={currentUser} isAIOff={isAIOff} addToast={addToast} />;
-                            case 'analysis_ranking': return <SalesRanking jobs={jobs} />;
-                            case 'accounting_business_plan': return <BusinessPlanPage allUsers={allUsers} />;
-                            case 'approval_list': return <ApprovalWorkflowPage currentUser={currentUser} view="list" searchTerm={searchTerm} addToast={addToast} onRefreshData={() => loadData(currentUser)} />;
-                            case 'approval_form_expense':
-                            case 'approval_form_transport':
-                            case 'approval_form_leave':
-                            case 'approval_form_approval':
-                            case 'approval_form_daily':
-                            case 'approval_form_weekly':
-                                return <ApprovalWorkflowPage currentUser={currentUser} view="form" formCode={currentPage.split('_').pop()?.toUpperCase()} addToast={addToast} customers={customers} accountItems={accountItems} jobs={jobs} purchaseOrders={purchaseOrders} departments={departments} isAIOff={isAIOff} allocationDivisions={allocationDivisions} onSuccess={() => {loadData(currentUser); handleNavigate('approval_list')}} />;
-                            case 'business_support_proposal': return <BusinessSupportPage customers={customers} jobs={jobs} estimates={estimates} currentUser={currentUser} addToast={addToast} isAIOff={isAIOff} />;
-                            case 'ai_business_consultant': return <AIChatPage currentUser={currentUser} jobs={jobs} customers={customers} journalEntries={journalEntries} />;
-                            case 'ai_market_research': return <MarketResearchPage addToast={addToast} isAIOff={isAIOff} />;
-                            case 'ai_live_chat': return <LiveChatPage isAIOff={isAIOff} addToast={addToast} />;
-                            case 'ai_anything_analysis': return <AnythingAnalysisPage currentUser={currentUser} addToast={addToast} isAIOff={isAIOff} />;
-                            case 'manufacturing_cost': return <ManufacturingCostManagement jobs={jobs} />;
-                            case 'admin_audit_log': return <AuditLogPage />;
-                            case 'admin_journal_queue': return <JournalQueuePage />;
-                            case 'admin_master_management': return <MasterManagementPage accountItems={accountItems} paymentRecipients={paymentRecipients} allocationDivisions={allocationDivisions} departments={departments} titles={titles} onSaveAccountItem={async (item) => {await dataService.saveAccountItem(item); loadData(currentUser);}} onDeleteAccountItem={async (id) => {await dataService.deactivateAccountItem(id); loadData(currentUser);}} onSavePaymentRecipient={async (item) => {await dataService.savePaymentRecipient(item); loadData(currentUser);}} onDeletePaymentRecipient={async (id) => {await dataService.deletePaymentRecipient(id); loadData(currentUser);}} onSaveAllocationDivision={async (item) => {await dataService.saveAllocationDivision(item); loadData(currentUser);}} onDeleteAllocationDivision={async (id) => {await dataService.deleteAllocationDivision(id); loadData(currentUser);}} onSaveDepartment={async (item) => {await dataService.saveDepartment(item); loadData(currentUser);}} onDeleteDepartment={async (id) => {await dataService.deleteDepartment(id); loadData(currentUser);}} onSaveTitle={async (item) => {await dataService.saveTitle(item); loadData(currentUser);}} onDeleteTitle={async (id) => {await dataService.deleteTitle(id); loadData(currentUser);}} addToast={addToast} requestConfirmation={requestConfirmation} />;
-                            case 'hr_org_chart': return <OrganizationChartPage employees={employees} />;
-                            default: return <PlaceholderPage title={PAGE_TITLES[currentPage] || currentPage} />;
+        <div className="flex h-screen bg-slate-100 dark:bg-[#0d1117] text-slate-900 dark:text-slate-100">
+            <Sidebar currentPage={currentPage} onNavigate={setCurrentPage} currentUser={currentUser} onSignOut={handleSignOut} />
+            <div className="flex-1 flex flex-col overflow-hidden">
+                {error && <GlobalErrorBanner error={error} onRetry={fetchData} onShowSetup={() => setShowSetupModal(true)}/>}
+                <main className="flex-1 overflow-y-auto p-8 space-y-6">
+                    <Header
+                        title={PAGE_TITLES[currentPage] || 'Dashboard'}
+                        primaryAction={
+                          currentPage === 'sales_orders' ? { label: '新規案件作成', onClick: () => setIsCreateJobModalOpen(true), icon: PlusCircle } :
+                          currentPage === 'sales_customers' ? { label: '新規顧客登録', onClick: () => { setCustomerModalMode('new'); setIsCustomerDetailModalOpen(true); }, icon: PlusCircle } :
+                          currentPage === 'sales_leads' ? { label: '新規リード作成', onClick: () => setIsCreateLeadModalOpen(true), icon: PlusCircle } :
+                          currentPage === 'purchasing_orders' ? { label: '新規発注作成', onClick: () => setIsCreatePurchaseOrderModalOpen(true), icon: PlusCircle } :
+                          currentPage === 'inventory_management' ? { label: '新規品目登録', onClick: () => { setSelectedInventoryItem(null); setIsCreateInventoryItemModalOpen(true); }, icon: PlusCircle } :
+                          undefined
                         }
-                    })()}
-                </div>
-            </main>
-            <ToastContainer toasts={toasts} onDismiss={(id) => setToasts(ts => ts.filter(t => t.id !== id))} />
+                        search={
+                          ['sales_orders', 'sales_customers', 'sales_leads', 'admin_bug_reports', 'approval_list'].includes(currentPage) ? {
+                            value: searchTerm,
+                            onChange: setSearchTerm,
+                            placeholder: `${PAGE_TITLES[currentPage]}を検索...`
+                          } : undefined
+                        }
+                    />
+                    {isLoading && currentPage !== 'analysis_dashboard' ? <Loader className="w-8 h-8 mx-auto animate-spin" /> : renderPage()}
+                </main>
+            </div>
+            {isCreateJobModalOpen && <CreateJobModal isOpen={isCreateJobModalOpen} onClose={() => setIsCreateJobModalOpen(false)} onAddJob={handleAddJob} />}
+            {isJobDetailModalOpen && <JobDetailModal isOpen={isJobDetailModalOpen} job={selectedJob} onClose={() => setIsJobDetailModalOpen(false)} onUpdateJob={handleUpdateJob} onDeleteJob={handleDeleteJob} requestConfirmation={requestConfirmation} onNavigate={setCurrentPage} addToast={addToast} />}
+            {isCustomerDetailModalOpen && <CustomerDetailModal customer={selectedCustomer} mode={customerModalMode} onClose={() => setIsCustomerDetailModalOpen(false)} onSave={customerModalMode === 'new' ? handleAddCustomer : (d) => handleUpdateCustomer(d.id!, d)} onSetMode={setCustomerModalMode} onAnalyzeCustomer={handleAnalyzeCustomer} isAIOff={isAIOff} />}
+            {isCreateLeadModalOpen && <CreateLeadModal isOpen={isCreateLeadModalOpen} onClose={() => setIsCreateLeadModalOpen(false)} onAddLead={handleAddLead} />}
+            {isCreatePurchaseOrderModalOpen && <CreatePurchaseOrderModal isOpen={isCreatePurchaseOrderModalOpen} onClose={() => setIsCreatePurchaseOrderModalOpen(false)} onAddPurchaseOrder={handleAddPurchaseOrder} />}
+            {isCreateInventoryItemModalOpen && <CreateInventoryItemModal isOpen={isCreateInventoryItemModalOpen} onClose={() => { setIsCreateInventoryItemModalOpen(false); setSelectedInventoryItem(null); }} onSave={handleSaveInventoryItem} item={selectedInventoryItem} />}
+            {isCompanyAnalysisModalOpen && <CompanyAnalysisModal isOpen={isCompanyAnalysisModalOpen} onClose={() => setIsCompanyAnalysisModalOpen(false)} analysis={analysisResult} customer={analysisTargetCustomer} isLoading={isAnalysisLoading} error={analysisError} currentUser={currentUser} isAIOff={isAIOff} onReanalyze={handleAnalyzeCustomer} />}
+            <ToastContainer toasts={toasts} onDismiss={(id) => setToasts(prev => prev.filter(t => t.id !== id))} />
             <ConfirmationDialog {...confirmationDialog} />
-            {isCreateJobModalOpen && <CreateJobModal isOpen={isCreateJobModalOpen} onClose={() => setIsCreateJobModalOpen(false)} onAddJob={async (job) => { await dataService.addJob(job); loadData(currentUser); }} />}
-            {selectedJob && <JobDetailModal isOpen={!!selectedJob} job={selectedJob} onClose={() => setSelectedJob(null)} onUpdateJob={async (id, data) => {await dataService.updateJob(id, data); loadData(currentUser);}} onDeleteJob={async (id) => {await dataService.deleteJob(id); loadData(currentUser); setSelectedJob(null);}} requestConfirmation={requestConfirmation} onNavigate={handleNavigate} addToast={addToast} />}
-            {(customerModalMode === 'view' || customerModalMode === 'edit') && selectedCustomer && <CustomerDetailModal customer={selectedCustomer} mode={customerModalMode} onClose={() => setSelectedCustomer(null)} onSave={async (data) => {await dataService.updateCustomer(selectedCustomer.id, data); loadData(currentUser); setSelectedCustomer(null);}} onSetMode={setCustomerModalMode} onAnalyzeCustomer={handleAnalyzeCustomer} isAIOff={isAIOff} />}
-            {customerModalMode === 'new' && <CustomerDetailModal customer={null} mode="new" onClose={() => setCustomerModalMode('view')} onSave={async (data) => {await dataService.addCustomer(data); loadData(currentUser); setCustomerModalMode('view');}} onSetMode={setCustomerModalMode} onAnalyzeCustomer={handleAnalyzeCustomer} isAIOff={isAIOff} />}
-            {isCompanyAnalysisModalOpen && <CompanyAnalysisModal isOpen={isCompanyAnalysisModalOpen} onClose={() => setIsCompanyAnalysisModalOpen(false)} analysis={companyAnalysis} customer={analysisTargetCustomer} isLoading={isAnalysisLoading} error={analysisError} currentUser={currentUser} isAIOff={isAIOff} onReanalyze={handleReanalyze} />}
-            {isCreateLeadModalOpen && <CreateLeadModal isOpen={isCreateLeadModalOpen} onClose={() => setIsCreateLeadModalOpen(false)} onAddLead={async (lead) => {await dataService.addLead(lead); loadData(currentUser);}} />}
-            {isCreateInventoryItemModalOpen && <CreateInventoryItemModal isOpen={isCreateInventoryItemModalOpen} onClose={() => setIsCreateInventoryItemModalOpen(false)} onSave={async (item) => {if(item.id){await dataService.updateInventoryItem(item.id, item)}else{await dataService.addInventoryItem(item as any)} loadData(currentUser);}} item={null} />}
-            {isCreatePurchaseOrderModalOpen && <CreatePurchaseOrderModal isOpen={isCreatePurchaseOrderModalOpen} onClose={() => setIsCreatePurchaseOrderModalOpen(false)} onAddPurchaseOrder={async (order) => {await dataService.addPurchaseOrder(order); loadData(currentUser);}} />}
-            
-            {isBugReportModalOpen && <BugReportModal 
-              isOpen={isBugReportModalOpen} 
-              onClose={() => setIsBugReportModalOpen(false)} 
-              currentUser={currentUser} 
-              onReportSubmit={async (report) => {
-                await dataService.addBugReport(report);
-                addToast('ご報告ありがとうございます。', 'success');
-                setIsBugReportModalOpen(false);
-              }} 
-            />}
-            
-            {showSetup && <DatabaseSetupInstructionsModal onRetry={() => {setShowSetup(false); if(currentUser) loadData(currentUser); }} />}
-
+            {showSetupModal && <DatabaseSetupInstructionsModal onRetry={() => { setShowSetupModal(false); fetchData(); }} />}
             <button
                 onClick={() => setIsBugReportModalOpen(true)}
-                className="fixed bottom-8 right-8 z-[100] bg-purple-600 text-white p-4 rounded-full shadow-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-75 transition-transform transform hover:scale-110"
-                title="改善要望を送信"
+                className="fixed bottom-8 right-8 bg-purple-600 text-white p-4 rounded-full shadow-lg hover:bg-purple-700 transition-transform transform hover:scale-110"
+                title="バグ報告・改善要望"
             >
-                <Bug className="w-6 h-6" />
+                <Bug className="w-6 h-6"/>
             </button>
+            {isBugReportModalOpen && <BugReportModal isOpen={isBugReportModalOpen} onClose={() => setIsBugReportModalOpen(false)} currentUser={currentUser} onReportSubmit={handleAddBugReport} />}
         </div>
     );
 };

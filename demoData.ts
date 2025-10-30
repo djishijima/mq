@@ -31,7 +31,7 @@ import {
   PurchaseOrder,
   PurchaseOrderStatus,
   EstimateLineItem,
-} from '../types.ts';
+} from './types.ts';
 
 export interface DemoDataState {
   jobs: Job[];

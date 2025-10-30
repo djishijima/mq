@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Customer } from '../types';
-import { X, Pencil, Loader, Lightbulb, AlertTriangle, Save } from './Icons';
+import { Customer } from '../types.ts';
+import { X, Pencil, Loader, Lightbulb, AlertTriangle, Save } from './Icons.tsx';
 
 interface CustomerDetailModalProps {
     customer: Customer | null;

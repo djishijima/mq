@@ -1,21 +1,13 @@
-
-
-
-
-
-
 import React from 'react';
-// FIX: Corrected import path for JournalLedger.
-import JournalLedger from './JournalLedger.tsx';
-import GeneralLedger from './accounting/GeneralLedger.tsx';
-import TrialBalancePage from './accounting/TrialBalancePage.tsx';
-// FIX: Changed to default import for InvoiceOCR, which is now the correct export type.
-import InvoiceOCR from './InvoiceOCR.tsx';
-import PaymentManagement from './accounting/PaymentManagement.tsx';
-import LaborCostManagement from './accounting/LaborCostManagement.tsx';
-import PeriodClosingPage from './accounting/PeriodClosingPage.tsx';
-import PlaceholderPage from './PlaceholderPage.tsx';
-import BillingManagement from './accounting/BillingManagement.tsx';
+import JournalLedger from '../JournalLedger.tsx';
+import GeneralLedger from './GeneralLedger.tsx';
+import TrialBalancePage from './TrialBalancePage.tsx';
+import InvoiceOCR from '../InvoiceOCR.tsx';
+import PaymentManagement from './PaymentManagement.tsx';
+import LaborCostManagement from './LaborCostManagement.tsx';
+import PeriodClosingPage from './PeriodClosingPage.tsx';
+import PlaceholderPage from '../PlaceholderPage.tsx';
+import BillingManagement from './BillingManagement.tsx';
 
 
 import { JournalEntry, InvoiceData, Page } from '../types.ts';
@@ -49,7 +41,6 @@ const AccountingPage: React.FC<any> = (props) => {
                 onAddEntry(debitEntry);
                 addToast('買掛金と経費が計上されました。', 'success');
             };
-            // FIX: Pass accountItems and allocationDivisions to InvoiceOCR
             return <InvoiceOCR onSaveExpenses={handleSaveExpenses} addToast={addToast} requestConfirmation={requestConfirmation} isAIOff={props.isAIOff} accountItems={accountItems} allocationDivisions={allocationDivisions} />;
 
         case 'purchasing_payments':

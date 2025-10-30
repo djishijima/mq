@@ -1,7 +1,8 @@
 
+
 import React, { useEffect } from 'react';
-import { Toast } from '../types';
-import { CheckCircle, AlertTriangle, X } from './Icons';
+import { Toast } from '../types.ts';
+import { CheckCircle, AlertTriangle, X } from './Icons.tsx';
 
 interface ToastMessageProps {
   toast: Toast;

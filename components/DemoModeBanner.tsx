@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Settings, RefreshCw } from './Icons';
+import { AlertTriangle, Settings, RefreshCw } from './Icons.tsx';
 
 interface DemoModeBannerProps {
   error: string | null;

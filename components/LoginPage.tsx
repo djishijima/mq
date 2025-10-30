@@ -1,12 +1,8 @@
 import React from 'react';
 import { supabase } from '../services/supabaseClient';
-import { Package, GoogleIcon, AlertTriangle } from './Icons';
+import { Package, GoogleIcon } from './Icons';
 
-interface LoginPageProps {
-    authError?: string | null;
-}
-
-const LoginPage: React.FC<LoginPageProps> = ({ authError }) => {
+const LoginPage: React.FC = () => {
   const handleLoginWithGoogle = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -31,17 +27,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ authError }) => {
             Googleアカウントでログインしてください
           </p>
         </div>
-
-        {authError && (
-          <div className="bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-200 px-4 py-3 rounded-lg relative flex items-start gap-3" role="alert">
-            <AlertTriangle className="w-5 h-5 mt-0.5 flex-shrink-0" />
-            <div>
-                <strong className="font-bold">ログインに失敗しました</strong>
-                <span className="block sm:inline text-sm mt-1">{authError}</span>
-            </div>
-          </div>
-        )}
-
         <div>
           <button
             onClick={handleLoginWithGoogle}

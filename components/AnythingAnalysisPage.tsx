@@ -132,9 +132,10 @@ const AnythingAnalysisPage: React.FC<AnythingAnalysisPageProps> = ({ currentUser
         if (!currentUser) return;
         setIsHistoryLoading(true);
         try {
-            const historyData = await getAnalysisHistory(currentUser.id);
-            setHistory(historyData);
-            if (historyData.length === 0 && !result) {
+            const historyData = await getAnalysisHistory();
+            const userHistory = historyData.filter(h => h.userId === currentUser.id);
+            setHistory(userHistory);
+            if (userHistory.length === 0 && !result) {
                 setResult(preset1);
             }
         } catch (e) {

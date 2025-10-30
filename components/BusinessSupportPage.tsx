@@ -1,9 +1,10 @@
 
+
 import React, { useState, useMemo } from 'react';
-import { Customer, Job, Estimate, EmployeeUser, Toast } from '../types';
-import { generateProposalSection } from '../services/geminiService';
-import { Loader, Sparkles, FileText } from './Icons';
-import { formatJPY } from '../utils';
+import { Customer, Job, Estimate, EmployeeUser, Toast } from '../types.ts';
+import { generateProposalSection } from '../services/geminiService.ts';
+import { Loader, Sparkles, FileText } from './Icons.tsx';
+import { formatJPY } from '../utils.ts';
 
 declare const jspdf: any;
 declare const html2canvas: any;

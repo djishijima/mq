@@ -1,9 +1,10 @@
 
+
 import React from 'react';
-import { Project } from '../../types';
-import { X, Sparkles, FileText } from '../Icons';
-import ProjectStatusBadge from './ProjectStatusBadge';
-import { formatDate } from '../../utils';
+import { Project } from '../../types.ts';
+import { X, Sparkles, FileText } from '../Icons.tsx';
+import ProjectStatusBadge from './ProjectStatusBadge.tsx';
+import { formatDate } from '../../utils.ts';
 
 interface ProjectDetailModalProps {
     project: Project;

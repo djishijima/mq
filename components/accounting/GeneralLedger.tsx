@@ -1,8 +1,8 @@
 
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { JournalEntry, AccountItem, SortConfig } from '../../types';
-import { ArrowUpDown, ChevronDown } from '../Icons';
+import { JournalEntry, AccountItem, SortConfig } from '../../types.ts';
+import { ArrowUpDown, ChevronDown } from '../Icons.tsx';
 
 interface GeneralLedgerProps {
     entries: JournalEntry[];

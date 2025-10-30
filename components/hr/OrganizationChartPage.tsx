@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
-import { Employee } from '../../types';
-import { Users } from '../Icons';
+import { Employee } from '../../types.ts';
+import { Users } from '../Icons.tsx';
 
 interface OrganizationChartPageProps {
   employees: Employee[];

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Loader, AlertTriangle, Send, CheckCircle } from './Icons';
-import { Lead } from '../types';
+import { X, Loader, AlertTriangle, Send, CheckCircle } from './Icons.tsx';
+import { Lead } from '../types.ts';
 
 interface SalesEmailModalProps {
     isOpen: boolean;

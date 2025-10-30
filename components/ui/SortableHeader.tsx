@@ -1,7 +1,8 @@
 
+
 import React from 'react';
-import { SortConfig } from '../../types';
-import { ArrowUpDown, ChevronDown } from '../Icons';
+import { SortConfig } from '../../types.ts';
+import { ArrowUpDown, ChevronDown } from '../Icons.tsx';
 
 interface SortableHeaderProps {
   sortKey: string;

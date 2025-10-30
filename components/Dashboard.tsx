@@ -2,10 +2,10 @@ import React, { useMemo } from 'react';
 import {
   ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line,
 } from 'recharts';
-import { Job, JournalEntry, AccountItem, JobStatus } from '../types';
-import { MONTHLY_GOALS, FIXED_COSTS } from '../constants';
-import { formatJPY } from '../utils';
-import { Loader, AlertTriangle } from './Icons';
+import { Job, JournalEntry, AccountItem, JobStatus } from '../types.ts';
+import { MONTHLY_GOALS, FIXED_COSTS } from '../constants.ts';
+import { formatJPY } from '../utils.ts';
+import { Loader, AlertTriangle } from './Icons.tsx';
 
 const ActionItemsCard: React.FC<{
   jobs: Job[];

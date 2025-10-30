@@ -1,11 +1,11 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
-import { Estimate, SortConfig, EmployeeUser, Customer, Job, JobStatus, InvoiceStatus, Page, Toast, EstimateItem, EstimateStatus } from '../../types';
-import SortableHeader from '../ui/SortableHeader';
-import EmptyState from '../ui/EmptyState';
-import { FileText, PlusCircle, Loader, Sparkles, Trash2, Send, X, Save, Eye, Pencil } from '../Icons';
-import { formatJPY, formatDate } from '../../utils';
+import { Estimate, SortConfig, EmployeeUser, Customer, Job, JobStatus, InvoiceStatus, Page, Toast, EstimateItem, EstimateStatus } from '../../types.ts';
+import SortableHeader from '../ui/SortableHeader.tsx';
+import EmptyState from '../ui/EmptyState.tsx';
+import { FileText, PlusCircle, Loader, Sparkles, Trash2, Send, X, Save, Eye, Pencil } from '../Icons.tsx';
+import { formatJPY, formatDate } from '../../utils.ts';
 // Removed: import { createDraftEstimate } from '../../services/geminiService';
-import EstimateDetailModal from './EstimateDetailModal';
+import EstimateDetailModal from './EstimateDetailModal.tsx';
 
 declare const jspdf: any;
 declare const html2canvas: any;

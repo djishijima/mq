@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { submitApplication } from '../../services/dataService';
-import { extractInvoiceDetails } from '../../services/geminiService';
-import ApprovalRouteSelector from './ApprovalRouteSelector';
-import { Loader, Upload, PlusCircle, Trash2, AlertTriangle } from '../Icons';
-import { User, InvoiceData, AccountItem, AllocationDivision } from '../../types';
+import { submitApplication } from '../../services/dataService.ts';
+import { extractInvoiceDetails } from '../../services/geminiService.ts';
+import ApprovalRouteSelector from './ApprovalRouteSelector.tsx';
+import { Loader, Upload, PlusCircle, Trash2, AlertTriangle } from '../Icons.tsx';
+import { User, InvoiceData, AccountItem, AllocationDivision } from '../../types.ts';
 
 interface TransportExpenseFormProps {
     onSuccess: () => void;
@@ -12,7 +12,6 @@ interface TransportExpenseFormProps {
     isAIOff: boolean;
     isLoading: boolean;
     error: string;
-    // FIX: Add missing props
     accountItems: AccountItem[];
     allocationDivisions: AllocationDivision[];
 }
@@ -86,7 +85,6 @@ const TransportExpenseForm: React.FC<TransportExpenseFormProps> = ({ onSuccess, 
         setError('');
         try {
             const base64String = await readFileAsBase64(file);
-            // FIX: Pass all required arguments to extractInvoiceDetails
             const ocrData: InvoiceData = await extractInvoiceDetails(base64String, file.type, accountItems, allocationDivisions);
             
             // Heuristic to parse departure/arrival from description

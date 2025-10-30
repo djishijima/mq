@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
-import { Job, JobStatus } from '../../types';
-import JobStatusBadge from '../JobStatusBadge'; // Corrected path
-import { formatJPY, formatDate } from '../../utils'; // Corrected path
+import { Job, JobStatus } from '../../types.ts';
+import JobStatusBadge from '../JobStatusBadge.tsx';
+import { formatJPY, formatDate } from '../../utils.ts';
 
 interface SalesPipelinePageProps {
   jobs: Job[];

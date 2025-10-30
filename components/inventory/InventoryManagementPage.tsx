@@ -1,7 +1,7 @@
 import React from 'react';
-import { InventoryItem } from '../../types';
-import { Package, PlusCircle } from '../Icons';
-import EmptyState from '../ui/EmptyState';
+import { InventoryItem } from '../../types.ts';
+import { Package, PlusCircle } from '../Icons.tsx';
+import EmptyState from '../ui/EmptyState.tsx';
 
 interface InventoryManagementPageProps {
   inventoryItems: InventoryItem[];

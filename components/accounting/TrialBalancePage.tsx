@@ -1,6 +1,7 @@
 
+
 import React, { useMemo } from 'react';
-import { JournalEntry } from '../../types';
+import { JournalEntry } from '../../types.ts';
 
 interface TrialBalancePageProps {
   journalEntries: JournalEntry[];
